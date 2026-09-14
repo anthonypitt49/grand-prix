@@ -2199,7 +2199,7 @@ uniform float shadowFar;
     peers:new Map(), beatT:0, helloT:0, lastDown:0,
     roster:[], settings:{laps:"5", wx:"auto", tod:"auto", diff:"1.00"},
     race:null, final:null, over:false, finAt:0,
-    offset:0, rttBest:1e9, rtt:0, pingAt:0, relaxAt:0, sendAt:0,
+    offset:0, offTarget:0, offSet:false, slewAt:0, rttBest:1e9, rtt:0, pingAt:0, relaxAt:0, sendAt:0,
     snap:{}, retry:0, reclaim:false, joinTimer:0, openTimer:0
   };
   "use strict";
@@ -6129,13 +6129,17 @@ uniform float shadowFar;
     let big=0;
     for(let i=0;i<cars.length;i++) for(let j=i+1;j<cars.length;j++){
       const a=cars[i], b=cars[j];
+      if(a.remote && b.remote) continue;         // their own machines settle that one
       const dx=b.x-a.x, dz=b.z-a.z, dist=Math.hypot(dx,dz)||1e-4;
       if(dist>=COL_L) continue;               // nothing can reach further than that
       const nx=dx/dist, nz=dz/dist;
       const MIN=colHalf(a,nx,nz)+colHalf(b,nx,nz);
       if(dist>=MIN) continue;
       const ov=(MIN-dist)/2;
-      a.x-=nx*ov; a.z-=nz*ov; b.x+=nx*ov; b.z+=nz*ov;
+      // a car driven on another machine cannot be pushed from here, it would only
+      // spring back next frame: the local car takes the whole overlap
+      const pa = a.remote ? 0 : (b.remote ? 2 : 1), pb = b.remote ? 0 : (a.remote ? 2 : 1);
+      a.x-=nx*ov*pa; a.z-=nz*ov*pa; b.x+=nx*ov*pb; b.z+=nz*ov*pb;
       const vn=(b.vx-a.vx)*nx+(b.vz-a.vz)*nz;
       if(vn<0){
         const jj=-(1+REST)*vn/2;
@@ -6150,7 +6154,8 @@ uniform float shadowFar;
           emitSparks((a.x+b.x)/2, (a.groundY+b.groundY)/2, (a.z+b.z)/2, -vn);
         }
       }
-      project(a); project(b); wallCollide(a); wallCollide(b);
+      if(!a.remote){ project(a); wallCollide(a); }
+      if(!b.remote){ project(b); wallCollide(b); }
     }
     return big;
   }
@@ -7549,6 +7554,7 @@ uniform float shadowFar;
   }
   function drawFrame(dt){
     for(let i=0;i<cars.length;i++) carLod(cars[i]);
+    if(NET.race) netTagsUpdate();
     if(fxWanted && !fxReady) buildFX();
     if(fxOn()){
       // the stop is the one moment the game holds a shot long enough for the
@@ -7641,6 +7647,7 @@ uniform float shadowFar;
         updateDraft();
         updateDRS();
         let imp=0;
+        if(NET.race) netClockTick(now);
         for(const c of cars){
           if(c.remote){ netDrive(c, dt); continue; }
           if(c.service>0){ c.vx=0; c.vz=0; c.vf=0; continue; }
@@ -7718,6 +7725,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
+  const NET_BUILD="2.1";                              // shown to players; 2.x pages all play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -7729,7 +7737,17 @@ uniform float shadowFar;
   const NET_ROOT="trsgp/v2/";
   const PUBLIC_URL="https://anthonypitt49.github.io/grand-prix/";
 
-  function netNow(){ return Date.now() + (NET.role==="guest" ? NET.offset : 0); }
+  // The host's clock as a player sees it. A better measurement moves the offset,
+  // but never in one step: a jump of 30 ms would move every other car by two
+  // metres at once. It glides there at 25 ms per second instead.
+  function netNow(){
+    const now=Date.now();
+    if(NET.role!=="guest") return now;
+    const el=now-NET.slewAt; NET.slewAt=now;
+    const d=NET.offTarget-NET.offset;
+    if(d!==0 && el>0){ const step=Math.min(el,250)*0.025; NET.offset += d>step ? step : (d<-step ? -step : d); }
+    return now + NET.offset;
+  }
   function netOnPublic(){
     const h=location.hostname;
     return /github\.io$/.test(h) || h==="127.0.0.1" || h==="localhost";
@@ -7877,7 +7895,7 @@ uniform float shadowFar;
     NET.role=null; NET.code=""; NET.myId=""; NET.welcomed=false; NET.present=false;
     NET.peers.clear(); NET.roster=[];
     NET.race=null; NET.final=null; NET.over=false; NET.finAt=0; NET.snap={};
-    NET.offset=0; NET.rttBest=1e9; NET.reclaim=false; NET.lastDown=Date.now();
+    NET.offset=0; NET.offTarget=0; NET.offSet=false; NET.viewT=0; NET.viewPn=0; NET.rttBest=1e9; NET.reclaim=false; NET.lastDown=Date.now();
     const rb=$("restartBtn"); if(rb) rb.disabled=false;
     const nw=$("netWait"); if(nw) nw.hidden=true;
   }
@@ -8060,6 +8078,7 @@ uniform float shadowFar;
       NET.settings=m.settings||NET.settings;
       if(m.circuit && m.circuit!==TRACK.id){ mpMsg("Chargement du circuit de la salle\u2026"); netGoto(m.circuit); return; }
       netUp({k:"ping", c:Date.now()});
+      for(let i=1;i<=4;i++) setTimeout(()=>{ if(NET.role==="guest" && NET.welcomed) netUp({k:"ping", c:Date.now()}); }, i*350);
       mpMsg(""); showPane("multi"); mpRender();
     } else if(m.k==="refuse"){
       netFail(m.why==="busy" ? "Une course est en cours dans cette salle. R\u00e9essaie \u00e0 la fin de la course."
@@ -8078,7 +8097,10 @@ uniform float shadowFar;
       const now=Date.now(), rtt=Math.max(0, now-m.c);
       NET.rtt=rtt;
       if(now-NET.relaxAt>15000){ NET.relaxAt=now; NET.rttBest+=25; }
-      if(rtt<=NET.rttBest){ NET.rttBest=rtt; NET.offset=m.h + rtt/2 - now; }
+      if(rtt<=NET.rttBest){
+        NET.rttBest=rtt; NET.offTarget=m.h + rtt/2 - now;
+        if(!NET.offSet){ NET.offSet=true; NET.offset=NET.offTarget; NET.slewAt=now; }   // the first one is taken as it is
+      }
     } else if(m.k==="start"){
       netApplyStart(m);
     } else if(m.k==="rain"){
@@ -8140,7 +8162,7 @@ uniform float shadowFar;
         '<a href="'+PUBLIC_URL+'" target="_blank" rel="noopener">'+PUBLIC_URL.replace(/^https:\/\//,"")+"</a>";
     // two players on different versions cannot see each other's rooms: this line
     // is how to tell at a glance
-    if(note) note.innerHTML += '<br><span style="opacity:.7">Version en ligne '+NET_VERSION.replace("gp-mp-","")+
+    if(note) note.innerHTML += '<br><span style="opacity:.7">Version en ligne '+NET_BUILD+
       " · si un ami ne trouve pas ta salle, qu’il recharge la page</span>";
     let resume=null;
     try{
@@ -8237,30 +8259,156 @@ uniform float shadowFar;
       +c.groundY.toFixed(2), +(c.attR||0).toFixed(3), +(c.attP||0).toFixed(3), c.lap|0, fl,
       +Math.max(0,c.service||0).toFixed(2), +(c.damage||0).toFixed(2), +(c.lift||0).toFixed(2), Math.round(c.netFin||0)];
   }
+  // A smooth frame along the lap for placing cars from the network. The track is
+  // a chain of straight pieces; the normal of each piece turns a little at every
+  // joint, so a car beside the centre line placed with those normals skips a few
+  // centimetres at each joint of a corner. Normals blended across the joints do not.
+  function netFrame(){
+    if(NET.frameFor===tanA) return;
+    NET.frameFor=tanA;
+    const vn=new Float32Array(N*2), kap=new Float32Array(N), raw=new Float32Array(N);
+    for(let i=0;i<N;i++){
+      const p=norA[(i-1+N)%N], q=norA[i];
+      const x=p.x+q.x, z=p.z+q.z, L=Math.hypot(x,z)||1;
+      vn[i*2]=x/L; vn[i*2+1]=z/L;
+      const t0=tanA[(i-1+N)%N], t1=tanA[i];
+      raw[i]=(t0.x*t1.z-t0.z*t1.x)/Math.max(0.5, (seg[(i-1+N)%N]+seg[i])/2);
+    }
+    for(let i=0;i<N;i++){ let s=0; for(let k=-2;k<=2;k++) s+=raw[((i+k)%N+N)%N]; kap[i]=s/5; }
+    NET.vn=vn; NET.kap=kap;
+  }
+  // The centre line itself is rounded through the joints too (a cubic from one
+  // joint's direction to the next), otherwise a car following it turns in small
+  // steps every few metres instead of in one sweep.
+  // How much a snapshot's trend is trusted, and how briskly an error settles.
+  // Tuned on a recorded race replayed through a slow, uneven relay: a nervous
+  // acceleration estimate costs more smoothness than it wins in accuracy.
+  const NET_T={aw:0.5, ah:0.15, lw:0.6, lh:0.3, k:5.5, kl:6.5};
+  const NET_Q={x:0, z:0, nx:0, nz:0, i:0};
+  function netAt(s){
+    const sw=((s%TOT)+TOT)%TOT, i=idxAtS(sw), j=(i+1)%N, a=pts[i], b=pts[j], vn=NET.vn;
+    const L=seg[i], f=L>0 ? clamp((sw-cum[i])/L,0,1) : 0;
+    // joint directions, turned from the joint normals
+    const tax=vn[i*2+1]*L, taz=-vn[i*2]*L, tbx=vn[j*2+1]*L, tbz=-vn[j*2]*L;
+    const f2=f*f, f3=f2*f;
+    const h00=2*f3-3*f2+1, h10=f3-2*f2+f, h01=-2*f3+3*f2, h11=f3-f2;
+    NET_Q.x=h00*a.x+h10*tax+h01*b.x+h11*tbx;
+    NET_Q.z=h00*a.z+h10*taz+h01*b.z+h11*tbz;
+    // the sideways direction turns at an even rate from joint to joint
+    const nx=vn[i*2]+(vn[j*2]-vn[i*2])*f, nz=vn[i*2+1]+(vn[j*2+1]-vn[i*2+1])*f, M=Math.hypot(nx,nz)||1;
+    NET_Q.nx=nx/M; NET_Q.nz=nz/M; NET_Q.i=i;
+    return NET_Q;
+  }
   function netStore(a){
     const liv=a[1]|0, old=NET.snap[liv], t=+a[0];
     if(old && old.t>=t) return;                        // late and out of order: the newer one already landed
-    const sv=((+a[2]%TOT)+TOT)%TOT, ti=tanA[idxAtS(sv)];
-    NET.snap[liv]={t:t, s:sv, lat:+a[3], a:+a[4], vf:+a[5], y:+a[6], attR:+a[7], attP:+a[8],
+    netFrame();
+    // The sender measured its place against the straight pieces. Rebuild the
+    // exact spot it meant, then measure it again against the smooth frame: in a
+    // hairpin the two readings of the same spot differ by up to a metre.
+    const s0=((+a[2]%TOT)+TOT)%TOT, i0=idxAtS(s0), l0=+a[3], A=pts[i0], B=pts[(i0+1)%N];
+    const f0=seg[i0]>0 ? clamp((s0-cum[i0])/seg[i0],0,1) : 0;
+    const X=A.x+(B.x-A.x)*f0+norA[i0].x*l0, Z=A.z+(B.z-A.z)*f0+norA[i0].z*l0;
+    let sv=s0, lt=l0, q=netAt(sv);
+    for(let k=0;k<4;k++){
+      const dx=X-q.x, dz=Z-q.z;
+      lt=dx*q.nx+dz*q.nz;
+      sv+=(dx*q.nz-dz*q.nx)/Math.max(0.3, 1-NET.kap[q.i]*lt);
+      q=netAt(sv);
+    }
+    sv=((sv%TOT)+TOT)%TOT;
+    lt=(X-q.x)*q.nx+(Z-q.z)*q.nz;
+    const S={t:t, s:sv, lat:lt, a:+a[4], vf:+a[5], y:+a[6], attR:+a[7], attP:+a[8],
       lap:a[9]|0, fl:a[10]|0, svc:+a[11], dmg:+a[12], lift:+a[13], fin:+a[14]||0,
-      ar:angNorm(+a[4]-Math.atan2(ti.z,ti.x)), raw:a};
+      ar:angNorm(+a[4]-Math.atan2(-q.nx, q.nz)), raw:a, p:sv, acc:0, lv:0, rt:1};
+    // how fast the lap distance runs for this car: on the inside of a corner it
+    // runs faster than the car's own speed, on the outside slower
+    S.rt=clamp(Math.cos(S.ar)/Math.max(0.5, 1-NET.kap[q.i]*S.lat), 0.5, 1.6);
+    if(old){
+      S.p=old.p+signedTo(old.s, sv);                   // one unbroken distance, lap after lap
+      const gap=(t-old.t)/1000;                        // the sender's own clock: arrival spacing does not matter
+      if(gap>0.02 && gap<0.4){
+        S.acc=clamp(old.acc*(1-NET_T.aw) + clamp((S.vf-old.vf)/gap,-45,25)*NET_T.aw, -45, 25);
+        S.lv =clamp(old.lv*(1-NET_T.lw) + clamp((S.lat-old.lat)/gap,-9,9)*NET_T.lw, -9, 9);
+      }
+    }
+    NET.snap[liv]=S;
   }
-  // where a car that is driven on another machine is right now
+  // where a snapshot says the car is at a given moment, carried forward along the lap
+  const NET_P1={p:0,v:0,l:0,lv:0,ar:0,vf:0}, NET_P2={p:0,v:0,l:0,lv:0,ar:0,vf:0};
+  function netPredict(S, now, o){
+    o.ar=S.ar; o.l=S.lat; o.lv=0;
+    if(S.svc>0){ o.p=S.p; o.v=0; o.vf=0; return o; }
+    const age=clamp((now-S.t)/1000, 0, 1.0);
+    const v0=S.vf, acc=S.acc;
+    let ta=Math.min(age, NET_T.ah);                    // an acceleration is only trusted briefly
+    if(acc<0 && v0>0) ta=Math.min(ta, v0/-acc);
+    const v1=v0+acc*ta;
+    o.vf=v1;
+    o.p=S.p + (v0*ta + 0.5*acc*ta*ta + v1*(age-ta))*S.rt;
+    o.v=v1*S.rt;
+    const la=Math.min(age, NET_T.lh);
+    o.l=S.lat + S.lv*la; o.lv = age<NET_T.lh ? S.lv : 0;
+    return o;
+  }
+  // The moment the cars are drawn for. Date.now() counts whole milliseconds, and
+  // at 80 m/s one millisecond is 8 cm: frames that alternate 16 and 17 ms would
+  // shake every car from the network. So this clock advances by the frame's own
+  // timestamp (not the physics step, which is capped on a slow machine) and is
+  // only nudged toward the real one.
+  function netClockTick(frameNow){
+    const real=netNow(), step=NET.viewPn ? clamp(frameNow-NET.viewPn, 0, 250) : 0;
+    NET.viewPn=frameNow;
+    if(!NET.viewT || Math.abs(real-NET.viewT)>150) NET.viewT=real;
+    else { NET.viewT+=step; NET.viewT+=(real-NET.viewT)*0.05; }
+  }
+  function netSettle(x, v, k, h, out){                  // a critically damped spring, solved exactly
+    const ex=Math.exp(-k*h), bb=v+k*x;
+    out[0]=(x+bb*h)*ex; out[1]=(v-k*bb*h)*ex;
+    return out;
+  }
+  const NET_R=[0,0];
+  // Where a car that is driven on another machine is right now. What is shown is
+  // the prediction plus an error that settles like a spring. A fresher snapshot
+  // moves the prediction; the difference goes into the error, so the car on
+  // screen never jumps and never changes speed from one frame to the next.
   function netDrive(c, dt){
     const S=NET.snap[c.i];
     if(!S){ c.vx=0; c.vz=0; return; }
-    const age=clamp((netNow()-S.t)/1000, 0, 0.50);
-    const sp=S.s + (S.svc>0 ? 0 : S.vf*age);
-    const sw=((sp%TOT)+TOT)%TOT, i=idxAtS(sw), q=pointAt(sw), nr=norA[i], t=tanA[i];
-    const tx=q.x+nr.x*S.lat, tz=q.z+nr.z*S.lat, ta=Math.atan2(t.z,t.x)+S.ar;
-    const dx=tx-c.x, dz=tz-c.z;
-    const k=(dx*dx+dz*dz>400 || !c.netSeen) ? 1 : 1-Math.exp(-16*dt);
-    c.netSeen=true;
-    c.x+=dx*k; c.z+=dz*k; c.a+=angNorm(ta-c.a)*k;
-    c.vf=S.vf; c.vx=Math.cos(c.a)*S.vf; c.vz=Math.sin(c.a)*S.vf;
-    c.attR=S.attR; c.attP=S.attP; c.lift=S.lift;
-    c.si=i; project(c);
-    c.lap=S.lap + (sp>=TOT?1:0);
+    netFrame();
+    const now=NET.viewT || netNow();
+    const P=netPredict(S, now, NET_P1);
+    const h=clamp(dt||0, 0, 0.25), R=NET_R;
+    let D=c.netD;
+    if(!D || !c.netSeen){
+      D=c.netD={S:S, e:0, ev:0, el:0, elv:0, ea:0, eav:0, attR:S.attR, attP:S.attP, lift:S.lift};
+      c.netSeen=true;
+    } else {
+      // the error settles up to this moment first; only then does a fresher
+      // snapshot hand over, so the car is where the old one would have put it
+      netSettle(D.e,  D.ev,  NET_T.k,  h, R); D.e=R[0];  D.ev=R[1];
+      netSettle(D.el, D.elv, NET_T.kl, h, R); D.el=R[0]; D.elv=R[1];
+      netSettle(D.ea, D.eav, 7.0, h, R);      D.ea=R[0]; D.eav=R[1];
+      if(D.S!==S){
+        const O=netPredict(D.S, now, NET_P2);
+        D.e+=O.p-P.p; D.ev+=O.v-P.v; D.el+=O.l-P.l; D.elv+=O.lv-P.lv; D.ea+=angNorm(O.ar-P.ar);
+        D.S=S;
+      }
+    }
+    if(Math.abs(D.e)>25 || Math.abs(D.el)>6){ D.e=D.ev=D.el=D.elv=D.ea=D.eav=0; }   // too far off: go straight there
+    const p=P.p+D.e, lat=P.l+D.el, q=netAt(p);
+    c.x=q.x+q.nx*lat; c.z=q.z+q.nz*lat;
+    const ta=Math.atan2(-q.nx, q.nz)+P.ar+D.ea;
+    c.a+=angNorm(ta-c.a);                              // unbroken, never a full turn from one frame to the next
+    const vf=S.svc>0 ? 0 : P.vf+D.ev/S.rt;
+    c.vf=vf; c.vx=Math.cos(c.a)*vf; c.vz=Math.sin(c.a)*vf;
+    const kk=1-Math.exp(-12*h);
+    D.attR+=(S.attR-D.attR)*kk; D.attP+=(S.attP-D.attP)*kk; D.lift+=(S.lift-D.lift)*kk;
+    c.attR=D.attR; c.attP=D.attP; c.lift=D.lift;
+    c.braking = S.acc<-8 && vf>2;
+    c.si=q.i; project(c);
+    // the lap follows the distance shown, counted from the snapshot's own lap start
+    c.lap=S.lap + Math.round((p-(S.p-S.s)-c.s)/TOT);
     c.prog=c.lap*TOT+c.s; c.prevS=c.s;
     const fl=S.fl;
     c.drs=!!(fl&1); c.wets=!!(fl&2); c.comp=(fl>>2)&3; c.inPitLane=!!(fl&16); c.onPit=!!(fl&64);
@@ -8417,8 +8565,25 @@ uniform float shadowFar;
     g.fillText(txt, 128+8, 34);
     const tx=new THREE.CanvasTexture(cv); tx.encoding=THREE.sRGBEncoding;
     const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx, transparent:true, depthWrite:false, fog:false, toneMapped:false}));
-    sp.scale.set(4.6,1.15,1); sp.position.set(0,2.75,0); sp.renderOrder=5;
+    sp.scale.set(2.4,0.6,1); sp.position.set(0,1.9,0); sp.renderOrder=5;
     c.mesh.add(sp); c.tag=sp;
+  }
+  // Tags keep about the same size on screen, smaller than before, and fade out
+  // as the camera closes in so the car itself can be seen.
+  function netTagsUpdate(){
+    const zoom=camera.fov/64, cp=camera.position;
+    for(let i=0;i<cars.length;i++){
+      const c=cars[i], sp=c.tag; if(!sp) continue;
+      const dx=cp.x-c.x, dz=cp.z-c.z, dy=cp.y-c.groundY;
+      const d=Math.sqrt(dx*dx+dy*dy+dz*dz), ds=d*zoom;
+      const op=smoothstep(12, 30, ds)*(1-smoothstep(320, 420, d));
+      if(op<0.02){ sp.visible=false; continue; }
+      sp.visible=true;
+      sp.material.opacity=op;
+      const w=clamp(ds*0.125, 1.4, 16);
+      sp.scale.set(w, w/4, 1);
+      sp.position.y=1.45+w/8;
+    }
   }
 
   // The shot behind the menus: a slow aerial run round the lap.
