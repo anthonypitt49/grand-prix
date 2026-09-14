@@ -2195,8 +2195,8 @@ uniform float shadowFar;
   const PANE_BACK={play:"home", season:"play", free:"play", settings:"home", multi:"home"};
   // the room, known to everything from the first line so no handler can reach it early
   const NET={
-    role:null, peer:null, code:"", myId:"", name:"", welcomed:false,
-    peers:new Map(), ctl:null, st:null,
+    role:null, cli:null, tries:[], code:"", myId:"", name:"", welcomed:false, present:false,
+    peers:new Map(), beatT:0, helloT:0, lastDown:0,
     roster:[], settings:{laps:"5", wx:"auto", tod:"auto", diff:"1.00"},
     race:null, final:null, over:false, finAt:0,
     offset:0, rttBest:1e9, rtt:0, pingAt:0, relaxAt:0, sendAt:0,
@@ -7717,10 +7717,16 @@ uniform float shadowFar;
   }
 
   /* =========================== MULTIJOUEUR ========================== */
-  const NET_VERSION="gp-mp-1";
-  const NET_PREFIX="trsgp-";
+  const NET_VERSION="gp-mp-2";
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const NET_LIB="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js";
+  // The first character of a room code names the relay the room lives on, so a
+  // player joining goes straight to the right one.
+  const NET_BROKERS=[
+    "wss://test.mosquitto.org:8081",
+    "wss://broker.emqx.io:8084/mqtt",
+    "wss://broker.hivemq.com:8884/mqtt"
+  ];
+  const NET_ROOT="trsgp/v2/";
   const PUBLIC_URL="https://anthonypitt49.github.io/grand-prix/";
 
   function netNow(){ return Date.now() + (NET.role==="guest" ? NET.offset : 0); }
@@ -7731,27 +7737,105 @@ uniform float shadowFar;
   function netClean(v){ return String(v||"").replace(/[<>&"'`\\]/g,"").replace(/\s+/g," ").trim().slice(0,14); }
   function netEsc(v){ return String(v).replace(/[&<>"]/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch])); }
   function netLabel(c){ return c && c.human ? netEsc(c.human.name) : (c ? c.livery.nm : ""); }
-  function netCode(){ let r=""; for(let i=0;i<5;i++) r+=NET_ALPHA[Math.floor(Math.random()*NET_ALPHA.length)]; return r; }
-
-  function netLib(){
-    if(window.Peer) return Promise.resolve();
-    if(NET._lib) return NET._lib;
-    NET._lib=new Promise((res,rej)=>{
-      const sc=document.createElement("script");
-      sc.src=NET_LIB; sc.async=true;
-      sc.onload=()=> window.Peer ? res() : rej(new Error("lib"));
-      sc.onerror=()=>{ NET._lib=null; rej(new Error("lib")); };
-      document.head.appendChild(sc);
-    });
-    return NET._lib;
+  function netRand(n){ let r=""; for(let i=0;i<n;i++) r+=NET_ALPHA[Math.floor(Math.random()*NET_ALPHA.length)]; return r; }
+  function netCodeFor(k){ return NET_ALPHA[k*8 + Math.floor(Math.random()*8)] + netRand(4); }
+  function netBrokerOf(code){
+    const k=Math.floor(NET_ALPHA.indexOf(String(code||"")[0])/8);
+    return (k>=0 && k<NET_BROKERS.length) ? k : 0;
   }
+  function netId(){ return "gp"+Date.now().toString(36)+netRand(6).toLowerCase(); }
+  function netTopic(code, leaf){ return NET_ROOT+code+"/"+leaf; }
+
+  // ---- a small MQTT 3.1.1 client: connect, subscribe, publish, keep alive ----
+  // QoS 0 only, which is all a race needs: a position that arrives late is
+  // replaced by the next one anyway.
+  function mqttOpen(url, id, will, onMsg, onDown){
+    const enc=new TextEncoder(), dec=new TextDecoder();
+    const cli={ready:false, dead:false, ws:null, onReady:null, lastIn:Date.now(), pingT:0};
+    const lenBytes=n=>{ const o=[]; do{ let x=n%128; n=Math.floor(n/128); if(n>0) x|=128; o.push(x); }while(n>0); return o; };
+    const mstr=str=>{ const by=enc.encode(str); const o=new Uint8Array(2+by.length); o[0]=(by.length>>8)&255; o[1]=by.length&255; o.set(by,2); return o; };
+    const pack=(head, parts)=>{
+      let len=0; for(const q of parts) len+=q.length;
+      const L=lenBytes(len), out=new Uint8Array(1+L.length+len);
+      out[0]=head; out.set(L,1); let o=1+L.length;
+      for(const q of parts){ out.set(q,o); o+=q.length; }
+      return out;
+    };
+    const send=by=>{ if(cli.ws && cli.ws.readyState===1) try{ cli.ws.send(by); }catch(e){} };
+    let buf=new Uint8Array(0);
+    const handle=(type, body)=>{
+      cli.lastIn=Date.now();
+      const t=type>>4;
+      if(t===2){
+        if(body.length>1 && body[1]===0){ cli.ready=true; if(cli.onReady) cli.onReady(); }
+        else cli.fail("refused");
+      } else if(t===3){
+        const qos=(type>>1)&3, tl=(body[0]<<8)|body[1];
+        const topic=dec.decode(body.subarray(2,2+tl));
+        let o=2+tl; if(qos>0) o+=2;
+        try{ onMsg(topic, dec.decode(body.subarray(o)), !!(type&1)); }catch(e){}
+      }
+    };
+    const feed=chunk=>{
+      const nb=new Uint8Array(buf.length+chunk.length); nb.set(buf,0); nb.set(chunk,buf.length); buf=nb;
+      for(;;){
+        if(buf.length<2) return;
+        let mul=1, len=0, i=1, by;
+        do{ if(i>=buf.length) return; by=buf[i++]; len+=(by&127)*mul; mul*=128; }while((by&128) && i<5);
+        if(buf.length<i+len) return;
+        const type=buf[0], body=buf.slice(i,i+len);
+        buf=buf.slice(i+len);
+        handle(type, body);
+      }
+    };
+    cli.fail=why=>{
+      if(cli.dead) return; cli.dead=true; clearInterval(cli.pingT);
+      try{ if(cli.ws) cli.ws.close(); }catch(e){}
+      if(onDown) onDown(why);
+    };
+    cli.publish=(topic, str, retain)=>send(pack(0x30|(retain?1:0), [mstr(topic), enc.encode(str)]));
+    cli.subscribe=topics=>{
+      const pid=1+Math.floor(Math.random()*65000);
+      const parts=[new Uint8Array([pid>>8, pid&255])];
+      for(const tp of topics){ parts.push(mstr(tp)); parts.push(new Uint8Array([0])); }
+      send(pack(0x82, parts));
+    };
+    cli.close=()=>{
+      if(cli.dead) return;
+      send(new Uint8Array([0xE0,0]));                     // a clean goodbye: the relay does not publish the will
+      cli.dead=true; clearInterval(cli.pingT);
+      setTimeout(()=>{ try{ cli.ws.close(); }catch(e){} }, 120);
+    };
+    try{ cli.ws=new WebSocket(url, ["mqtt"]); }
+    catch(e){ setTimeout(()=>cli.fail("ws"), 0); return cli; }
+    cli.ws.binaryType="arraybuffer";
+    cli.ws.onopen=()=>{
+      let flags=0x02;
+      const parts=[new Uint8Array([0,4,77,81,84,84,4]), null, new Uint8Array([0,120]), mstr(id)];
+      if(will){
+        flags|=0x04|(will.retain?0x20:0);
+        parts.push(mstr(will.topic));
+        const wp=enc.encode(will.payload);
+        parts.push(new Uint8Array([(wp.length>>8)&255, wp.length&255])); parts.push(wp);
+      }
+      parts[1]=new Uint8Array([flags]);
+      send(pack(0x10, parts));
+      cli.pingT=setInterval(()=>{
+        send(new Uint8Array([0xC0,0]));
+        if(Date.now()-cli.lastIn>200000) cli.fail("silence");
+      }, 20000);
+    };
+    cli.ws.onmessage=e=>feed(new Uint8Array(e.data));
+    cli.ws.onerror=()=>cli.fail("error");
+    cli.ws.onclose=()=>cli.fail("closed");
+    return cli;
+  }
+
   function netErrText(t){
-    if(t==="network"||t==="socket-error"||t==="socket-closed"||t==="server-error"||t==="ssl-unavailable")
+    if(t==="network")
       return netOnPublic()
-        ? "Le serveur de mise en relation ne r\u00e9pond pas. V\u00e9rifie ta connexion internet et r\u00e9essaie."
+        ? "Aucun relais de jeu n\u2019a r\u00e9pondu. V\u00e9rifie ta connexion internet et r\u00e9essaie."
         : "Cette page ne peut pas ouvrir de connexion r\u00e9seau. Le multijoueur se joue sur la version publique du jeu.";
-    if(t==="browser-incompatible") return "Ce navigateur ne permet pas le jeu en ligne.";
-    if(t==="webrtc") return "La connexion directe a \u00e9chou\u00e9. R\u00e9essaie, ou change de r\u00e9seau.";
     return "Erreur r\u00e9seau ("+t+").";
   }
   function mpMsg(txt, bad){
@@ -7766,88 +7850,112 @@ uniform float shadowFar;
     if(inp) inp.value=NET.name;
     try{ localStorage.setItem("trs_mp_name", NET.name); }catch(e){}
   }
-  function netDropPeer(){
-    const old=NET.peer; NET.peer=null;
-    clearTimeout(NET.joinTimer); clearTimeout(NET.openTimer);
-    if(old) setTimeout(()=>{ try{ old.destroy(); }catch(e){} }, 150);
+  function netUp(m){        // player -> host
+    if(!NET.cli || !NET.cli.ready) return;
+    m.from=NET.myId;
+    NET.cli.publish(netTopic(NET.code,"u"), JSON.stringify(m), false);
+  }
+  function netDown(m){      // host -> players
+    if(!NET.cli || !NET.cli.ready) return;
+    NET.cli.publish(netTopic(NET.code,"d"), JSON.stringify(m), false);
+  }
+  function netSendTo(P, m){ m.to=P.id; netDown(m); }
+  function netBroadcast(m){ netDown(m); }
+  function netRoster(){ netBroadcast({k:"roster", roster:NET.roster}); mpRender(); }
+  function netStopTimers(){
+    clearInterval(NET.beatT); clearTimeout(NET.joinTimer); clearTimeout(NET.openTimer); clearInterval(NET.helloT);
+    NET.beatT=0; NET.joinTimer=0; NET.openTimer=0; NET.helloT=0;
+  }
+  function netClosePeer(){
+    netStopTimers();
+    for(const c of (NET.tries||[])) try{ c.close(); }catch(e){}
+    NET.tries=[];
+    const old=NET.cli; NET.cli=null;
+    if(old) try{ old.close(); }catch(e){}
   }
   function netReset(){
-    NET.role=null; NET.code=""; NET.myId=""; NET.welcomed=false;
-    NET.peers.clear(); NET.ctl=null; NET.st=null; NET.roster=[];
+    NET.role=null; NET.code=""; NET.myId=""; NET.welcomed=false; NET.present=false;
+    NET.peers.clear(); NET.roster=[];
     NET.race=null; NET.final=null; NET.over=false; NET.finAt=0; NET.snap={};
-    NET.offset=0; NET.rttBest=1e9; NET.retry=0; NET.reclaim=false;
+    NET.offset=0; NET.rttBest=1e9; NET.reclaim=false; NET.lastDown=Date.now();
     const rb=$("restartBtn"); if(rb) rb.disabled=false;
     const nw=$("netWait"); if(nw) nw.hidden=true;
   }
   function netFail(txt){
     const racing = state==="countdown"||state==="racing"||state==="results"||state==="replay";
     const wasRace=!!NET.race;
-    netDropPeer(); netReset();
+    netClosePeer(); netReset();
     if(racing && wasRace) toMenu();
     showPane("multi");
     mpMsg(txt, true);
   }
 
   // ---- host ----
-  async function netHost(code, reclaim){
+  function netHost(code, reclaim){
     netName();
     mpMsg("Ouverture de la salle\u2026");
-    try{ await netLib(); }catch(e){ return netFail("Impossible de charger le module r\u00e9seau."); }
-    netDropPeer();
+    netClosePeer();
     const keepSettings=NET.settings;
     netReset();
     NET.settings=keepSettings;
-    NET.role="host"; NET.code=code||netCode(); NET.reclaim=!!reclaim;
-    const peer=new window.Peer(NET_PREFIX+NET.code, {debug:0});
-    NET.peer=peer;
-    NET.openTimer=setTimeout(()=>{ if(NET.peer===peer && !NET.myId) netFail(netErrText("network")); }, 14000);
-    peer.on("open", id=>{
-      if(NET.peer!==peer) return;
-      clearTimeout(NET.openTimer);
-      NET.myId=id; NET.retry=0;
-      NET.roster=[{id:id, name:NET.name, liv:0}];
-      mpMsg(""); showPane("multi"); mpRender();
-    });
-    peer.on("connection", conn=>{ if(NET.peer===peer) netAccept(conn); });
-    peer.on("disconnected", ()=>{ if(NET.peer===peer && !peer.destroyed) try{ peer.reconnect(); }catch(e){} });
-    peer.on("error", err=>{
-      if(NET.peer!==peer) return;
-      const t=err && err.type;
-      if(t==="unavailable-id"){
-        // after a reload the old registration takes a moment to let go
-        if(NET.reclaim && NET.retry<14){
-          NET.retry++; const c=NET.code, r=NET.retry;
-          netDropPeer();
-          setTimeout(()=>{ if(!NET.peer){ netHost(c, true); NET.retry=r; } }, 1500);
-          return;
-        }
-        return netHost(null, false);
-      }
-      if(t==="peer-unavailable") return;
-      netFail(netErrText(t));
-    });
+    NET.role="host"; NET.reclaim=!!reclaim;
+    NET.myId=netId();
+    // try every relay at once and keep the first that answers; each attempt
+    // carries its own room code, because the code names the relay
+    const order = code ? [netBrokerOf(code)] : NET_BROKERS.map((u,k)=>k);
+    NET.tries=[];
+    let won=false, failed=0;
+    for(const k of order){
+      const cd = code || netCodeFor(k);
+      const pres=netTopic(cd,"h");
+      const cli=mqttOpen(NET_BROKERS[k], NET.myId, {topic:pres, payload:"", retain:true},
+        (topic, payload)=>{ if(NET.cli===cli) netHostMsg(topic, payload); },
+        ()=>{
+          if(NET.cli===cli){ if(NET.role==="host") netFail("La connexion au relais de jeu est perdue."); return; }
+          if(!won && ++failed>=order.length) netFail(netErrText("network"));
+        });
+      cli.onReady=()=>{
+        if(won){ cli.close(); return; }
+        won=true; NET.cli=cli; NET.code=cd;
+        for(const o of NET.tries) if(o!==cli) try{ o.close(); }catch(e){}
+        NET.tries=[];
+        clearTimeout(NET.openTimer);
+        cli.subscribe([netTopic(cd,"u")]);
+        cli.publish(pres, JSON.stringify({k:"open", v:NET_VERSION, circuit:TRACK.id, t:Date.now()}), true);
+        NET.roster=[{id:NET.myId, name:NET.name, liv:0}];
+        NET.lastDown=Date.now();
+        // a heartbeat for the players, and a watch for the ones who went silent
+        NET.beatT=setInterval(()=>{
+          if(NET.role!=="host") return;
+          if(!NET.race) netDown({k:"hb"});
+          const limit = NET.race ? 15000 : 75000, now=Date.now();
+          for(const P of Array.from(NET.peers.values())) if(now-P.last>limit) netDrop(P.id);
+        }, 3000);
+        mpMsg(""); showPane("multi"); mpRender();
+      };
+      NET.tries.push(cli);
+    }
+    NET.openTimer=setTimeout(()=>{ if(!won) netFail(netErrText("network")); }, 12000);
   }
-  function netAccept(conn){
-    conn.on("open", ()=>{
-      let P=NET.peers.get(conn.peer);
-      if(!P){ P={id:conn.peer, name:"", liv:-1, ctl:null, st:null}; NET.peers.set(conn.peer, P); }
-      if(conn.label==="st"){ P.st=conn; conn.on("data", d=>netHostState(P, d)); }
-      else { P.ctl=conn; conn.on("data", d=>netHostCtl(P, d)); }
-    });
-    conn.on("close", ()=>netDrop(conn.peer, conn));
-    conn.on("error", ()=>netDrop(conn.peer, conn));
-  }
-  function netSendTo(P, m){ if(P && P.ctl && P.ctl.open) try{ P.ctl.send(m); }catch(e){} }
-  function netBroadcast(m){ for(const P of NET.peers.values()) if(P.liv>=0) netSendTo(P, m); }
-  function netRoster(){ netBroadcast({k:"roster", roster:NET.roster}); mpRender(); }
-  function netKick(P){
-    try{ P.ctl && P.ctl.close(); }catch(e){}
-    try{ P.st && P.st.close(); }catch(e){}
-    NET.peers.delete(P.id);
-  }
-  function netHostCtl(P, m){
-    if(!m || typeof m!=="object") return;
+  function netHostMsg(topic, payload){
+    let m; try{ m=JSON.parse(payload); }catch(e){ return; }
+    if(!m || typeof m!=="object" || !m.from || m.from===NET.myId) return;
+    let P=NET.peers.get(m.from);
     if(m.k==="hello"){
+      if(!P){ P={id:m.from, name:"", liv:-1, last:Date.now()}; NET.peers.set(m.from, P); }
+    }
+    if(!P) return;
+    P.last=Date.now();
+    if(m.k==="st"){ netHostState(P, m.a); return; }
+    netHostCtl(P, m);
+  }
+  function netKick(P){ NET.peers.delete(P.id); }
+  function netHostCtl(P, m){
+    if(m.k==="hello"){
+      if(P.liv>=0){                                        // asked twice: answer again
+        netSendTo(P, {k:"welcome", you:P.id, code:NET.code, circuit:TRACK.id, settings:NET.settings});
+        return;
+      }
       let why="";
       if(m.v!==NET_VERSION) why="version";
       else if(NET.race) why="busy";
@@ -7855,7 +7963,7 @@ uniform float shadowFar;
       let liv=-1;
       for(let i=0;i<LIVERY.length;i++) if(!taken.has(i)){ liv=i; break; }
       if(!why && liv<0) why="full";
-      if(why){ netSendTo(P, {k:"refuse", why:why}); setTimeout(()=>netKick(P), 400); return; }
+      if(why){ netSendTo(P, {k:"refuse", why:why}); netKick(P); return; }
       P.name=netClean(m.name)||"Pilote"; P.liv=liv;
       NET.roster.push({id:P.id, name:P.name, liv:liv});
       netSendTo(P, {k:"welcome", you:P.id, code:NET.code, circuit:TRACK.id, settings:NET.settings});
@@ -7873,9 +7981,8 @@ uniform float shadowFar;
     if(!Array.isArray(a) || P.liv<0 || (a[1]|0)!==P.liv) return;   // a player only speaks for their own car
     netStore(a);
   }
-  function netDrop(pid, conn){
+  function netDrop(pid){
     const P=NET.peers.get(pid); if(!P) return;
-    if(conn && conn!==P.ctl && conn!==P.st) return;
     netKick(P);
     const r=NET.roster.find(x=>x.id===pid);
     NET.roster=NET.roster.filter(x=>x.id!==pid);
@@ -7891,68 +7998,68 @@ uniform float shadowFar;
     if(r) netRoster();
   }
 
-  // ---- guest ----
-  async function netJoin(code, rejoin){
+  // ---- player ----
+  function netJoin(code, rejoin){
     netName();
     code=String(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
     if(code.length!==5){ mpMsg("Le code a cinq caract\u00e8res.", true); return; }
     mpMsg("Connexion \u00e0 la salle "+code+"\u2026");
-    try{ await netLib(); }catch(e){ return netFail("Impossible de charger le module r\u00e9seau."); }
-    netDropPeer();
-    const r=NET.retry;
+    netClosePeer();
     netReset();
-    NET.role="guest"; NET.code=code; NET.reclaim=!!rejoin; NET.retry=r;
-    const peer=new window.Peer({debug:0});
-    NET.peer=peer;
-    NET.openTimer=setTimeout(()=>{ if(NET.peer===peer && !NET.myId) netFail(netErrText("network")); }, 14000);
-    peer.on("open", id=>{
-      if(NET.peer!==peer) return;
+    NET.role="guest"; NET.code=code; NET.reclaim=!!rejoin;
+    NET.myId=netId();
+    const k=netBrokerOf(code);
+    const cli=mqttOpen(NET_BROKERS[k], NET.myId,
+      {topic:netTopic(code,"u"), payload:JSON.stringify({k:"bye", from:NET.myId}), retain:false},
+      (topic, payload, retained)=>{ if(NET.cli===cli) netGuestMsg(topic, payload, retained); },
+      ()=>{ if(NET.cli===cli && NET.role==="guest") netFail(NET.welcomed ? "La connexion au relais de jeu est perdue." : netErrText("network")); });
+    NET.cli=cli;
+    cli.onReady=()=>{
       clearTimeout(NET.openTimer);
-      NET.myId=id;
-      const ctl=peer.connect(NET_PREFIX+code, {label:"ctl", reliable:true, serialization:"json"});
-      const st=peer.connect(NET_PREFIX+code, {label:"st", reliable:false, serialization:"json"});
-      NET.ctl=ctl; NET.st=st;
-      ctl.on("open", ()=>{
-        if(NET.ctl!==ctl) return;
-        try{ ctl.send({k:"hello", name:NET.name, v:NET_VERSION}); }catch(e){}
-        netPing(true);
-      });
-      ctl.on("data", d=>{ if(NET.ctl===ctl) netGuestCtl(d); });
-      st.on("data", d=>{ if(NET.st===st) netGuestState(d); });
-      ctl.on("close", ()=>{ if(NET.ctl===ctl && NET.role==="guest") netLost(); });
+      cli.subscribe([netTopic(code,"h"), netTopic(code,"d")]);
+      NET.lastDown=Date.now();
+      // pings keep the clock and prove we are here; the silence watch notices a host that vanished
+      NET.beatT=setInterval(()=>{
+        if(NET.role!=="guest") return;
+        if(NET.welcomed) netUp({k:"ping", c:Date.now()});
+        const limit = NET.race ? 12000 : 75000;
+        if(NET.welcomed && Date.now()-NET.lastDown>limit) netFail("La connexion avec l\u2019h\u00f4te est perdue.");
+      }, 2000);
+      // the room answers through its presence message; no answer means no room
       NET.joinTimer=setTimeout(()=>{
-        if(NET.peer===peer && !NET.welcomed) netFail("La salle "+code+" ne r\u00e9pond pas.");
-      }, 16000);
-    });
-    peer.on("error", err=>{
-      if(NET.peer!==peer) return;
-      const t=err && err.type;
-      if(t==="peer-unavailable"){
-        if(NET.reclaim && NET.retry<16){
-          NET.retry++; const n=NET.retry;
-          netDropPeer();
-          setTimeout(()=>{ if(!NET.peer){ NET.retry=n; netJoin(code, true); } }, 1500);
-          return;
-        }
-        return netFail("Aucune salle ouverte avec le code "+code+".");
-      }
-      netFail(netErrText(t));
-    });
-    peer.on("disconnected", ()=>{ if(NET.peer===peer && !peer.destroyed) try{ peer.reconnect(); }catch(e){} });
+        if(NET.role!=="guest" || NET.welcomed) return;
+        if(!NET.present) netFail("Aucune salle ouverte avec le code "+code+".");
+        else netFail("La salle "+code+" ne r\u00e9pond pas.");
+      }, rejoin ? 30000 : 9000);
+    };
+    NET.openTimer=setTimeout(()=>{ if(NET.cli===cli && !cli.ready) netFail(netErrText("network")); }, 12000);
   }
-  function netPing(force){
-    const now=Date.now();
-    if(!force && now-NET.pingAt<2000) return;
-    NET.pingAt=now;
-    if(NET.ctl && NET.ctl.open) try{ NET.ctl.send({k:"ping", c:now}); }catch(e){}
+  function netGuestMsg(topic, payload, retained){
+    if(topic===netTopic(NET.code,"h")){
+      if(!payload){ if(NET.welcomed) netFail("L\u2019h\u00f4te a ferm\u00e9 la salle."); else NET.present=false; return; }
+      let pr; try{ pr=JSON.parse(payload); }catch(e){ return; }
+      if(pr.v && pr.v!==NET_VERSION){ netFail("Vous n\u2019avez pas la m\u00eame version du jeu. Rechargez tous les deux la page."); return; }
+      NET.present=true;
+      if(!NET.welcomed){
+        const hello=()=>{ if(NET.role==="guest" && !NET.welcomed) netUp({k:"hello", name:NET.name, v:NET_VERSION}); };
+        hello();
+        clearInterval(NET.helloT); NET.helloT=setInterval(hello, 2000);   // the host may still be reconnecting
+      }
+      return;
+    }
+    let m; try{ m=JSON.parse(payload); }catch(e){ return; }
+    if(!m || typeof m!=="object") return;
+    if(m.to && m.to!==NET.myId) return;
+    NET.lastDown=Date.now();
+    if(m.k==="st"){ netGuestState(m); return; }
+    netGuestCtl(m);
   }
   function netGuestCtl(m){
-    if(!m || typeof m!=="object") return;
     if(m.k==="welcome"){
-      NET.welcomed=true; NET.retry=0; clearTimeout(NET.joinTimer);
-      NET.myId=m.you||NET.myId;
+      NET.welcomed=true; clearTimeout(NET.joinTimer); clearInterval(NET.helloT); NET.helloT=0;
       NET.settings=m.settings||NET.settings;
       if(m.circuit && m.circuit!==TRACK.id){ mpMsg("Chargement du circuit de la salle\u2026"); netGoto(m.circuit); return; }
+      netUp({k:"ping", c:Date.now()});
       mpMsg(""); showPane("multi"); mpRender();
     } else if(m.k==="refuse"){
       netFail(m.why==="busy" ? "Une course est en cours dans cette salle. R\u00e9essaie \u00e0 la fin de la course."
@@ -7960,6 +8067,7 @@ uniform float shadowFar;
             : "Vous n\u2019avez pas la m\u00eame version du jeu. Rechargez tous les deux la page.");
     } else if(m.k==="roster"){
       NET.roster=Array.isArray(m.roster) ? m.roster : [];
+      if(NET.welcomed && !NET.roster.find(r=>r.id===NET.myId)) { netFail("L\u2019h\u00f4te t\u2019a retir\u00e9 de la salle."); return; }
       mpRender();
     } else if(m.k==="settings"){
       NET.settings=m.settings||NET.settings; mpRender();
@@ -7988,34 +8096,38 @@ uniform float shadowFar;
     for(const a of m.c) if(Array.isArray(a) && (a[1]|0)!==(player?player.i:-1)) netStore(a);
     if(Array.isArray(m.sc)) netApplySC(m.sc);
   }
-  function netLost(){
-    netFail("La connexion avec l\u2019h\u00f4te est perdue.");
-  }
   function netLeave(){
-    if(NET.role==="host") netBroadcast({k:"close"});
-    else if(NET.ctl && NET.ctl.open) try{ NET.ctl.send({k:"bye"}); }catch(e){}
-    netDropPeer(); netReset();
+    if(NET.role==="host" && NET.cli && NET.cli.ready){
+      netDown({k:"close"});
+      NET.cli.publish(netTopic(NET.code,"h"), "", true);   // the room is no longer open
+    } else if(NET.role==="guest") netUp({k:"bye"});
+    netClosePeer(); netReset();
     mpMsg(""); mpRender();
   }
 
   // ---- changing circuit means a reload, so the room is carried across it ----
   function netGoto(id){
     try{ window.name="trsnet:"+JSON.stringify({role:NET.role, code:NET.code, name:NET.name, settings:NET.settings}); }catch(e){}
-    netDropPeer();
-    NET.role=null;
+    if(NET.role==="guest") netUp({k:"bye"});
+    const cli=NET.cli;
+    netStopTimers(); NET.cli=null; NET.role=null;
+    // the host leaves its presence standing: the players find the room again after the reload
+    if(cli) setTimeout(()=>{ try{ cli.close(); }catch(e){} }, 60);
     pane="multi";
-    if(id===TRACK.id){ try{ sessionStorage.setItem("trs_pane","multi"); }catch(e){} location.reload(); }
-    else chooseCircuit(id);
+    setTimeout(()=>{
+      if(id===TRACK.id){ try{ sessionStorage.setItem("trs_pane","multi"); }catch(e){} location.reload(); }
+      else chooseCircuit(id);
+    }, 150);
   }
-  // closing the tab tells the room at once, instead of leaving it to notice a
-  // silent connection some seconds later (a circuit change clears the role first)
+  // closing the tab tells the room at once (a circuit change clears the role first)
   window.addEventListener("pagehide", ()=>{
     if(!NET.role) return;
     try{
-      if(NET.role==="host") netBroadcast({k:"close"});
-      else if(NET.ctl && NET.ctl.open) NET.ctl.send({k:"bye"});
+      if(NET.role==="host" && NET.cli && NET.cli.ready){
+        netDown({k:"close"}); NET.cli.publish(netTopic(NET.code,"h"), "", true);
+      } else if(NET.role==="guest") netUp({k:"bye"});
     }catch(e){}
-    try{ NET.peer && NET.peer.destroy(); }catch(e){}
+    try{ if(NET.cli) NET.cli.close(); }catch(e){}
   });
   function netBoot(){
     try{ const n=localStorage.getItem("trs_mp_name"); if(n) NET.name=netClean(n); }catch(e){}
@@ -8026,6 +8138,10 @@ uniform float shadowFar;
       ? "Tes amis n\u2019ont besoin d\u2019aucun compte : envoie-leur le lien d\u2019invitation de ta salle."
       : "Tes amis n\u2019ont besoin d\u2019aucun compte, mais le jeu en ligne passe par la version publique : "+
         '<a href="'+PUBLIC_URL+'" target="_blank" rel="noopener">'+PUBLIC_URL.replace(/^https:\/\//,"")+"</a>";
+    // two players on different versions cannot see each other's rooms: this line
+    // is how to tell at a glance
+    if(note) note.innerHTML += '<br><span style="opacity:.7">Version en ligne '+NET_VERSION.replace("gp-mp-","")+
+      " · si un ami ne trouve pas ta salle, qu’il recharge la page</span>";
     let resume=null;
     try{
       if(typeof window.name==="string" && window.name.indexOf("trsnet:")===0){
@@ -8036,7 +8152,6 @@ uniform float shadowFar;
       NET.name=netClean(resume.name)||NET.name; if(inp) inp.value=NET.name;
       if(resume.settings) NET.settings=resume.settings;
       showPane("multi");
-      NET.retry=0;
       if(resume.role==="host") netHost(resume.code, true); else netJoin(resume.code, true);
       return;
     }
@@ -8048,7 +8163,7 @@ uniform float shadowFar;
 
   // ---- the lobby ----
   function mpRender(){
-    const inRoom = NET.role==="host" ? !!NET.myId : (NET.role==="guest" && NET.welcomed);
+    const inRoom = NET.role==="host" ? !!(NET.cli && NET.cli.ready && NET.code) : (NET.role==="guest" && NET.welcomed);
     const st=$("mpStart"), lb=$("mpLobby"); if(!st||!lb) return;
     st.hidden=inRoom; lb.hidden=!inRoom;
     const back=document.querySelector("#pMulti .backBtn"); if(back) back.hidden=inRoom;
@@ -8134,7 +8249,7 @@ uniform float shadowFar;
   function netDrive(c, dt){
     const S=NET.snap[c.i];
     if(!S){ c.vx=0; c.vz=0; return; }
-    const age=clamp((netNow()-S.t)/1000, 0, 0.30);
+    const age=clamp((netNow()-S.t)/1000, 0, 0.50);
     const sp=S.s + (S.svc>0 ? 0 : S.vf*age);
     const sw=((sp%TOT)+TOT)%TOT, i=idxAtS(sw), q=pointAt(sw), nr=norA[i], t=tanA[i];
     const tx=q.x+nr.x*S.lat, tz=q.z+nr.z*S.lat, ta=Math.atan2(t.z,t.x)+S.ar;
@@ -8178,34 +8293,31 @@ uniform float shadowFar;
     showSector("PLUIE \u2014 PASSE AUX PNEUS PLUIE", "sec-yellow");
   }
   function netTick(dt){
-    if(!NET.role || !NET.peer) return;
-    if(NET.role==="guest") netPing(false);
+    if(!NET.role || !NET.cli || !NET.cli.ready) return;
     if(!NET.race || !(state==="countdown" || state==="racing")) return;
     const now=Date.now();
     if(now-NET.sendAt<50) return;
     NET.sendAt=now;
     if(NET.role==="guest"){
-      if(player && NET.st && NET.st.open) try{ NET.st.send(netPack(player)); }catch(e){}
+      if(player) netUp({k:"st", a:netPack(player)});
       return;
     }
-    const own=[];
-    for(const c of cars) if(!c.remote) own.push(netPack(c));
-    const sc = safety.active ? [1, safety.phase==="in"?2:1, +safety.s.toFixed(2), +safety.lat.toFixed(2)] : [0];
-    for(const P of NET.peers.values()){
-      if(P.liv<0 || !P.st || !P.st.open) continue;
-      const list=own.slice();
-      for(const r of NET.roster){
-        if(r.id===P.id || r.id===NET.myId) continue;
-        const S=NET.snap[r.liv]; if(S) list.push(S.raw);
-      }
-      try{ P.st.send({c:list, sc:sc}); }catch(e){}
+    // one message for everybody: every car the host drives plus the latest from
+    // each player; each player skips its own car on the way in
+    const list=[];
+    for(const c of cars) if(!c.remote) list.push(netPack(c));
+    for(const r of NET.roster){
+      if(r.id===NET.myId) continue;
+      const S=NET.snap[r.liv]; if(S) list.push(S.raw);
     }
+    const sc = safety.active ? [1, safety.phase==="in"?2:1, +safety.s.toFixed(2), +safety.lat.toFixed(2)] : [0];
+    netDown({k:"st", c:list, sc:sc});
     netCheckOver();
   }
   function netLocalFinish(c){
     c.netDone=true; c.finished=true;
     c.netFin=netNow()-NET.race.goHost;
-    if(NET.role==="guest" && NET.ctl && NET.ctl.open) try{ NET.ctl.send({k:"fin", t:c.netFin}); }catch(e){}
+    if(NET.role==="guest") netUp({k:"fin", t:c.netFin});
     showSector("ARRIV\u00c9E \u00b7 P"+c.rank, "sec-green");
     $("netWait").hidden=false;
     if(NET.role==="host") netCheckOver();
