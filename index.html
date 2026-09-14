@@ -957,8 +957,8 @@
               <div class="mpCodeBox">
                 <b id="mpCodeTxt">&mdash;</b>
                 <div class="mpCodeBtns">
+                  <button class="btn small" id="mpCopyLink">Copier le lien d&rsquo;invitation</button>
                   <button class="btn ghost small" id="mpCopyCode">Copier le code</button>
-                  <button class="btn ghost small" id="mpCopyLink">Copier le lien</button>
                 </div>
               </div>
               <div class="colLbl">Pilotes <span id="mpCount"></span></div>
@@ -8028,7 +8028,7 @@ uniform float shadowFar;
       // the room answers through its presence message; no answer means no room
       NET.joinTimer=setTimeout(()=>{
         if(NET.role!=="guest" || NET.welcomed) return;
-        if(!NET.present) netFail("Aucune salle ouverte avec le code "+code+".");
+        if(!NET.present) netFail("Aucune salle ouverte avec le code "+code+" (version en ligne 2). Vérifie le code, Z et 2 se ressemblent, ou ouvre plutôt le lien d’invitation.");
         else netFail("La salle "+code+" ne r\u00e9pond pas.");
       }, rejoin ? 30000 : 9000);
     };
