@@ -531,6 +531,15 @@
   .netwait[hidden]{display:none}
   .netwait i{font-style:normal; opacity:.7; font-size:13px; margin-left:10px}
 
+  /* In-race panels without a live blur: under a moving 3D image the browser has
+     to re-blur every panel on every frame, which is a cost the frame counter
+     never shows. A denser panel reads just as well. */
+  .hud .pod, .hud .speedo, .hud .tower, .hud .radar{
+    backdrop-filter:none; -webkit-backdrop-filter:none; background:rgba(9,12,18,.82);
+  }
+  /* the rev and speed bars move by transform, which never touches layout */
+  .revbar i, .bar i{width:100% !important; transform-origin:0 50%; transform:scaleX(0); will-change:transform}
+
   /* what the settings switch off */
   #stage.noMini .radar{display:none}
   #stage.noTower #tower{display:none}
@@ -4559,10 +4568,15 @@ uniform float shadowFar;
   // A figure that can crouch. Everything above the feet hangs off hipG, so
   // dropping that one group takes the whole body down with it, and the knees
   // fold to put the boots back on the floor. Forward is local +X throughout.
+  const CREW_MATS={};
   function makeCrewMember(liv, role){
     const g=new THREE.Group();
-    const suit=new THREE.MeshStandardMaterial({color:liv.c, roughness:.82});
-    const accent=new THREE.MeshStandardMaterial({color:liv.ac||0xf0f0f0, roughness:.55});
+    const CM=CREW_MATS[liv.no] || (CREW_MATS[liv.no]={
+      suit:new THREE.MeshStandardMaterial({color:liv.c, roughness:.82}),
+      accent:new THREE.MeshStandardMaterial({color:liv.ac||0xf0f0f0, roughness:.55}),
+      head:new THREE.MeshStandardMaterial({color:liv.ac||0xf0f0f0, roughness:.28})
+    });
+    const suit=CM.suit, accent=CM.accent;
     const hipG=new THREE.Group(); hipG.position.y=0.90; g.add(hipG);
 
     const hips=new THREE.Mesh(CG.hips, crewDark); hipG.add(hips);
@@ -4570,8 +4584,7 @@ uniform float shadowFar;
     const torso=new THREE.Mesh(CG.torso, suit); torso.position.y=0.30; upG.add(torso);
     const chest=new THREE.Mesh(CG.chest, accent); chest.position.y=0.44; upG.add(chest);
 
-    const head=new THREE.Mesh(CG.head, new THREE.MeshStandardMaterial({
-      color:liv.ac||0xf0f0f0, roughness:.28 }));
+    const head=new THREE.Mesh(CG.head, CM.head);
     head.position.y=0.68; upG.add(head);
     const visor=new THREE.Mesh(CG.visor, crewVisor);
     visor.scale.set(1.5,1.25,1.35);
@@ -5560,7 +5573,7 @@ uniform float shadowFar;
     }
   }
   // crews step out while their car is stopped, work the guns, then retreat
-  function crewsHide(){ for(const pc of pitCrews) if(pc.root) pc.root.visible=false; }
+  function crewsHide(){ for(const pc of pitCrews){ if(pc.root) pc.root.visible=false; if(pc.statue) pc.statue.visible=false; } }
   function updateCrews(dt, now){
     // three hundred figures behind the pit wall are invisible from the circuit,
     // so only draw them when the pit lane is actually in view
@@ -5663,7 +5676,14 @@ uniform float shadowFar;
         const d=Math.hypot(pc.lolliWork.x-player.x, pc.lolliWork.z-player.z);
         show = d<52;
       }
-      pc.root.visible=show;
+      // idle and in view, the crew is its statue; the moment it moves, the figures
+      if(show && !busy && pc.t<0.003){
+        if(!pc.statue || pc.statueDirty) crewStatue(pc);
+        pc.root.visible=false; pc.statue.visible=true;
+      } else {
+        pc.root.visible=show;
+        if(pc.statue){ pc.statue.visible=false; if(busy) pc.statueDirty=true; }
+      }
     }
   }
   function updateSparks(dt){
@@ -5713,6 +5733,8 @@ uniform float shadowFar;
         }
         if(!big) m.castShadow=false;
       });
+      weldCar(mesh);
+      carFar(mesh);
       scene.add(mesh);
       const shadow=new THREE.Mesh(new THREE.PlaneGeometry(CAR_L*1.5,CAR_W*2.2),
         new THREE.MeshBasicMaterial({map:SHADOW, transparent:true, opacity:SHADOWS?0.16:0.5, depthWrite:false}));
@@ -5753,6 +5775,197 @@ uniform float shadowFar;
     for(const c of cars){ project(c); c.prevS=c.s; c.prog=c.s; syncMesh(c); }
     if(NET.race) for(const c of cars) if(c.human && !c.player) netTag(c);
   }
+  // One routine for every weld: meshes in, one mesh per material out, placed in
+  // the space whose inverse world matrix is `inv`. Nothing is removed here; the
+  // caller decides whether the originals go.
+  function weldRewind(geo){
+    for(const nm of ["position","normal","uv"]){
+      const at=geo.attributes[nm]; if(!at) continue;
+      const a=at.array, sz=at.itemSize;
+      for(let t=0;t+2<at.count;t+=3) for(let q=0;q<sz;q++){
+        const i1=(t+1)*sz+q, i2=(t+2)*sz+q, tmp=a[i1]; a[i1]=a[i2]; a[i2]=tmp;
+      }
+    }
+  }
+  function weldMeshes(list, inv, minCount){
+    const groups=new Map(), out=[];
+    for(const o of list){
+      const mt=o.material;
+      const k=mt.uuid+"|"+(o.castShadow?1:0)+"|"+(o.receiveShadow?1:0);
+      let gr=groups.get(k);
+      if(!gr){ gr={mat:mt, cast:o.castShadow, recv:o.receiveShadow, list:[]}; groups.set(k,gr); }
+      gr.list.push(o);
+    }
+    const rel=new THREE.Matrix4();
+    for(const gr of groups.values()){
+      if(gr.list.length<minCount) continue;
+      const mt=gr.mat;
+      if(mt.aoMap || mt.lightMap) continue;
+      const parts=[]; let verts=0, uvAll=true, ok=true;
+      for(const o of gr.list){
+        const src=o.geometry, pa=src && src.attributes.position;
+        if(!pa || pa.isInterleavedBufferAttribute){ ok=false; break; }
+        const geo=src.index ? src.toNonIndexed() : src.clone();
+        rel.multiplyMatrices(inv, o.matrixWorld);
+        geo.applyMatrix4(rel);
+        if(!geo.attributes.normal) geo.computeVertexNormals();
+        if(rel.determinant()<0) weldRewind(geo);        // a mirrored part turns inside out otherwise
+        if(!geo.attributes.uv) uvAll=false;
+        parts.push(geo); verts+=geo.attributes.position.count;
+      }
+      if(!ok || (mt.map && !uvAll) || !verts){ for(const g of parts) g.dispose(); continue; }
+      const pos=new Float32Array(verts*3), nrm=new Float32Array(verts*3), uv=uvAll?new Float32Array(verts*2):null;
+      let off=0;
+      for(const geo of parts){
+        const n=geo.attributes.position.count;
+        pos.set(geo.attributes.position.array.subarray(0,n*3), off*3);
+        nrm.set(geo.attributes.normal.array.subarray(0,n*3), off*3);
+        if(uv) uv.set(geo.attributes.uv.array.subarray(0,n*2), off*2);
+        off+=n; geo.dispose();
+      }
+      const mg=new THREE.BufferGeometry();
+      mg.setAttribute("position", new THREE.BufferAttribute(pos,3));
+      mg.setAttribute("normal", new THREE.BufferAttribute(nrm,3));
+      if(uv) mg.setAttribute("uv", new THREE.BufferAttribute(uv,2));
+      mg.computeBoundingBox(); mg.computeBoundingSphere();
+      const wm=new THREE.Mesh(mg, mt);
+      wm.castShadow=gr.cast; wm.receiveShadow=gr.recv;
+      wm.userData.shaded=1; wm.userData.welded=gr.list.length;
+      out.push({mesh:wm, from:gr.list});
+    }
+    return out;
+  }
+  function weldVisible(o, stop){
+    for(let a=o; a && a!==stop; a=a.parent) if(!a.visible) return false;
+    return true;
+  }
+
+  // Every part of a car that never moves on its own is welded into one mesh per
+  // material, inside the body's attitude group so it still rolls and pitches.
+  // The wheels, the steering, the DRS flap, the brake light and the parts that
+  // break off stay separate, because each of those is animated or toggled.
+  function weldCar(root){
+    const u=root.userData, att=u.att; if(!att) return 0;
+    root.updateMatrixWorld(true);
+    const keep=new Set();
+    const hold=o=>{ if(o) o.traverse(x=>keep.add(x)); };
+    hold(u.brake); hold(u.rwFlap); hold(u.noseTip);
+    for(const m of (u.dmgLight||[])) hold(m);
+    for(const m of (u.dmgHeavy||[])) hold(m);
+    const list=[];
+    att.traverse(o=>{
+      if(!o.isMesh || keep.has(o) || !o.visible || Array.isArray(o.material)) return;
+      const mt=o.material; if(!mt || mt.transparent || mt.vertexColors) return;
+      list.push(o);
+    });
+    const inv=new THREE.Matrix4().copy(att.matrixWorld).invert();
+    let removed=0;
+    for(const w of weldMeshes(list, inv, 2)){
+      att.add(w.mesh);
+      for(const o of w.from){ if(o.parent) o.parent.remove(o); }
+      removed+=w.from.length-1;
+    }
+    return removed;
+  }
+
+  // The far version of a car: everything that is showing, welded per material
+  // into one group on the car's root. Rebuilt when a part breaks off.
+  function carFar(root){
+    const u=root.userData;
+    if(u.far){ root.remove(u.far); u.far.traverse(o=>{ if(o.geometry) o.geometry.dispose(); }); u.far=null; }
+    if(!u.near) u.near=root.children.filter(ch=>ch.type==="Group" || ch===u.att);
+    const was=u.near.map(n=>n.visible);
+    for(const n of u.near) n.visible=true;
+    root.updateMatrixWorld(true);
+    const list=[];
+    root.traverse(o=>{
+      if(!o.isMesh || Array.isArray(o.material)) return;
+      const mt=o.material; if(!mt || mt.transparent || mt.vertexColors) return;
+      if(!weldVisible(o, root)) return;
+      list.push(o);
+    });
+    u.near.forEach((n,k)=>{ n.visible=was[k]; });
+    const inv=new THREE.Matrix4().copy(root.matrixWorld).invert();
+    const far=new THREE.Group();
+    for(const w of weldMeshes(list, inv, 1)) far.add(w.mesh);
+    far.visible=!!u.isFar;
+    root.add(far);
+    u.far=far; u.farDirty=false;
+  }
+  const LOD_NEAR=44, LOD_FAR=52;
+  function carLod(c){
+    const u=c.mesh.userData; if(!u.far) return;
+    const dx=camera.position.x-c.x, dz=camera.position.z-c.z;
+    // a long lens brings a distant car close, so the distance is scaled by the zoom
+    const d=Math.sqrt(dx*dx+dz*dz)*(camera.fov/64);
+    const wantFar = u.isFar ? d>LOD_NEAR : d>LOD_FAR;
+    if(wantFar && u.farDirty) carFar(c.mesh);
+    if(wantFar!==u.isFar){
+      u.isFar=wantFar; u.far.visible=wantFar;
+      for(const n of u.near) n.visible=!wantFar;
+    }
+  }
+
+  // An idle pit crew, frozen as it stands into one mesh per material.
+  function crewStatue(pc){
+    if(pc.statue){ scene.remove(pc.statue); pc.statue.traverse(o=>{ if(o.geometry) o.geometry.dispose(); }); pc.statue=null; }
+    const was=pc.root.visible; pc.root.visible=true;
+    pc.root.updateMatrixWorld(true);
+    const list=[];
+    pc.root.traverse(o=>{
+      if(!o.isMesh || Array.isArray(o.material)) return;
+      const mt=o.material; if(!mt || mt.transparent || mt.vertexColors) return;
+      if(!weldVisible(o, pc.root.parent)) return;
+      list.push(o);
+    });
+    pc.root.visible=was;
+    const g=new THREE.Group();
+    for(const w of weldMeshes(list, new THREE.Matrix4(), 1)) g.add(w.mesh);
+    g.visible=false; scene.add(g);
+    pc.statue=g; pc.statueDirty=false;
+    return g;
+  }
+
+  // The fixed scenery, welded per material inside cells of the map. Only plain
+  // leaves of the scene qualify: nothing animated, nothing that is toggled,
+  // nothing transparent, nothing big enough to be a landscape of its own.
+  function weldScenery(){
+    const excl=new Set();
+    const ex=o=>{ if(o) o.traverse(x=>excl.add(x)); };
+    ex(raceLine); ex(safety && safety.mesh); ex(rainMesh); ex(spray); ex(sparks); ex(skyDome);
+    for(const f of flags) ex(f.m);
+    for(const l of startLamps) ex(l);
+    for(const pc of pitCrews) ex(pc.root);
+    for(const c of cars){ ex(c.mesh); ex(c.shadow); }
+    const CELL=150, groups=new Map();
+    const sc=new THREE.Vector3(), cen=new THREE.Vector3();
+    scene.updateMatrixWorld(true);
+    for(const o of scene.children){
+      if(!o.isMesh || o.isInstancedMesh || o.children.length || excl.has(o) || !o.visible) continue;
+      const mt=o.material; if(!mt || Array.isArray(mt) || mt.transparent || mt.vertexColors) continue;
+      if(o.frustumCulled===false) continue;
+      const g=o.geometry; if(!g || !g.attributes || !g.attributes.position) continue;
+      if(!g.boundingSphere) g.computeBoundingSphere();
+      o.matrixWorld.decompose(cen, new THREE.Quaternion(), sc);
+      const r=g.boundingSphere.radius*Math.max(Math.abs(sc.x),Math.abs(sc.y),Math.abs(sc.z));
+      if(r>45) continue;
+      cen.copy(g.boundingSphere.center).applyMatrix4(o.matrixWorld);
+      const k=Math.floor(cen.x/CELL)+","+Math.floor(cen.z/CELL)+"|"+mt.uuid+"|"+(o.castShadow?1:0)+(o.receiveShadow?1:0);
+      let arr=groups.get(k); if(!arr){ arr=[]; groups.set(k,arr); }
+      arr.push(o);
+    }
+    const I=new THREE.Matrix4();
+    let before=0, after=0;
+    for(const arr of groups.values()){
+      if(arr.length<3) continue;
+      for(const w of weldMeshes(arr, I, 3)){
+        scene.add(w.mesh);
+        for(const o of w.from) scene.remove(o);
+        before+=w.from.length; after++;
+      }
+    }
+    return {before:before, after:after};
+  }
   function syncMesh(c){
     c.mesh.position.set(c.x, c.groundY+(c.lift||0), c.z);
     c.mesh.rotation.set(0, -c.a, 0);
@@ -5772,6 +5985,7 @@ uniform float shadowFar;
     const dstep = (c.damage||0)<0.30 ? 0 : ((c.damage||0)<0.62 ? 1 : ((c.damage||0)<0.86 ? 2 : 3));
     if(dstep!==c.dmgShown){
       c.dmgShown=dstep;
+      c.mesh.userData.farDirty=true;
       const u=c.mesh.userData;
       if(u.dmgLight) for(const m of u.dmgLight) m.visible=(dstep<1);
       if(u.dmgHeavy) for(const m of u.dmgHeavy) m.visible=(dstep<2);
@@ -7097,23 +7311,28 @@ uniform float shadowFar;
     const m=Math.floor(s/60), r=s-m*60;
     return m>0? m+":"+(r<10?"0":"")+r.toFixed(2) : r.toFixed(2);
   }
+  // Writing a value that has not changed still makes the browser redo the
+  // text and its style, twenty times a frame. Each field is written only when
+  // what it shows is different.
+  const HUDV={};
+  function hudText(id, v){ v=String(v); if(HUDV[id]===v) return; HUDV[id]=v; const e=$(id); if(e) e.textContent=v; }
+  function hudStyle(id, prop, v){ const k=id+"|"+prop; if(HUDV[k]===v) return; HUDV[k]=v; const e=$(id); if(e) e.style[prop]=v; }
+  let hudTowerAt=0, hudMapN=0;
   function updateHUD(now){
-    $("lapNow").textContent=Math.min(totalLaps,Math.max(1,player.lap+1));
-    $("pos").textContent=player.rank;
-    $("mph").textContent=Math.round(Math.max(0,player.vf)*(OPT.units==="mph" ? MPHF : MPHF*1.609344));
-    $("gearN").textContent=(player.gear|0)+1;
+    hudText("lapNow", Math.min(totalLaps,Math.max(1,player.lap+1)));
+    hudText("pos", player.rank);
+    hudText("mph", Math.round(Math.max(0,player.vf)*(OPT.units==="mph" ? MPHF : MPHF*1.609344)));
+    hudText("gearN", (player.gear|0)+1);
     const rr=clamp(((player.rpm||IDLE)-IDLE)/(REDLINE-IDLE),0,1);
-    const rb=$("revBar");
-    rb.style.width=(rr*100).toFixed(0)+"%";
-    rb.style.background = rr>0.93? "var(--red)" : rr>0.80? "var(--yellow)" : "var(--green)";
-    $("bar").style.width=clamp(player.vf/BASE,0,1)*100+"%";
-    $("curLap").textContent=player.lap>=0? ((now-playerLapStart)/1000).toFixed(1):"0.0";
-    $("best").textContent=fmt(bestLap);
+    hudStyle("revBar", "transform", "scaleX("+rr.toFixed(2)+")");
+    hudStyle("revBar", "background", rr>0.93? "var(--red)" : rr>0.80? "var(--yellow)" : "var(--green)");
+    hudStyle("bar", "transform", "scaleX("+clamp(player.vf/BASE,0,1).toFixed(2)+")");
+    hudText("curLap", player.lap>=0? ((now-playerLapStart)/1000).toFixed(1):"0.0");
+    hudText("best", fmt(bestLap));
     const tp=Math.round(player.tyre*100);
-    $("tyrePct").textContent=tp+"%";
-    const tb=$("tyreBar");
-    tb.style.width=tp+"%";
-    tb.style.background = player.tyre>0.55? "var(--green)" : player.tyre>0.28? "var(--yellow)" : "var(--red)";
+    hudText("tyrePct", tp+"%");
+    hudStyle("tyreBar", "width", tp+"%");
+    hudStyle("tyreBar", "background", player.tyre>0.55? "var(--green)" : player.tyre>0.28? "var(--yellow)" : "var(--red)");
     {
       const tk=$("tyreKind");
       if(tk){
@@ -7168,8 +7387,9 @@ uniform float shadowFar;
       sectorUntil=now+500;
     } else if(sectorUntil && now>sectorUntil){ $("sector").classList.remove("on"); sectorUntil=0; }
     updatePitTimer(now);
-    updateTower();
-    drawMap(miniCtx,miniW,miniH,true);
+    // the order and the map change far slower than the frame rate
+    if(now-hudTowerAt>120 || now<hudTowerAt){ hudTowerAt=now; updateTower(); }
+    if((++hudMapN)%2===0) drawMap(miniCtx,miniW,miniH,true);
   }
   // Kerbs, closing speed and a car alongside. None of these change the physics
   // much, but together they are most of what a cockpit actually tells a driver.
@@ -7328,6 +7548,7 @@ uniform float shadowFar;
     fxResize();
   }
   function drawFrame(dt){
+    for(let i=0;i<cars.length;i++) carLod(cars[i]);
     if(fxWanted && !fxReady) buildFX();
     if(fxOn()){
       // the stop is the one moment the game holds a shot long enough for the
@@ -7344,7 +7565,8 @@ uniform float shadowFar;
   let last=0;
   // The frame rate, and the worst single frame of the last second. A stutter is
   // one long frame, and an average hides it, so both are shown.
-  let fpsT=0, fpsN=0, fpsWorst=0, fpsPrev=0, rezGrace=0;
+  let fpsT=0, fpsN=0, fpsWorst=0, fpsPrev=0, rezGrace=0, rezChangedAt=0;
+  const rezHist=[];
   function updateFps(now){
     const el=$("fps"); if(!el) return;
     if(fpsPrev){ const d=now-fpsPrev; if(d>fpsWorst) fpsWorst=d; }
@@ -7359,11 +7581,29 @@ uniform float shadowFar;
       fpsT=now; fpsN=0; fpsWorst=0;
       // A few seconds of grace after a start: the first frames compile shaders
       // and would drag the resolution down for no reason.
-      if(rezGrace>0){ rezGrace--; }
-      else if(state==="racing"||state==="countdown"){
+      if(rezGrace>0){ rezGrace--; rezHist.length=0; }
+      else {
+        // Every change of scale reallocates the frame buffers, and that is a
+        // hitch of its own. So during a race the scale only ever steps DOWN,
+        // only after two seconds of real shortfall, in one step sized to the
+        // gap, and never twice within six seconds. It climbs back between races.
         const R=REZ[rezMode]||REZ.auto;
-        if(fps<50 && rezScale>R.floor){ rezScale=Math.max(R.floor, rezScale-0.07); applyRez(); }
-        else if(fps>=58 && worst<28 && rezScale<R.ceil){ rezScale=Math.min(R.ceil, rezScale+0.05); applyRez(); }
+        const racing = state==="racing" || state==="countdown";
+        rezHist.push(fps); if(rezHist.length>4) rezHist.shift();
+        const avg=rezHist.reduce((a,b)=>a+b,0)/rezHist.length;
+        const tNow=performance.now();
+        if(racing){
+          if(rezHist.length>=3 && avg<48 && rezScale>R.floor && tNow-rezChangedAt>6000){
+            const want=Math.max(R.floor, Math.min(rezScale-0.08, rezScale*Math.sqrt(avg/58)));
+            rezScale=+want.toFixed(2); rezChangedAt=tNow; rezHist.length=0; applyRez(); rezRemember();
+          }
+        } else if(state==="menu" || state==="results"){
+          if(rezHist.length>=3 && avg>=57 && worst<26 && rezScale<R.ceil && tNow-rezChangedAt>2500){
+            rezScale=Math.min(R.ceil, +(rezScale+0.05).toFixed(2)); rezChangedAt=tNow; applyRez(); rezRemember();
+          } else if(rezHist.length>=3 && avg<45 && rezScale>R.floor && tNow-rezChangedAt>2500){
+            rezScale=Math.max(R.floor, +(rezScale-0.08).toFixed(2)); rezChangedAt=tNow; rezHist.length=0; applyRez(); rezRemember();
+          }
+        }
       }
     }
   }
@@ -8148,10 +8388,10 @@ uniform float shadowFar;
     kerbAmt=0;
     for(const id of ["speedVig","proxL","proxR"]){ const e=$(id); if(e) e.style.opacity=0; }
     applyWeather(0);
-    warmUp();
     makeCars();
     rpReset();
     csmApplyAll();
+    warmUp();
     camPos.set(player.x-Math.cos(player.a)*12, player.groundY+4, player.z-Math.sin(player.a)*12);
     camLook.set(player.x, player.groundY+1.3, player.z);
     gotInput=false; $("hint").classList.remove("on"); grabFocus();
@@ -8753,11 +8993,14 @@ uniform float shadowFar;
     renderer.setPixelRatio(Math.min(DPRMAX*rezScale, PR_CAP));
     resize();
   }
+  function rezRemember(){ try{ localStorage.setItem("trs_rez_scale_"+rezMode, String(rezScale)); }catch(e){} }
   function setRezMode(m){
     if(!REZ[m]) m="auto";
     rezMode=m;
     const R=REZ[m];
-    rezScale=Math.min(R.ceil, Math.max(R.floor, m==="ultra" ? R.ceil : 1));
+    let start = m==="ultra" ? R.ceil : 1;
+    try{ const sv=parseFloat(localStorage.getItem("trs_rez_scale_"+m)); if(sv>0) start=sv; }catch(e){}
+    rezScale=Math.min(R.ceil, Math.max(R.floor, start));
     applyRez();
     try{ localStorage.setItem("trs_rez", m); }catch(e){}
   }
@@ -8817,11 +9060,29 @@ uniform float shadowFar;
   // Compiling a material happens the first time it is drawn. Doing that for the
   // whole grid on the green light produced a stutter, so it is forced through
   // once up front instead.
+  // A material is compiled the first time it is drawn, and compiling stalls the
+  // frame. The compile pass only sees what is visible, so the rain, the spray,
+  // the safety car and the pit crews used to compile the moment they first
+  // appeared: mid-race, at a pit entry, when the rain came. They are shown for
+  // the warm-up and hidden again.
   function warmUp(){
     try{
+      const shown=[];
+      const show=o=>{ if(o && !o.visible){ o.visible=true; shown.push(o); } };
+      show(typeof rainMesh!=="undefined" ? rainMesh : null);
+      show(typeof spray!=="undefined" ? spray : null);
+      show(safety && safety.mesh);
+      if(typeof pitCrews!=="undefined") for(const pc of pitCrews) show(pc.root);
       renderer.compile(scene, camera);
       renderer.render(scene, camera);
-      if(fxWanted){ buildFX(); if(fxComposer) fxComposer.render(0.016); }
+      if(fxWanted){
+        buildFX();
+        if(fxComposer){
+          fxComposer.render(0.016);
+          if(fxDofPass && typeof setDof==="function"){ setDof(true); fxComposer.render(0.016); setDof(false); }
+        }
+      }
+      for(const o of shown) o.visible=false;
     }catch(e){}
   }
   // everything saved is applied once, before the first frame; the expensive
@@ -8848,6 +9109,7 @@ uniform float shadowFar;
   }catch(e){}
   await LOAD.step(98, "Grille de départ");
   makeCars();
+  try{ weldScenery(); }catch(e){}
   csmApplyAll();
   warmUp();
   LOAD.done();
