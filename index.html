@@ -80,6 +80,9 @@
   .tl .val{font-size:33px}
   .tl .val small{font-size:16px; color:var(--muted); font-weight:500}
   .tr{top:12px; right:12px; text-align:right; display:flex; gap:20px}
+  .gapv{display:flex; flex-direction:column; gap:2px; margin-top:3px; font-family:var(--font-num); font-size:14px;
+        font-weight:600; line-height:1.05; font-variant-numeric:tabular-nums; white-space:nowrap}
+  .gapv #gapA{color:var(--white)} .gapv #gapB{color:var(--muted)}
   .tr .val{font-size:21px; font-variant-numeric:tabular-nums}
 
   .speedo{
@@ -118,6 +121,8 @@
     font-size:11px; letter-spacing:.04em; padding:2px 4px; border-radius:5px; color:var(--muted);
   }
   .trow.me{background:rgba(232,0,45,.20); color:var(--white)}
+  .trow.up{background:rgba(36,209,122,.30); transition:background .4s}
+  .trow.dn{background:rgba(255,90,95,.26); transition:background .4s}
   .trow b{font-family:var(--font-num); font-size:14px; color:var(--white); font-weight:600}
   .trow s{display:block; width:5px; height:13px; border-radius:2px; text-decoration:none}
   .trow em{font-style:normal; overflow:hidden; white-space:nowrap; text-overflow:ellipsis}
@@ -338,6 +343,7 @@
     .pod{padding:6px 9px}
     .tl{gap:12px; top:8px; left:8px} .tr{gap:12px; top:8px; right:8px}
     .tl .val{font-size:24px} .tr .val{font-size:17px}
+    .gaps{display:none}
     .tower{display:none}
     .radar{left:8px; bottom:8px; padding:5px 5px 2px}
     .radar canvas{width:104px; height:72px}
@@ -720,6 +726,7 @@
       <div class="pod tl">
         <div><div class="lbl">Tour</div><div class="val"><span id="lapNow">1</span><small>/<span id="lapTot">5</span></small></div></div>
         <div><div class="lbl">Position</div><div class="val">P<span id="pos">8</span><small>/<span id="field">8</span></small></div></div>
+        <div class="gaps"><div class="lbl">&Eacute;carts</div><div class="gapv"><span id="gapA" title="La voiture devant">&mdash;</span><span id="gapB" title="La voiture derri&egrave;re">&mdash;</span></div></div>
       </div>
       <div class="pod tr">
         <div><div class="lbl">Tour actuel</div><div class="val" id="curLap">0.0</div></div>
@@ -884,9 +891,16 @@
             <div class="optRow">
               <span class="lbl">Tours</span>
               <span class="seg">
-                <button class="chip" data-opt="laps" data-val="3">3</button>
                 <button class="chip" data-opt="laps" data-val="5">5</button>
                 <button class="chip" data-opt="laps" data-val="10">10</button>
+                <button class="chip" data-opt="laps" data-val="21">21</button>
+              </span>
+            </div>
+            <div class="optRow">
+              <span class="lbl">S&eacute;curit&eacute;</span>
+              <span class="seg">
+                <button class="chip" data-opt="sc" data-val="1" title="Sort quand un aileron tra&icirc;ne sur la piste">Voiture de s&eacute;curit&eacute;</button>
+                <button class="chip" data-opt="sc" data-val="0">Aucune</button>
               </span>
             </div>
             <div class="optRow">
@@ -984,9 +998,16 @@
               <div class="optRow">
                 <span class="lbl">Tours</span>
                 <span class="seg">
-                  <button class="chip" data-net="laps" data-val="3">3</button>
                   <button class="chip" data-net="laps" data-val="5">5</button>
                   <button class="chip" data-net="laps" data-val="10">10</button>
+                  <button class="chip" data-net="laps" data-val="21">21</button>
+                </span>
+              </div>
+              <div class="optRow">
+                <span class="lbl">S&eacute;curit&eacute;</span>
+                <span class="seg">
+                  <button class="chip" data-net="sc" data-val="1">Voiture de s&eacute;curit&eacute;</button>
+                  <button class="chip" data-net="sc" data-val="0">Aucune</button>
                 </span>
               </div>
               <div class="optRow">
@@ -2190,6 +2211,8 @@ uniform float shadowFar;
       const r=localStorage.getItem("trs_rez"); if(r) OPT.rez=r;     // the one setting saved before
     }
   }catch(e){}
+  // race lengths offered are now 5, 10 and 21 laps
+  for(const k of ["laps","seasonLaps"]) if(["5","10","21"].indexOf(OPT[k])<0) OPT[k]="5";
   function saveOpts(){ try{ localStorage.setItem(OPT_KEY, JSON.stringify(OPT)); }catch(e){} }
   let pane="home";
   const PANE_BACK={play:"home", season:"play", free:"play", settings:"home", multi:"home"};
@@ -2197,7 +2220,7 @@ uniform float shadowFar;
   const NET={
     role:null, cli:null, tries:[], code:"", myId:"", name:"", welcomed:false, present:false,
     peers:new Map(), beatT:0, helloT:0, lastDown:0,
-    roster:[], settings:{laps:"5", wx:"auto", tod:"auto", diff:"1.00"},
+    roster:[], settings:{laps:"5", wx:"auto", tod:"auto", diff:"1.00", sc:"1"},
     race:null, final:null, over:false, finAt:0,
     offset:0, offTarget:0, offSet:false, slewAt:0, rttBest:1e9, rtt:0, pingAt:0, relaxAt:0, sendAt:0,
     snap:{}, retry:0, reclaim:false, joinTimer:0, openTimer:0
@@ -2231,6 +2254,10 @@ uniform float shadowFar;
   const PWALL_H=1.05, PWALL_T=0.28;               // the wall between lane and circuit
   const PIT_ENTRY_W=4.5;                          // the entry road is a road, not a wedge
   const TYRE_RATE=0.0084;                         // measured: a set is finished after three laps
+  // Longer races wear tyres more slowly, so a Grand Prix stays a one or two stop
+  // race whatever its length: 5 laps as before, 10 laps at half the rate, 21 at a quarter.
+  let tyreScale=1;
+  const raceTyreScale=()=> totalLaps<=5 ? 1 : 5/totalLaps;
   // Weather. Not every race: the point of rain is that you cannot plan for it,
   // so it either shows up in the first two laps or it never comes at all.
   const weather={will:false, at:1.5, on:false, wet:0, target:0, shown:-1};
@@ -2396,7 +2423,7 @@ uniform float shadowFar;
   }
 
   let pts=[], seg=[], cum=[], TOT=0, N=0;
-  let tanA=[], norA=[], radA=[], vmaxA=[], laneA=[], aiVA=[];
+  let tanA=[], norA=[], radA=[], vmaxA=[], laneA=[], aiVA=[], aiBrk=null, aiIn=null;
   let elevMin=0, elevMax=0;
 
   function buildTrack(){
@@ -2470,6 +2497,25 @@ uniform float shadowFar;
     for(let pass=0;pass<4;pass++)
       for(let k=N-1;k>=0;k--){ const nx=(k+1)%N;
         aiVA[k]=Math.min(aiVA[k],Math.sqrt(aiVA[nx]*aiVA[nx]+2*AI_BRAKE*seg[k])); }
+    // From every point of the lap: how far to the next braking zone, and which
+    // side is the inside of the corner it leads to. Overtakes and defences are
+    // both planned around those two numbers.
+    aiBrk=new Float32Array(N); aiIn=new Int8Array(N);
+    {
+      const K=Math.max(8, Math.round(60/STEP)), start=new Uint8Array(N), side=new Int8Array(N);
+      const cuts=i=> aiVA[(i+K)%N] < aiVA[i]*0.90;
+      for(let i=0;i<N;i++) if(cuts(i) && !cuts((i-1+N)%N)) start[i]=1;
+      for(let i=0;i<N;i++) if(start[i]){
+        let m=i, mv=aiVA[i];
+        for(let k=1;k<Math.round(240/STEP);k++){ const j=(i+k)%N; if(aiVA[j]<mv){ mv=aiVA[j]; m=j; } }
+        side[i]= laneA[m]>=0 ? 1 : -1;               // the racing line runs to the inside at the apex
+      }
+      let d=1e4, sd=1;
+      for(let pass=0;pass<2;pass++) for(let k=N-1;k>=0;k--){
+        if(start[k]){ d=0; sd=side[k]; } else d+=seg[k];
+        aiBrk[k]=Math.min(d,9999); aiIn[k]=sd;
+      }
+    }
     elevMin=Infinity; elevMax=-Infinity;
     for(const p of pts){ elevMin=Math.min(elevMin,p.y); elevMax=Math.max(elevMax,p.y); }
   }
@@ -5348,7 +5394,8 @@ uniform float shadowFar;
   }
   function updateSafety(dt, now){
     if(!safety.active){
-      if(wingGone && OPT.sc!=="0" && state==="racing" && now>safety.cooldown && player && player.lap<totalLaps-1 && (!NET.race || NET.role==="host")){
+      const scAllowed = NET.race ? NET.race.sc!=="0" : OPT.sc!=="0";
+      if(wingGone && scAllowed && state==="racing" && now>safety.cooldown && player && player.lap<totalLaps-1 && (!NET.race || NET.role==="host")){
         deploySafety(now);
       }
       crashAlert=0; wingGone=false;
@@ -5720,27 +5767,77 @@ uniform float shadowFar;
 
   // The four levels: the share of the cornering limit they drive to (pace), how
   // much of the top speed they use, and at the top a slightly better car. pace
-  // 1.00 on an ordinary car is a perfect lap. Timed alone on all ten circuits
-  // against that perfect lap in the player's car: Facile about +14 %, Normal
-  // +7 %, Difficile +1.5 %, Extreme about 3 % quicker (1.5 % at Spa, where the
-  // straights decide, 3.5 % at Monaco). The old Extreme was 3 % slower.
+  // 1.00 on an ordinary car is a perfect lap. The quickest team of each level,
+  // timed alone against that perfect lap in the player's car: Facile about
+  // +14 %, Normal +7 %, Difficile +1.5 %, Extreme about 3.5 % quicker. mix
+  // spreads the other teams out behind it, some 3 to 4 % from first to last.
   function aiLevel(d){
-    if(d<0.97) return {pace:0.64, top:0.95,  grip:1.00, accel:1.00, spread:0.0040, tidy:-0.10};  // Facile
-    if(d<1.02) return {pace:0.80, top:0.985, grip:1.00, accel:1.00, spread:0.0035, tidy:0.00};   // Normal
-    if(d<1.10) return {pace:0.92, top:1,     grip:1.00, accel:1.00, spread:0.0028, tidy:0.10};   // Difficile
-    return            {pace:1.00, top:1,     grip:1.12, accel:1.04, spread:0.0018, tidy:0.25};   // Extreme
+    if(d<0.97) return {pace:0.616, top:0.95,  grip:1.00,  accel:1.00, mix:5.2, tidy:-0.10};  // Facile
+    if(d<1.02) return {pace:0.774, top:0.985, grip:1.00,  accel:1.00, mix:4.6, tidy:0.00};   // Normal
+    if(d<1.10) return {pace:0.893, top:1,     grip:1.00,  accel:1.00, mix:4.0, tidy:0.08};   // Difficile
+    return            {pace:0.937, top:1,     grip:1.149, accel:1.04, mix:3.6, tidy:0.18};   // Extreme
+  }
+  // Each team's car and driver. The car, in %: grip in the corners, speed on the
+  // straights. The driver: pace in %, how steady from one part of the lap to the
+  // next, how readily they attack, how hard they are to pass, how kind to their
+  // tyres, and how quick off the line. On top of that, every race brings its own
+  // form of the day and set-up, so the order is never the same twice.
+  const TEAM={
+    "Red Bull":     {grip:+0.8, top:+0.2, pace:+0.4, steady:0.90, attack:0.85, defend:0.90, care:0.96, start:0.80},
+    "McLaren":      {grip:+0.9, top: 0.0, pace:+0.2, steady:0.86, attack:0.75, defend:0.70, care:1.08, start:0.70},
+    "Ferrari":      {grip:+0.5, top:+0.3, pace: 0.0, steady:0.84, attack:0.80, defend:0.80, care:1.00, start:0.75},
+    "Mercedes":     {grip:+0.3, top:+0.4, pace:+0.1, steady:0.92, attack:0.60, defend:0.80, care:1.03, start:0.60},
+    "Aston Martin": {grip:-0.2, top:+0.1, pace:+0.2, steady:0.95, attack:0.70, defend:0.95, care:1.10, start:0.90},
+    "Alpine":       {grip:-0.5, top:+0.2, pace:-0.2, steady:0.72, attack:0.90, defend:0.60, care:0.95, start:0.50},
+    "Williams":     {grip:-1.0, top:+0.8, pace: 0.0, steady:0.80, attack:0.70, defend:0.75, care:0.92, start:0.60},
+    "Haas":         {grip:-0.9, top:-0.2, pace:-0.3, steady:0.66, attack:1.00, defend:0.80, care:0.90, start:0.40}
+  };
+  const TEAM_NEUTRAL={grip:0, top:0, pace:0, steady:0.85, attack:0.80, defend:0.80, care:1.00, start:0.70};
+  function gauss(){ let u=0; while(u===0) u=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(6.283185307*Math.random()); }
+  // wear per lap of compound k on this car, before a lap has been measured
+  function stintWear(c, k){ return TYRE_RATE*1.05*(TOT/47)*tyreScale*COMP_WEAR[k]/(c.care||1); }
+  // the softest set that reaches the flag; if none does, the one that shares the
+  // distance best between the stops still to come
+  function pickCompound(c, left){
+    const cur=c.comp||0;
+    const per=k=> c.wpl ? c.wpl/COMP_WEAR[cur]*COMP_WEAR[k] : stintWear(c,k);
+    const life=k=> 0.80/Math.max(1e-4, per(k));
+    const bold=c.prof ? c.prof.attack : 0.7;
+    for(let k=0;k<3;k++) if(life(k)*(0.92+0.12*bold) >= left) return k;
+    return life(1)*2 >= left ? 1 : 2;
+  }
+  function startCompound(PF){
+    const lifeSoft=0.80/Math.max(1e-4, TYRE_RATE*1.05*(TOT/47)*tyreScale*COMP_WEAR[0]/(PF.care||1));
+    const r=Math.random()-0.25*(PF.attack-0.75);
+    if(r<0.28 && lifeSoft>=Math.min(totalLaps*0.3, 2.2)) return 0;
+    return r<0.72 ? 1 : 2;
   }
   function makeCars(){
     const LV=aiLevel(diff);
     for(const c of cars){ scene.remove(c.mesh); scene.remove(c.shadow); }
     cars=[];
     const startGap=14, rowGap=11, lat=3.1;
+    // this race's form of the day and set-up for every team, then a qualifying
+    // that orders the grid by them, with a little luck; the player starts sixth
+    const dayF=LIVERY.map(()=>(Math.random()-0.5)*1.0), setF=LIVERY.map(()=>(Math.random()-0.5)*0.8);
+    const gridSlot=LIVERY.map((L,i)=>i);
+    if(!NET.race){
+      const pl=LIVERY.findIndex(L=>L.player);
+      const quali=LIVERY.map((L,i)=>{ const PF=TEAM[L.nm]||TEAM_NEUTRAL;
+        return {i:i, q:(PF.pace+PF.grip*0.6+PF.top*0.3)*LV.mix + dayF[i] + setF[i]*0.6 + gauss()*0.35}; })
+        .filter(x=>x.i!==pl).sort((a,b)=>b.q-a.q);
+      const free=[0,1,2,3,4,6,7].slice(0,quali.length);
+      quali.forEach((x,k)=>{ gridSlot[x.i]=free[k]; });
+      if(pl>=0) gridSlot[pl]=Math.min(5, LIVERY.length-1);
+    }
     for(let i=0;i<LIVERY.length;i++){
       const NR=NET.race;
       const hum = NR ? (NR.roster.find(r=>r.liv===i)||null) : null;
       const me = NR ? !!(hum && hum.id===NET.myId) : !!LIVERY[i].player;
       const human = NR ? !!hum : !!LIVERY[i].player;
-      const slot = NR ? (NR.grid[i]|0) : i;
+      const slot = NR ? (NR.grid[i]|0) : gridSlot[i];
+      const PF = human ? TEAM_NEUTRAL : (TEAM[LIVERY[i].nm]||TEAM_NEUTRAL);
+      const gm = human ? 1 : LV.grip*(1+(PF.grip*LV.mix+setF[i])/100);
       const L=LIVERY[i], row=Math.floor(slot/2), col=slot%2;
       const s=((TOT-(startGap+row*rowGap))%TOT+TOT)%TOT;
       const idx=idxAtS(s), p=pointAt(s), nr=norA[idx], t=tanA[idx];
@@ -5769,33 +5866,33 @@ uniform float shadowFar;
         vx:0, vz:0, vf:0, slip:0, spin:0,
         livery:L, player:me, mesh:mesh, shadow:shadow, i:i, human:hum,
         remote: NR ? (hum ? !me : NET.role==="guest") : false,
-        maxSpeed: human? BASE : BASE*(0.99+Math.random()*0.02),
-        accel:30*(human?1:LV.accel), brake:55, roll:2.2, dragC:0.11, turnRate:2.2,
-        grip:GRIP_ON*(human?1:LV.grip), gripOff:GRIP_OFF,
+        // straight-line speed differs less than cornering between teams: a big
+        // gap there only has cars swapping places on every straight
+        maxSpeed: human? BASE : BASE*(1+PF.top*Math.min(LV.mix,1.6)/100),
+        accel:30*(human?1:LV.accel*(1+PF.top*Math.min(LV.mix,1.6)/100)), brake:55, roll:2.2, dragC:0.11, turnRate:2.2,
+        grip:GRIP_ON*gm, gripOff:GRIP_OFF,
         si:idx, s:s, prevS:s, lat:off, groundY:p.y, tan:t, nor:nr,
         lap:-1, prog:0, rank:1, draft:false, finished:false, finishT:0, stuckT:0,
-        tyre:1, wets:false, comp:(me? compChoice : (Math.random()<0.30?0:(Math.random()<0.70?1:2))),
+        tyre:1, wets:false, comp:(me? compChoice : (human ? 1 : startCompound(PF))),
         bandShown:-1, service:0, canService:false, stops:0, wantPit:false, onPit:false, understeer:0,
         drs:false, drsArm:false, drsWas:false,
         damage:0, dmgShown:-1, wingOff:false,
         gear:0, rpm:IDLE, shiftT:0, thrIn:0, aThr:0,
-        pitAt:0.30+Math.random()*0.10, warned:false, boxS:boxSFor(i),
-        aiOff:(Math.random()*2-1)*1.5*clamp(1-(diff-1)*3.5,0.2,1), aiLane:off, aiAgg:(0.995+Math.random()*0.010)*diff,
-        gripMul: human?1:LV.grip, aiPace: LV.pace, aiTop: human?1:LV.top,
-        // Where this car sits in the order, and how tidy its driver is. The
-        // first figure comes from the team, the second is the driver's own.
-        form: 1 - i*LV.spread - Math.random()*LV.spread*1.1,
-        tidy: clamp(0.45 + Math.random()*0.55 + LV.tidy, 0.2, 1),
+        // the stop window differs from one strategist to the next
+        pitAt:0.22+Math.random()*0.16, warned:false, boxS:boxSFor(i),
+        // every driver has a line of their own through the corners
+        aiOff:clamp(gauss()*0.6, -1.2, 1.2), aiLane:off, aiAgg:diff*(0.97+0.08*PF.attack),
+        gripMul: gm, aiPace: human ? LV.pace : Math.min(0.995, LV.pace*(1+(PF.pace*LV.mix+dayF[i])/100)), aiTop: human?1:LV.top,
+        prof: PF, care: PF.care, form: 1,
+        // how tidy the driver is follows how steady they are
+        tidy: clamp(0.35 + 0.6*PF.steady + LV.tidy + Math.random()*0.10, 0.2, 1),
         slipT: 2 + Math.random()*14,     // seconds until the next chance of a mistake
-        slip2: 0, boldness: 0.75+Math.random()*0.5
+        slip2: 0, boldness: 0.55+0.6*PF.attack,
+        react: 0.05+(1-PF.start)*0.30+Math.random()*0.10,   // seconds to react when the lights go out
+        rhy:0, rhyTo:0, rhyAt:0, rc:null
       };
       cars.push(c);
       if(c.player) player=c;
-    }
-    const tgt=5;
-    if(!NET.race && cars[tgt] && !cars[tgt].player){
-      const A=player, B=cars[tgt];
-      for(const k of ["x","z","a","s","si","prevS","lat"]){ const t2=A[k]; A[k]=B[k]; B[k]=t2; }
     }
     for(const c of cars){ project(c); c.prevS=c.s; c.prog=c.s; syncMesh(c); }
     if(NET.race) for(const c of cars) if(c.human && !c.player) netTag(c);
@@ -6073,12 +6170,17 @@ uniform float shadowFar;
     checkWing(c);
     return impact;
   }
+  // The top speed a car gains in another's tow, and with the rear wing open. They
+  // were 8 % and 6 %: enough for a pack to swap places on every straight and
+  // never break up. Real Formula 1 is nearer this.
+  const TOW_TOP=1.06;
+  const DRS_TOP=1.04;
   function stepCar(c, thr, str, dt){
     const f={x:Math.cos(c.a),z:Math.sin(c.a)}, r={x:-Math.sin(c.a),z:Math.cos(c.a)};
     let vf=c.vx*f.x+c.vz*f.z, vr=c.vx*r.x+c.vz*r.z;
     updatePitState(c);
     const off=!c.onPit && !onPitTarmac(c) && Math.abs(c.lat)>W+KERB*0.5;
-    let curMax=c.maxSpeed*(c.draft?1.08:1)*(c.drs?1.06:1)*(1-0.10*(c.damage||0));
+    let curMax=c.maxSpeed*(c.draft?TOW_TOP:1)*(c.drs?DRS_TOP:1)*(1-0.10*(c.damage||0));
     if(safety.active && safety.phase!=="in" && !c.onPit){
       curMax=Math.min(curMax, SC_SPEED*1.05);
       const dsc=signedTo(c.s, safety.s);          // how far ahead the car is
@@ -6246,14 +6348,26 @@ uniform float shadowFar;
       // wets tear themselves apart on a dry track; slicks last longer in the wet
       // because they never get up to temperature, which is precisely the problem
       const wm = c.wets ? (1+1.5*(1-weather.wet)) : (1-0.40*weather.wet)*COMP_WEAR[c.comp||0];
-      const wear=(0.55+0.60*clamp(c.slip/6,0,1)+0.5*clamp(Math.abs(c.vf)/BASE,0,1))*roll*TYRE_RATE*wm*dt;
+      const manage = c.push===0 ? 0.78 : (c.push===1 ? 1.06 : 1);   // saving tyres, or pushing
+      const wear=(0.55+0.60*clamp(c.slip/6,0,1)+0.5*clamp(Math.abs(c.vf)/BASE,0,1))*roll*TYRE_RATE*tyreScale*wm*manage/(c.care||1)*dt;
       c.tyre=clamp(c.tyre-wear,0,1);
       const wf=wetGrip(c);
       c.grip=GRIP_ON*(c.gripMul||1)*tyreGrip(c.tyre)*(1-0.26*(c.damage||0))*wf*compGrip(c);
       c.gripOff=GRIP_OFF*(0.74+0.26*wf);
-      // a stint should end well before the flag; only the final lap is off limits
+      // what a lap takes off this set, measured lap by lap, for the stop decision
+      if(c.tyreLap!==c.lap){
+        if(c.tyreLap!==undefined && c.tyreLap>=0 && c.stopsAt===c.stops && c.tyreMark>c.tyre)
+          c.wpl = c.wpl ? c.wpl*0.5+(c.tyreMark-c.tyre)*0.5 : (c.tyreMark-c.tyre);
+        c.tyreLap=c.lap; c.tyreMark=c.tyre; c.stopsAt=c.stops;
+      }
+      // A set that still reaches the flag in shape stays on. Otherwise the car
+      // comes in once the tyres drop below its strategist's window.
       const wrongTyre = weather.wet>0.35 && !c.wets;
-      if(!c.player && !c.wantPit && (c.tyre<c.pitAt || wrongTyre) && c.lap<totalLaps-1) c.wantPit=true;
+      if(!c.player && !c.wantPit && c.lap>=0){
+        const left=totalLaps-(c.lap+c.s/TOT);
+        const reaches=c.tyre-(c.wpl||stintWear(c,c.comp||0))*left > 0.14;
+        if(left>0.6 && (wrongTyre || (c.tyre<c.pitAt && !reaches))) c.wantPit=true;
+      }
       if(c.player && !c.warned && c.tyre<0.32){ c.warned=true; showSector("PNEUS USÉS — LES STANDS"); }
     }
   }
@@ -6280,8 +6394,9 @@ uniform float shadowFar;
           // reaches the flag: exactly how a real stop is called
           c.wets = weather.wet>0.42;
           if(!c.wets){
-            const left=Math.max(1, totalLaps-(c.lap+1));
-            c.comp = left<=2 ? 0 : (left<=3 ? 1 : 2);
+            const was=c.comp||0;
+            c.comp = pickCompound(c, Math.max(0.5, totalLaps-(c.lap+c.s/TOT)));
+            if(c.wpl) c.wpl = c.wpl/COMP_WEAR[was]*COMP_WEAR[c.comp];
           }
           if(c.player) showSector(c.wets? "PNEUS PLUIE — GO !"
                                         : ("PNEUS " + COMP_SHORT[c.comp] + " — GO !"));
@@ -6309,21 +6424,114 @@ uniform float shadowFar;
   // Score a handful of candidate lines and take the cheapest. This is what lets
   // the AI actually pick a way past a slower car instead of nudging blindly.
   const LANE_CAND=[-0.74,-0.44,-0.15,0.15,0.44,0.74];
-  function pickLane(c){
-    const aim=idxAtS(c.s + CAR_L*2.2 + Math.abs(c.vf)*0.32);
-    const base=laneA[aim]+c.aiOff;
-    // Someone quicker on your tail is a reason to hold your line rather than
-    // wander off it looking for a way past the car in front.
-    let defend=0;
+  // What a car could do on a clear lap: its driver's pace on the grip it has now,
+  // and a little for its straight-line speed. A player is taken as a good driver.
+  function carPotential(o){
+    const pace=(o.player||o.human) ? 0.95 : (o.aiPace||0.9);
+    return Math.sqrt(pace*(o.grip||GRIP_ON)/GRIP_ON)*(0.75+0.25*(o.maxSpeed||BASE)/BASE);
+  }
+  // Racecraft, decided every frame for every AI car:
+  //  - a car a lap up behind: give it the road, off the racing line
+  //  - a slower car ahead: sit in its tow on the straight, pull out for the inside
+  //    of the next corner in time to be alongside at the braking point, brake a
+  //    touch later there, or tuck back in if the move is not on
+  //  - a quicker car behind: one move to cover the inside before the braking zone
+  //  - always: a car alongside gets a car's width, on whichever side it is
+  function raceCraft(c, dt){
+    const R=c.rc||(c.rc={mode:"free", tgt:null, side:0, stuck:0, close:0, cool:0, defLane:null, defEnd:0, yside:0, yT:0, lane:null, mul:1, lo:-W, hi:W});
+    const i=idxAtS(c.s), v=Math.max(8,Math.abs(c.vf)), brk=aiBrk[i], inside=aiIn[i];
+    const PF=c.prof||TEAM_NEUTRAL;
+    let ahead=null, dA=1e9, behind=null, dB=1e9, lo=-W*0.84, hi=W*0.84;
     for(const o of cars){
-      if(o===c || o.onPit!==c.onPit) continue;
-      const db=signedTo(o.s,c.s);
-      if(db>0.5 && db<CAR_L*3.2 && Math.abs(o.vf)>Math.abs(c.vf)+0.4){ defend=1; break; }
+      if(o===c || o.onPit || o.inPitLane || o.service>0) continue;
+      const ds=signedTo(c.s,o.s), dl=o.lat-c.lat;
+      if(Math.abs(ds)<CAR_L*1.1 && Math.abs(dl)<CAR_W*2.4){
+        if(dl>0) hi=Math.min(hi, o.lat-CAR_W*1.35); else lo=Math.max(lo, o.lat+CAR_W*1.35);
+      }
+      if(ds>=CAR_L*0.5){ if(ds<dA && ds<95){ dA=ds; ahead=o; } }
+      else if(ds<=-CAR_L*0.5){ if(-ds<dB && -ds<70){ dB=-ds; behind=o; } }
     }
-    const hold = defend ? 2.4 : 1.0;
+    R.cool=Math.max(0,R.cool-dt);
+    let lane=null, mul=1;
+    const lappedBy = !!behind && (behind.prog-c.prog)>TOT*0.5;
+    const lapping  = !!ahead && (c.prog-ahead.prog)>TOT*0.5;
+    if(lappedBy && dB<60){
+      // blue flag: pick a side once, away from the inside of the next corner, and keep it
+      if(R.mode!=="yield"){ R.yside=-inside; }
+      R.mode="yield"; R.yT=1.5;
+      lane=R.yside*W*0.60;
+      if(dB<24 && brk>v*1.2) mul=0.975;                // lift a little, never under braking
+    } else if(R.mode==="yield" && (R.yT-=dt)>0){
+      lane=R.yside*W*0.60;
+    } else {
+      // The car being attacked stays the target all the way through the move,
+      // even once it is alongside or just behind, until the pass is done.
+      let T=null, dT=1e9;
+      if(R.mode==="attack" && R.tgt && !R.tgt.inPitLane && !R.tgt.onPit && R.tgt.service<=0){
+        dT=signedTo(c.s, R.tgt.s);
+        if(dT>-CAR_L*1.2 && dT<80) T=R.tgt;
+      }
+      if(!T && ahead && dA<70 && R.cool<=0){ T=ahead; dT=dA; }
+      if(R.mode==="attack" && R.tgt && T!==R.tgt && dT!==1e9 && signedTo(c.s,R.tgt.s)<=-CAR_L*1.2) R.done=(R.done||0)+1;
+      if(T){
+        if(R.tgt!==T){ R.tgt=T; R.stuck=0; R.side=0; R.close=0; R.sideT=0; }
+        const lapT=(c.prog-T.prog)>TOT*0.5;
+        const gapT=Math.max(0,dT)/v;
+        R.close+=((c.vf-T.vf)-R.close)*(1-Math.exp(-1.5*dt));
+        R.stuck = gapT<1.2 ? R.stuck+dt : Math.max(0, R.stuck-dt*2);
+        const adv=carPotential(c)/carPotential(T)-1;
+        // with real pace in hand, go; stuck behind an equal car, only try it
+        // where a move can work, into a braking zone
+        const late = brk<v*2.6;
+        const going = R.mode==="attack" && dT<CAR_L*1.1;          // already alongside: see it through
+        const want = lapT || going || adv>0.004 || R.close>2.2 || (late && R.stuck>2.5+7*(1-PF.attack));
+        if(want && gapT<1.6 && R.cool<=0){
+          R.mode="attack";
+          if(!going && (R.side===0 || brk>v*3.2)){
+            const roomIn=W*0.80-inside*T.lat, roomOut=W*0.80+inside*T.lat;
+            if(lapT) R.side = roomIn>=roomOut ? inside : -inside;
+            else if(roomIn>=CAR_W*1.5) R.side=inside;
+            else if(roomOut>=CAR_W*1.5 && brk>v*1.6) R.side=-inside;
+            else R.side=0;
+          }
+          const tow = !lapT && !going && brk>v*2.2 && dT>CAR_L*1.8;
+          if(R.side!==0 && !tow){
+            lane=clamp(T.lat+R.side*CAR_W*1.5, -W*0.80, W*0.80);
+            if(R.side===inside && dT<CAR_L*0.9 && brk<v*0.9) mul=1+0.012*PF.attack;
+            // side by side and getting nowhere on a straight: tuck back in
+            R.sideT = Math.abs(dT)<CAR_L*1.0 ? (R.sideT||0)+dt : 0;
+            const stalled = R.sideT>3.0 && brk>v*1.2 && R.close<0.3 && dT>-CAR_L*0.3;
+            // not alongside when the braking starts: the move is off
+            const late2 = brk<8 && dT>CAR_L*1.05 && !lapT;
+            if(stalled || late2){ R.cool=3.0; R.side=0; R.sideT=0; R.mode="follow"; lane=null; if(stalled) R.liftT=1.2; }
+          } else lane=T.lat;
+        } else R.mode = gapT<1.2 ? "follow" : "free";
+      } else { R.mode="free"; R.tgt=null; }
+    }
+    // defence, when not busy with a move of its own
+    if(R.mode!=="yield" && R.mode!=="attack" && behind && !lappedBy && dB<v*0.9){
+      const threat=(behind.rc && behind.rc.mode==="attack" && behind.rc.tgt===c) || behind.vf>c.vf+1.2 || ((behind.player||behind.human) && dB<CAR_L*3);
+      if(threat && R.defLane===null && brk<v*2.0 && brk>v*0.8 && Math.random()<PF.defend*dt*3){
+        R.defLane=inside*W*0.30; R.defEnd=c.prog+brk+70;
+      }
+    }
+    if(R.defLane!==null){
+      if(c.prog>R.defEnd || R.mode==="yield" || R.mode==="attack") R.defLane=null;
+      else if(lane===null){ lane=R.defLane; R.mode="defend"; }
+    }
+    // giving up a move alongside: ease off for a moment to drop in behind
+    if(R.liftT>0){ R.liftT-=dt; mul=Math.min(mul,0.985); }
+    R.lane=lane; R.mul=mul; R.lo=lo; R.hi=hi;
+    return R;
+  }
+  function pickLane(c, R){
+    const aim=idxAtS(c.s + CAR_L*2.2 + Math.abs(c.vf)*0.32);
+    const planned = R && R.lane!==null;
+    const base = planned ? R.lane : laneA[aim]+c.aiOff;
+    const hold = planned ? 2.2 : 1.0;
     let best=base, bestCost=Infinity;
-    for(const f of LANE_CAND){
-      const L=f*W;
+    for(let q=-1;q<LANE_CAND.length;q++){
+      const L = q<0 ? base : LANE_CAND[q]*W;
       let cost=Math.abs(L-base)*hold       // the racing line is still the fast way round
               +Math.abs(L-c.lat)*0.45;     // and swerving costs time
       for(const o of cars){
@@ -6357,15 +6565,40 @@ uniform float shadowFar;
     if(c.aiTop<1) target=Math.min(target, c.maxSpeed*c.aiTop);
     // the car's place in the order, and the driver inside it
     target *= (c.form!==undefined ? c.form : 1);
+    // the driver's rhythm: a few tenths up or down from one part of the lap to
+    // the next, more for the scruffy ones. That is what opens and closes gaps.
+    if(c.prof && !c.player){
+      if(c.prog>=c.rhyAt){
+        const sd=(1-c.prof.steady)*0.012+0.0008;
+        c.rhyTo=clamp(gauss()*sd, -2.2*sd, 2.2*sd); c.rhyAt=c.prog+250+Math.random()*350;
+        // push, or look after the tyres for the next stretch: a driver in a fight
+        // always pushes, one in clean air often saves rubber, the careful ones more
+        const fight = c.rc && (c.rc.mode==="attack" || c.rc.mode==="defend" || c.rc.mode==="follow");
+        c.push = (fight || Math.random() < 0.75-2*((c.prof.care||1)-0.9)) ? 1 : 0;
+      }
+      c.rhy+=(c.rhyTo-c.rhy)*(1-Math.exp(-0.9*Math.max(dt,1e-3)));
+      target*=1+c.rhy-(c.push===0 ? 0.008 : 0);
+    }
+    // a line inside the racing line is a tighter corner, so a slower one
+    {
+      const R0=radA[ahead];
+      if(R0<600){
+        const sg=laneA[ahead]>=0?1:-1, off=((c.aiLane||0)-laneA[ahead])*sg;
+        if(off>0.3) target*=Math.sqrt(Math.max(0.55, 1-off/Math.max(R0,10)));
+      }
+    }
     // a moment gone wrong: the driver is off line and slow for about a second
     if(c.slip2>0) target *= (1 - 0.16*Math.min(1,c.slip2));
-    if(safety.active && safety.phase!=="in" && !c.onPit) target=Math.min(target, SC_SPEED);
+    const scOn = safety.active && safety.phase!=="in" && !c.onPit;
+    if(scOn) target=Math.min(target, SC_SPEED);
 
     const pw=pitWidthAt(c.s);
     // Past the opening, only a car that actually made it behind the wall is
     // still pitting. One that missed rejoins the circuit and tries next lap,
     // rather than braking to a halt against the wall.
     const pitting=c.wantPit && pw>1.0 && (c.inPitLane || !pitWallAt(c.s));
+    const RC = (!pitting && !(c.inPitLane && pw>1.0) && !scOn && !c.onPit && state==="racing") ? raceCraft(c, dt) : null;
+    if(RC) target*=RC.mul;
     // Coming in for tyres, a driver drifts to the pit side of the circuit at
     // racing speed and does all the braking in the entry road. Slowing on the
     // racing line and then turning across it is how you get hit from behind.
@@ -6397,6 +6630,8 @@ uniform float shadowFar;
     }
     let thr = c.vf < target*0.98 ? 1 : (c.vf > target*1.03 ? -1 : 0.2);
     if(target<=0.01) thr=-1;
+    // the lights are out, but a driver still needs a moment to react
+    if(c.react && state==="racing" && performance.now()-raceStart<c.react*1000) thr=0;
 
     // Mistakes. A tidy driver on fresh rubber almost never has one; a scruffy
     // one at the end of a stint has one every few laps. They only happen where
@@ -6405,7 +6640,9 @@ uniform float shadowFar;
     c.slipT=(c.slipT||6)-dt;
     if(c.slipT<=0){
       const wear=1-clamp(c.tyre,0,1);
-      const risk=(1-(c.tidy!==undefined?c.tidy:0.7))*(0.35+0.9*wear)*(weather.wet>0.2?1.7:1);
+      // and under pressure, defending or wheel to wheel, a little more often
+      const pressure = RC && (RC.mode==="defend" || (RC.mode==="attack" && RC.tgt && signedTo(c.s,RC.tgt.s)<CAR_L*1.2)) ? 1.5 : 1;
+      const risk=(1-(c.tidy!==undefined?c.tidy:0.7))*(0.35+0.9*wear)*(weather.wet>0.2?1.7:1)*pressure;
       const cornering=Math.abs(vmaxA[here]-BASE)>4;
       if(cornering && Math.random()<risk*0.5){
         c.slip2=1;
@@ -6436,9 +6673,12 @@ uniform float shadowFar;
       c.aiLane=lane;                               // no lag when it matters most
     }
     else {
-      const want = (safety.active && safety.phase!=="in" && !c.onPit) ? laneA[aim] : pickLane(c);
-      c.aiLane += (want-c.aiLane)*(1-Math.exp(-3.5*Math.max(dt,1e-3)));
-      lane=clamp(c.aiLane, -W*0.78, W*0.78);
+      const want = scOn ? laneA[aim] : pickLane(c, RC);
+      const rate = RC && (RC.mode==="attack" || RC.mode==="yield") ? 4.5 : 3.5;
+      c.aiLane += (want-c.aiLane)*(1-Math.exp(-rate*Math.max(dt,1e-3)));
+      // never squeeze a car that is alongside
+      if(RC && RC.lo<=RC.hi) c.aiLane=clamp(c.aiLane, RC.lo, RC.hi);
+      lane=clamp(c.aiLane, -W*0.82, W*0.82);
       if(approach>0) lane += (-W*0.92-lane)*approach;   // line up for the entry
     }
     const cte=c.lat-lane;
@@ -6698,7 +6938,9 @@ uniform float shadowFar;
 
   function rpReset(){
     RP.cars=cars.length;
-    const need=Math.ceil(15*60*RP.hz)*RP.cars*RP.stride;
+    // room for the whole race, 21 laps of Singapore included
+    const mins=Math.max(15, Math.ceil(totalLaps*TOT/36/60)+3);
+    const need=Math.ceil(mins*60*RP.hz)*RP.cars*RP.stride;
     if(!RP.buf || RP.buf.length<need){
       RP.buf=new Float32Array(need);
       RP.wet=new Float32Array(Math.ceil(need/(RP.cars*RP.stride)));
@@ -7473,9 +7715,22 @@ uniform float shadowFar;
     const order = NET.race ? cars.slice().sort(netOrder) : cars.slice().sort((a,b)=>
       (b.finished-a.finished)||(a.finished? a.finishT-b.finishT : b.prog-a.prog));
     const key=order.map(c=>c.livery.no+(c.human?c.human.name:"")).join(",");
-    const leader=order[0];
+    const leader=order[0], tnow=performance.now();
     for(let i=0;i<order.length;i++){
       const c=order[i], row=towerRows[i];
+      // a place won shows green for a moment, a place lost red
+      if(state==="racing" && c.tpos!==undefined && c.tpos!==i+1){ c.tflash=tnow+1600; c.tdir = i+1<c.tpos ? 1 : -1; }
+      c.tpos=i+1;
+      // the gaps to the cars either side of the player, in seconds
+      if(c===player){
+        const pv=Math.max(12, Math.abs(player.vf));
+        const gap=o=>{ const d=Math.abs(o.prog-player.prog); return d>TOT ? Math.floor(d/TOT)+" t." : (d/pv).toFixed(1)+" s"; };
+        hudText("gapA", i>0 ? "▲ "+gap(order[i-1]) : "▲ en tête");
+        hudText("gapB", i<order.length-1 ? "▼ "+gap(order[i+1]) : "▼ —");
+      }
+      const fl=(c.tflash||0)>tnow;
+      row.classList.toggle("up", fl && c.tdir>0);
+      row.classList.toggle("dn", fl && c.tdir<0);
       if(key!==towerKey){
         row.children[0].textContent=i+1;
         row.children[1].style.background="#"+c.livery.c.toString(16).padStart(6,"0");
@@ -7755,7 +8010,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="2.2";                              // shown to players; 2.x pages all play together
+  const NET_BUILD="2.3";                              // shown to players; 2.x pages all play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -8260,10 +8515,16 @@ uniform float shadowFar;
     const grid=new Array(LIVERY.length);
     let slot=0;
     for(const h of humans) grid[h.liv]=slot++;                 // the players at the front, in the order they joined
-    for(let i=0;i<LIVERY.length;i++) if(grid[i]===undefined) grid[i]=slot++;
+    // the AI behind them in a qualifying order: the quicker teams ahead, with some luck
+    const rest=[];
+    for(let i=0;i<LIVERY.length;i++) if(grid[i]===undefined){
+      const PF=TEAM[LIVERY[i].nm]||TEAM_NEUTRAL;
+      rest.push({i:i, q:PF.pace+PF.grip*0.6+PF.top*0.3+gauss()*0.45});
+    }
+    rest.sort((a,b)=>b.q-a.q).forEach(x=>{ grid[x.i]=slot++; });
     const wx=NET.settings.wx;
     const m={k:"start", grid:grid, roster:humans,
-      laps:parseInt(NET.settings.laps,10)||5, tod:NET.settings.tod, diff:parseFloat(NET.settings.diff)||1,
+      laps:parseInt(NET.settings.laps,10)||5, tod:NET.settings.tod, diff:parseFloat(NET.settings.diff)||1, sc:NET.settings.sc||"1",
       wx:{will: wx==="wet" ? true : (wx==="dry" ? false : Math.random()<0.35),
           at: wx==="wet" ? 0.5 : 1+Math.random()},
       go:3.4+Math.random()*0.6, t0:Date.now()+500};
@@ -8271,7 +8532,7 @@ uniform float shadowFar;
     netApplyStart(m);
   }
   function netApplyStart(m){
-    NET.race={grid:m.grid, roster:m.roster, laps:m.laps, tod:m.tod, diff:m.diff, goHost:m.t0+m.go*1000};
+    NET.race={grid:m.grid, roster:m.roster, laps:m.laps, tod:m.tod, diff:m.diff, sc:(m.sc===undefined?"1":String(m.sc)), goHost:m.t0+m.go*1000};
     NET.roster=m.roster; NET.snap={}; NET.final=null; NET.over=false; NET.finAt=0;
     seasonMode=false;
     startRace();
@@ -8677,6 +8938,7 @@ uniform float shadowFar;
   function startRace(){
     rpStop();
     applyRaceSetup();
+    tyreScale=raceTyreScale();
     $("menu").hidden=true; $("results").hidden=true; $("pause").hidden=true; $("hud").hidden=false;
     $("lapTot").textContent=totalLaps; $("field").textContent=LIVERY.length;
     bestLap=Infinity; finishOrder=[]; resetSectors(performance.now());
@@ -9007,7 +9269,7 @@ uniform float shadowFar;
     {sec:"race", key:"sc", name:"Voiture de s\u00e9curit\u00e9", hint:"Sort quand un aileron tra\u00eene sur la piste et neutralise la course.",
       vals:[["1","Activ\u00e9e"],["0","D\u00e9sactiv\u00e9e"]]},
     {sec:"race", key:"seasonLaps", name:"Tours par manche", hint:"La distance de chaque Grand Prix de la saison.",
-      vals:[["3","3"],["5","5"],["10","10"]]},
+      vals:[["5","5"],["10","10"],["21","21"]]},
 
     {sec:"hud", key:"units", name:"Vitesse", hint:"L\u2019unit\u00e9 du compteur.",
       vals:[["kmh","km/h"],["mph","mph"]]},
