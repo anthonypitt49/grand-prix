@@ -3323,6 +3323,87 @@ uniform float shadowFar;
     return (u+v<=1) ? a+(b-a)*u+(c-a)*v
                     : d+(c-d)*(1-u)+(b-d)*(1-v);
   }
+  // The water a circuit asks for (a harbour, a lake), laid out before the ground
+  // is built. It used to be a flat sheet at one height on rolling ground: hills
+  // came up through it, it hung in the air over the hollows, and buildings stood
+  // in it. Now the ground is dug out under it and built up into a quay around it.
+  let HARBORS=[];
+  // walk the edge of a harbour's rectangle; stops as soon as f says so
+  function harborRim(R, f){
+    const nx=-R.tz, nz=R.tx;
+    const nu=Math.max(2,Math.ceil(R.hw/12)), nv=Math.max(2,Math.ceil(R.hd/12));
+    for(let k=-nu;k<=nu;k++) for(const s of [-1,1]){
+      const u=k/nu*R.hw, v=s*R.hd;
+      if(f(R.x+R.tx*u+nx*v, R.z+R.tz*u+nz*v)) return true;
+    }
+    for(let k=-nv;k<=nv;k++) for(const s of [-1,1]){
+      const u=s*R.hw, v=k/nv*R.hd;
+      if(f(R.x+R.tx*u+nx*v, R.z+R.tz*u+nz*v)) return true;
+    }
+    return false;
+  }
+  function planHarbors(){
+    HARBORS=[];
+    for(const mk of (LOOK.marks||[])){
+      if(mk.kind!=="water") continue;
+      const sv=wrapS(TOT*(mk.at||0)), ix=idxAtS(sv), q=pointAt(sv), nr=norA[ix];
+      const hw=(mk.w||300)/2, hd=(mk.d||200)/2, want=mk.off||0, side0=want>=0?1:-1;
+      const wx=q.x+nr.x*want, wz=q.z+nr.z*want;       // where the circuit asked for it
+      // well clear of the road: the quay and its slope need the room
+      const m=W+APRON+30;
+      const hits=(cx,cz,tx,tz)=>{
+        for(let i=0;i<N;i+=2){
+          const dx=pts[i].x-cx, dz=pts[i].z-cz;
+          if(Math.abs(dx*tx+dz*tz)<hw+m && Math.abs(-dx*tz+dz*tx)<hd+m) return true;
+        }
+        // nor on top of a harbour already laid out: each keeps its own quay
+        const C={x:cx, z:cz, tx:tx, tz:tz, hw:hw, hd:hd};
+        for(const Q of HARBORS){
+          if(harborRim(C, (x,z)=>harborOut(Q,x,z)<40)) return true;
+          if(harborRim(Q, (x,z)=>harborOut(C,x,z)<40)) return true;
+        }
+        return false;
+      };
+      // the free spot nearest to that: on the side asked first, then the other,
+      // and a little along the lap either way, each walked outward until clear
+      let best=null;
+      for(const side of [side0,-side0]) for(const sh of [0,-50,50,-100,100,-160,160]){
+        const s2=wrapS(sv+sh), i2=idxAtS(s2), q2=pointAt(s2), n2=norA[i2], t2=tanA[i2];
+        let off = side===side0 ? Math.abs(want) : hd+m;
+        for(let k=0;k<45;k++, off+=16){
+          const cx=q2.x+n2.x*side*off, cz=q2.z+n2.z*side*off;
+          const d=Math.hypot(cx-wx, cz-wz);
+          if(best && d>=best.d) break;                 // already beaten; no need to go on
+          if(!hits(cx,cz,t2.x,t2.z)){ best={d:d, x:cx, z:cz, tx:t2.x, tz:t2.z, off:side*off}; break; }
+        }
+      }
+      if(!best) continue;
+      const px=best.x, pz=best.z, t={x:best.tx, z:best.tz}, off=best.off;
+      // the water level: a little under the lowest stretch of road nearby
+      let low=Infinity; const R=Math.max(hw,hd)+160;
+      for(let i=0;i<N;i+=2){ const dx=pts[i].x-px, dz=pts[i].z-pz; if(dx*dx+dz*dz<R*R && pts[i].y<low) low=pts[i].y; }
+      const level=(low<Infinity ? low : meanY)-1.6;
+      HARBORS.push({mk:mk, at:mk.at||0, x:px, z:pz, tx:t.x, tz:t.z, hw:hw, hd:hd, level:level, off:off});
+    }
+    // water close to other water is the same water: one level for both, or
+    // the ground between them would have to step from one quay to the other
+    for(let pass=0;pass<2;pass++){
+      for(let a=0;a<HARBORS.length;a++) for(let b=a+1;b<HARBORS.length;b++){
+        const A=HARBORS[a], B=HARBORS[b];
+        if(harborRim(A, (x,z)=>harborOut(B,x,z)<200)) A.level=B.level=Math.min(A.level,B.level);
+      }
+    }
+  }
+  // signed distance from a harbour's edge: below zero on the water
+  function harborOut(H, x, z){
+    const dx=x-H.x, dz=z-H.z;
+    const a=Math.abs(dx*H.tx+dz*H.tz)-H.hw, b=Math.abs(-dx*H.tz+dz*H.tx)-H.hd;
+    return Math.hypot(Math.max(a,0),Math.max(b,0))+Math.min(Math.max(a,b),0);
+  }
+  function inHarbor(x, z, r){
+    for(const H of HARBORS) if(harborOut(H,x,z)<(r||0)+4) return true;
+    return false;
+  }
   function groundY(x,z){
     const nt=nearestTrack(x,z), q=pts[nt.i], nr=norA[nt.i];
     const lat=(x-q.x)*nr.x+(z-q.z)*nr.z;
@@ -3342,6 +3423,22 @@ uniform float shadowFar;
     const base=here+(smoothY(x,z)-here)*u;
     let h=base+(meanY-base)*t2;
     h += (2.6*Math.sin(x*0.0117)*Math.cos(z*0.0101) + 1.4*Math.sin(z*0.0223))*t1;
+    // a harbour: the bed under the water, a steep bank, a quay just above the
+    // water, then the ground rising back to what it was. The ground the road
+    // sits on is never touched.
+    // only the nearest harbour shapes the ground, so one never undoes another
+    let H=null, out=70;
+    for(const Q of HARBORS){ const o=harborOut(Q,x,z); if(o<out){ out=o; H=Q; } }
+    if(H){
+      const bed=H.level-3.2, quay=H.level+1.0;
+      let want;
+      if(out<=-6) want=bed;
+      else if(out<=0) want=bed+(quay-bed)*smoothstep(-6,0,out);
+      else want=quay+(h-quay)*smoothstep(8,62,out);
+      // full effect away from the road, none on the shelf the road sits on
+      const reach=smoothstep(hold+6, hold+24, nt.d);
+      h += (want-h)*reach;
+    }
     return h-0.30;
   }
   {
@@ -3351,6 +3448,7 @@ uniform float shadowFar;
     const MG=900, CELL=7.5;
     mnx-=MG; mxx+=MG; mnz-=MG; mxz+=MG;
     buildSmoothY(mnx, mxx, mnz, mxz);
+    planHarbors();
     const gx=Math.ceil((mxx-mnx)/CELL), gz=Math.ceil((mxz-mnz)/CELL);
     const pos=[], uv=[], idx=[];
     const hgt=new Float32Array((gx+1)*(gz+1));
@@ -3520,7 +3618,7 @@ uniform float shadowFar;
     // On the pit side of the start straight the lane and its wall are road as
     // much as the circuit is: a car drives down there at eighty an hour.
     const need = W+APRON+r + ((lat<0 && pw>1.0) ? pw+0.9 : 0);
-    return nt.d > need;
+    return nt.d > need && !inHarbor(x, z, r);
   }
   // marking a whole subtree in one go
   function shade(o, cast, recv){
@@ -3995,7 +4093,7 @@ uniform float shadowFar;
     }
     const clearOf=(x,z,r)=>{
       for(const b of STRUCTS) if(Math.hypot(b.x-x,b.z-z) < b.r+r) return false;
-      return true;
+      return !inHarbor(x, z, r);
     };
 
     // ---- farms and hamlets in the middle distance ------------------------
@@ -4129,18 +4227,14 @@ uniform float shadowFar;
       const sv=wrapS(TOT*(mk.at||0)), ix=idxAtS(sv), q=pointAt(sv);
       const nr=norA[ix], t=tanA[ix], ang=-Math.atan2(t.z,t.x);
       let px=q.x+nr.x*(mk.off||0), pz=q.z+nr.z*(mk.off||0);
+      let HB=null;
       if(mk.kind==="water" || mk.kind==="boats"){
-        // start where the circuit asked and walk outward until nothing of the
-        // lap is underneath, so the harbour is as close as it can honestly be
-        const dir=(mk.off||0)>=0?1:-1, hw=(mk.w||300)/2, hd=(mk.d||200)/2;
-        let off=mk.off||0, ok=false;
-        for(let k=0;k<40;k++){
-          px=q.x+nr.x*off; pz=q.z+nr.z*off;
-          if(!rectHitsTrack(px,pz,t.x,t.z,hw,hd)){ ok=true; break; }
-          off+=dir*18;
-        }
-        if(!ok) continue;                       // nowhere for it here; leave it out
-        mk._off=off;
+        // the harbour planned before the ground was built (boats go on the
+        // nearest one); none planned here means no room for it
+        let best=Infinity;
+        for(const H of HARBORS){ const d=Math.abs(H.at-(mk.at||0)); if(d<best){ best=d; HB=H; } }
+        if(!HB || best>0.02) continue;
+        px=HB.x; pz=HB.z; mk._off=HB.off;
       }
 
       if(mk.kind==="tunnel"){
@@ -4174,13 +4268,14 @@ uniform float shadowFar;
       }
 
       else if(mk.kind==="water"){
-        const wg=new THREE.PlaneGeometry(mk.w||300, mk.d||200);
+        // a little larger than the basin, so its edge tucks under the quay
+        const wg=new THREE.PlaneGeometry(HB.hw*2+6, HB.hd*2+6);
         wg.rotateX(-Math.PI/2);                 // flat, width along local +X
         const g=new THREE.Mesh(wg,
           new THREE.MeshStandardMaterial({color:0x1d4e6b, roughness:.14, metalness:.30,
             envMapIntensity:1.1}));
-        g.rotation.y=ang;                       // +X now runs along the track
-        g.position.set(px, groundY(px,pz)+(mk.lift||0.5), pz);
+        g.rotation.y=-Math.atan2(HB.tz,HB.tx);   // +X now runs along the track
+        g.position.set(px, HB.level, pz);
         g.userData.shaded=1; g.userData.deco=1; g.receiveShadow=false; scene.add(g);
         STRUCTS.push({x:px, z:pz, r:Math.max(mk.w||300, mk.d||200)*0.42});
       }
@@ -4207,9 +4302,11 @@ uniform float shadowFar;
             const mast=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.16,L*0.9,5), deckM);
             mast.position.set(L*0.05, 2.9+L*0.45, 0); gb.add(mast);
           }
-          const u=(br()*2-1)*(mk.w||260)*0.34, v=(br()*2-1)*(mk.d||170)*0.34;
-          gb.position.set(px + t.x*u + nr.x*v, groundY(px,pz)+(mk.lift||0.5)+0.35, pz + t.z*u + nr.z*v);
-          gb.rotation.y=ang + (br()<0.5?0:Math.PI) + (br()*2-1)*0.14;
+          // well inside the basin, whatever size the circuit asked for
+          const u=(br()*2-1)*Math.max(0,HB.hw-L-8), v=(br()*2-1)*Math.max(0,HB.hd-L*0.5-8);
+          const nxh=-HB.tz, nzh=HB.tx;
+          gb.position.set(px + HB.tx*u + nxh*v, HB.level+0.35, pz + HB.tz*u + nzh*v);
+          gb.rotation.y=-Math.atan2(HB.tz,HB.tx) + (br()<0.5?0:Math.PI) + (br()*2-1)*0.14;
           shade(gb,1,0); gb.traverse(m=>{m.userData.deco=1;}); scene.add(gb);
         }
       }
@@ -4358,9 +4455,18 @@ uniform float shadowFar;
     const HM=new THREE.Matrix4(), HQ=new THREE.Quaternion(), HP=new THREE.Vector3(), HS=new THREE.Vector3();
     const HU=new THREE.Vector3(0,1,0);
     for(let k=0;k<HN;k++){
-      const a=(k/HN)*6.2832+hr()*0.09, d=760+hr()*560;
+      const a=(k/HN)*6.2832+hr()*0.09;
+      let d=760+hr()*560;
       const w=150+hr()*280, h=38+hr()*80;
       HQ.setFromAxisAngle(HU,hr()*6.283);
+      // where its slope meets the ground; a harbour keeps that much clear, and
+      // more, or the hill's flank stands in the water
+      const foot=w*(1-11.4/h)+40;
+      for(let g=0; g<30; g++){
+        const hx=cx+Math.cos(a)*d, hz=cz+Math.sin(a)*d;
+        if(!HARBORS.some(H=>harborOut(H,hx,hz)<foot)) break;
+        d+=40;
+      }
       HP.set(cx+Math.cos(a)*d, meanY-3.4+h*0.5-8, cz+Math.sin(a)*d);
       HS.set(w,h,w);
       hm.setMatrixAt(k, HM.compose(HP,HQ,HS));
@@ -8705,7 +8811,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="2.5";                              // shown to players; 2.x pages all play together
+  const NET_BUILD="2.6";                              // shown to players; 2.x pages all play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
