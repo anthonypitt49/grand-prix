@@ -6270,7 +6270,7 @@ uniform float shadowFar;
       const pa = a.remote ? 0 : (b.remote ? 2 : 1), pb = b.remote ? 0 : (a.remote ? 2 : 1);
       a.x-=nx*ov*pa; a.z-=nz*ov*pa; b.x+=nx*ov*pb; b.z+=nz*ov*pb;
       const vn=(b.vx-a.vx)*nx+(b.vz-a.vz)*nz;
-      if(vn<-1.5){ const ht=performance.now(); a.hitAt=ht; b.hitAt=ht; }
+      if(vn<-1.5){ const ht=performance.now(); a.hitAt=ht; b.hitAt=ht; a.carHitAt=ht; b.carHitAt=ht; }
       if(vn<0){
         const jj=-(1+REST)*vn/2;
         a.vx-=jj*nx; a.vz-=jj*nz; b.vx+=jj*nx; b.vz+=jj*nz;
@@ -6484,7 +6484,7 @@ uniform float shadowFar;
     const B=LRN.B, scNow=safety.active;
     for(const c of cars){
       const human = !!(c.player || c.human);
-      if(!human){ if(LRN.on) learnWatchAI(c, now); continue; }
+      if(!human){ if(LRN.on || HUM.on) learnWatchAI(c, now); continue; }
       let o=c.lw;
       if(!o){
         o=c.lw={lap:c.lap, t0:now, v:new Float32Array(B), la:new Float32Array(B), g:new Float32Array(B),
@@ -6493,9 +6493,10 @@ uniform float shadowFar;
       }
       // a lap is over: learn from it if it was clean, then start the next
       if(c.lap!==o.lap){
+        if(c.lap===o.lap+1) humLapDone(c, o, o.lap);
         if(c.lap===o.lap+1 && o.lap>=1){
           M.laps++;
-          if(!o.dirty) learnLap(o, (now-o.t0)/1000);
+          if(!o.dirty) learnLap(o, (now-o.t0)/1000, c);
           else learnSave();
         }
         o.lap=c.lap; o.t0=now; o.seen.fill(0); o.assist.fill(0); o.dirty=false;
@@ -6506,12 +6507,13 @@ uniform float shadowFar;
       if(c.netDone || c.inPitLane || c.onPit || c.service>0 || scNow || weather.wet>0.12 || (c.damage||0)>0.3
          || Math.abs(c.lat)>W+KERB*0.6 || (c.hitAt||0)>now-500 || Math.abs(c.vf)<3) o.dirty=true;
       const b=Math.min(B-1, Math.max(0, Math.floor(c.s/LBIN)));
+      humObserve(c, o, idxAtS(c.s), b, now);
       o.seen[b]=1; o.v[b]=Math.abs(c.vf); o.la[b]=c.lat;
       o.g[b]=c.remote ? 1 : (c.grip||GRIP_ON)/GRIP_ON;
       if(c.draft || c.drs || (c.dirty||0)>0.2) o.assist[b]=1;
       // the strategy: every stop and the rubber it put on
       if(c.service>0) o.inSvc=true;
-      else if(o.inSvc){ o.inSvc=false; o.plan.push({c:c.wets?-1:(c.comp||0), at:+((c.lap+c.s/TOT)/totalLaps).toFixed(3)}); }
+      else if(o.inSvc){ o.inSvc=false; o.hOut=true; o.hOutLaps=0; o.plan.push({c:c.wets?-1:(c.comp||0), at:+((c.lap+c.s/TOT)/totalLaps).toFixed(3)}); }
       const i=idxAtS(c.s);
       // overtakes: this driver's place against each other car swaps and stays swapped
       if(!scNow) for(const O of cars){
@@ -6526,6 +6528,7 @@ uniform float shadowFar;
         }
         if(r.at && now-r.at>2000){
           const p=M.pass[r.zone]||(M.pass[r.zone]=[0,0]); p[0]++; p[1]+=r.side; r.at=0;
+          if(HUM.mem){ const q=HUM.mem.pass[r.zone]||(HUM.mem.pass[r.zone]=[0,0]); q[0]++; q[1]+=r.side; }
         }
       }
       // defence: someone close behind as this driver reaches a braking zone
@@ -6541,17 +6544,19 @@ uniform float shadowFar;
           if(threat){
             o.defKey=key;
             const d=M.def[z]||(M.def[z]=[0,0]); d[0]++;
-            if(c.lat*(LRN.zoneIn[z]||1)>W*0.2) d[1]++;
+            const hd=HUM.mem ? (HUM.mem.def[z]||(HUM.mem.def[z]=[0,0])) : [0,0]; hd[0]++;
+            if(c.lat*(LRN.zoneIn[z]||1)>W*0.2){ d[1]++; hd[1]++; }
           }
         }
       }
     }
   }
   // a clean lap by a human: its speeds and its line go into the memory
-  function learnLap(o, lapTime){
+  function learnLap(o, lapTime, c){
     const M=LRN.mem, B=LRN.B;
     let seen=0; for(let b=0;b<B;b++) seen+=o.seen[b];
     if(seen<B*0.92 || lapTime<5){ learnSave(); return; }
+    if(c) humLap(c, o, lapTime);
     M.clean++;
     M.best.push(+lapTime.toFixed(3)); M.best.sort((a,b)=>a-b); M.best=M.best.slice(0,5);
     // the nearer a lap is to the best, the more its line counts
@@ -6595,6 +6600,7 @@ uniform float shadowFar;
         const lt=LRN.spd[i]*Math.sqrt(gm*(c.aiPace||1)/LRN.pace0);
         if(lt>tv) tv+=(lt-tv)*LRN.conf[i];
       }
+      if(HUM.on && HUM.shape) tv*=HUM.shape[i];
       prof[i]=Math.min(tv, top);
     }
     for(let pass=0;pass<2;pass++) for(let i=N-1;i>=0;i--){ const j=(i+1)%N; prof[i]=Math.min(prof[i], Math.sqrt(prof[j]*prof[j]+2*AI_BRAKE*seg[i])); }
@@ -6635,6 +6641,7 @@ uniform float shadowFar;
     const LV=aiLevel(diff);
     LRN.on = !!LV.extreme && !!LRN.mem && (!NET.race || NET.role==="host");
     LRN.adapt=1; LRN.pace0=LV.pace;
+    try{ humPrepare(); }catch(e){ HUM.on=false; }
     if(!LRN.on) return;
     const M=LRN.mem, B=LRN.B;
     // for every sample of the lap: the line the humans drove, the speed they
@@ -6698,6 +6705,7 @@ uniform float shadowFar;
   function learnRaceEnd(now){
     const M=LRN.mem; if(!M) return;
     learnObserve(now);
+    try{ humRaceEnd(); }catch(e){}
     if(!LRN.raceWet){
       for(const c of cars){
         if(!(c.player||c.human) || !c.lw || !c.finished) continue;
@@ -6721,8 +6729,265 @@ uniform float shadowFar;
     M.races=(M.races||0)+1;
     learnSave(true);
   }
-  // the line an AI car aims for: the humans' where the memory is sure of it (Extreme)
-  const aiLineAt=i=> LRN.on ? LRN.line[i] : laneA[i];
+  /* ------------------------------------------------------------------------
+     The gentler levels learn too, to drive like a human rather than like a
+     program. Its own store, never shown and never cleared from the menus:
+       - the humans' typical speed and line at every point of the lap, and how
+         much both vary from lap to lap
+       - how often they make a mistake and in which corners (off the track, or
+         a big lift where nothing was in the way)
+       - where they overtake and how they defend, like the Extreme memory
+       - their reaction at the start, how cautious their first lap and their
+         out-laps are, the strategies they ran
+       - the level of each person separately, so each gets rivals to their measure
+     ------------------------------------------------------------------------ */
+  const HUM_KEY="trs_h1_";
+  const HUM={mem:null, on:false, savedAt:0, shape:null, line:null, latSD:0.4, spdSD:0.004, lapCV:0.006,
+    errRate:0, errW:null, errOff:null, errKnown:false, r0:1, ro:1, react:0, plans:null, lk:"n", groups:[]};
+  function humBlank(){
+    const B=LRN.B, z=()=>new Array(B).fill(0);
+    return {v:1, TOT:Math.round(TOT), hv:z(), hvv:z(), hn:z(), hl:z(), hll:z(),
+      seen:0, err:{}, pass:{}, def:{}, react:{n:0, m:0}, r0:{n:0, m:1}, ro:{n:0, m:1},
+      plans:{}, lv:{}, cal:{}};
+  }
+  function humLoad(){
+    let H=null;
+    try{ H=JSON.parse(localStorage.getItem(HUM_KEY+TRACK.id)||"null"); }catch(e){}
+    const ok = H && H.v===1 && Math.abs((H.TOT||0)-TOT)<=TOT*0.01 && Array.isArray(H.hv) && H.hv.length===LRN.B;
+    HUM.mem = ok ? H : humBlank();
+  }
+  function humSave(force){
+    if(!HUM.mem) return;
+    const now=Date.now();
+    if(!force && now-HUM.savedAt<1500) return;
+    HUM.savedAt=now;
+    const H=HUM.mem, r=(a,k)=>a.map(x=>Math.round(x*k)/k);
+    try{ localStorage.setItem(HUM_KEY+TRACK.id, JSON.stringify(Object.assign({}, H,
+      {hv:r(H.hv,100), hvv:r(H.hvv,10), hl:r(H.hl,100), hll:r(H.hll,100)}))); }catch(e){}
+  }
+  // whose level a lap belongs to: this computer's driver, or a named friend online
+  const humWho=c=> c.player ? "_local" : (c.human ? "n:"+netClean(c.human.name) : null);
+  // live, every frame, for each human car: mistakes, the start, first lap and out-laps
+  function humObserve(c, o, i, b, now){
+    const H=HUM.mem; if(!H) return;
+    const scNow=safety.active, inPit=c.inPitLane||c.onPit||c.service>0;
+    if(scNow) o.hSC=true;
+    if(inPit) o.hPit=true;
+    const g=c.remote ? 1 : Math.max(0.4,(c.grip||GRIP_ON)/GRIP_ON), vn=Math.abs(c.vf)/Math.sqrt(g);
+    // the reaction when the lights go out (only this computer's own driver has inputs)
+    if(c.player && !o.hReact && state==="racing" && (c.thrIn||0)>0.5){
+      o.hReact=true;
+      const t=(now-raceStart)/1000;
+      if(t>0.03 && t<1.5){ H.react.m=(H.react.m*H.react.n+t)/(H.react.n+1); H.react.n=Math.min(30,H.react.n+1); }
+    }
+    if(inPit) o.hPitOut=c.prog;
+    if(scNow || inPit || c.lap>=totalLaps || c.finished || c.netDone) { o.hOff=false; o.hSlowT=0; return; }
+    const z=learnZoneAt(i);
+    // A mistake: off the track (into the wall or not), or a big lift with nothing
+    // in the way. Not on the way into the pits or out of them, and not when
+    // another car caused it.
+    const quiet = !c.wantPit && c.prog-(o.hPitOut||-1e9)>400 && (c.carHitAt||0)<now-1500 && Math.abs(signedTo(c.s, ENTRY_S))>60;
+    const off=Math.abs(c.lat)>W+KERB*0.5;
+    if(off && !o.hOff && c.lap>=0 && quiet){ const e=H.err[z]||(H.err[z]=[0,0]); e[0]++; }
+    o.hOff=off;
+    const typ=H.hn[b]>=3 ? H.hv[b] : 0;
+    if(typ>0 && c.lap>=1 && quiet){
+      let clear=true;
+      for(const O of cars){ if(O!==c){ const ds=signedTo(c.s,O.s); if(ds>-CAR_L && ds<40 && Math.abs(O.lat-c.lat)<CAR_W*2){ clear=false; break; } } }
+      o.hSlowT = (clear && vn<typ*0.72) ? (o.hSlowT||0)+Math.min(0.05, Math.max(0, (now-(o.hT||now))/1000)) : 0;
+      if(o.hSlowT>0.4 && !o.hSlow){ o.hSlow=true; const e=H.err[z]||(H.err[z]=[0,0]); e[1]++; }
+      if(vn>typ*0.85) o.hSlow=false;
+    } else o.hSlowT=0;
+    o.hT=now;
+    // how cautious the first lap and the out-laps are, where the grip sets the speed
+    if(typ>0 && aiVA[i]*Math.sqrt(0.9)<BASE*0.97){
+      if(c.lap===0 && c.s>300){ o.h0s=(o.h0s||0)+vn/typ; o.h0n=(o.h0n||0)+1; }
+      if(o.hOut){ o.hOs=(o.hOs||0)+vn/typ; o.hOn=(o.hOn||0)+1; }
+    }
+  }
+  // a lap is over (clean or not): the error rate, the first lap, the out-lap
+  function humLapDone(c, o, lapIdx){
+    const H=HUM.mem; if(!H) return;
+    if(lapIdx>=1 && !o.hSC && !o.hPit) H.seen++;
+    const ema=(rec, x)=>{ rec.m=(rec.m*rec.n+x)/(rec.n+1); rec.n=Math.min(20,rec.n+1); };
+    if(lapIdx===0 && (o.h0n||0)>40) ema(H.r0, clamp(o.h0s/o.h0n,0.8,1.05));
+    // the out-lap is the first full lap after a stop
+    if(o.hOut){
+      if((o.hOutLaps||0)>=1){ if((o.hOn||0)>40) ema(H.ro, clamp(o.hOs/o.hOn,0.8,1.05)); o.hOut=false; }
+      else o.hOutLaps=(o.hOutLaps||0)+1;
+    }
+    o.h0s=0; o.h0n=0; o.hOs=0; o.hOn=0; o.hSC=false; o.hPit=false;
+    humSave();
+  }
+  // a clean lap: typical speed and line, their spread, and the driver's own level
+  function humLap(c, o, lapTime){
+    const H=HUM.mem, B=LRN.B; if(!H) return;
+    for(let b=0;b<B;b++){
+      if(!o.seen[b]) continue;
+      const n=H.hn[b]||0, a=Math.max(0.12, 1/(n+1));
+      const la=o.la[b];
+      H.hl[b]+=(la-H.hl[b])*a; H.hll[b]+=(la*la-H.hll[b])*a;
+      if(!o.assist[b]){
+        const vn=o.v[b]/Math.sqrt(Math.max(0.4,o.g[b]));
+        if(n===0){ H.hv[b]=vn; H.hvv[b]=vn*vn; }
+        else { H.hv[b]+=(vn-H.hv[b])*a; H.hvv[b]+=(vn*vn-H.hvv[b])*a; }
+      }
+      H.hn[b]=Math.min(999, n+1);
+    }
+    const who=humWho(c);
+    if(who){
+      const L=H.lv[who]||(H.lv[who]={best:[], rec:[]});
+      L.best.push(+lapTime.toFixed(3)); L.best.sort((x,y)=>x-y); L.best=L.best.slice(0,5);
+      L.rec.push(+lapTime.toFixed(3)); if(L.rec.length>12) L.rec.shift();
+    }
+    humSave();
+  }
+  function humLevelOf(L){
+    if(!L || !L.best || L.best.length<2) return 0;
+    return L.best.length>=3 ? (L.best[0]+L.best[1]+L.best[2])/3 : (L.best[0]+L.best[1])/2*1.004;
+  }
+  // a car's driving scaled to a level: under 1 it drives further inside its grip
+  // and lifts earlier, over 1 it drives nearer the limit, then on a better car
+  function humScale(c, a){
+    const p={aiPace:c.aiPace||0.9, gripMul:c.gripMul||1, maxSpeed:c.maxSpeed||BASE, accel:c.accel||30,
+             aiTop:c.aiTop||1, roll:c.roll||2.2, dragC:c.dragC||0.11};
+    if(a<1){ p.aiPace*=a*a; p.aiTop=Math.min(1,p.aiTop)*(1+0.35*(a-1)); }
+    else {
+      const pa=Math.min(a*a, Math.max(1, 0.995/p.aiPace));
+      p.aiPace*=pa; p.gripMul*=a*a/pa; p.accel*=a; p.aiTop=Math.min(1, p.aiTop*(1+0.35*(a-1)));
+    }
+    return p;
+  }
+  function humMistakes(){
+    // as many as the humans make per lap, in the corners they make them
+    const lam=HUM.errRate*({f:1.25, n:1.0, d:0.8}[HUM.lk]||1);
+    let k=0, p=Math.exp(-lam), s=p, u=Math.random();
+    while(u>s && k<2){ k++; p*=lam/k; s+=p; }
+    const out=[];
+    for(let q=0;q<k;q++){
+      let r=Math.random()*HUM.errW.total, z=0;
+      for(; z<HUM.errW.w.length-1; z++){ r-=HUM.errW.w[z]; if(r<=0) break; }
+      out.push({z:z, off: Math.random()<HUM.errOff[z]});
+    }
+    return out;
+  }
+  // At the start of a race on a gentler level: what the AI takes from the humans.
+  function humPrepare(){
+    const LV=aiLevel(diff);
+    HUM.on = !LV.extreme && !!HUM.mem && (!NET.race || NET.role==="host");
+    HUM.groups=[];
+    if(!HUM.on) return;
+    const H=HUM.mem, B=LRN.B;
+    HUM.lk = diff<0.97 ? "f" : (diff<1.02 ? "n" : "d");
+    // the humans' line, where it has been seen enough, with its spread
+    HUM.line=new Float32Array(N); HUM.shape=new Float32Array(N).fill(1);
+    const sds=[], cvs=[], r=new Float32Array(N), grip=new Uint8Array(N), cf=new Float32Array(N);
+    let rs=0, rw=0;
+    for(let i=0;i<N;i++){
+      const b=Math.min(B-1, Math.floor(cum[i]/LBIN)), n=H.hn[b]||0;
+      const conf=clamp((n-2)/4,0,1);
+      HUM.line[i]=laneA[i]+(clamp(H.hl[b],-W*0.82,W*0.82)-laneA[i])*conf;
+      if(n>=4){ sds.push(Math.sqrt(Math.max(0,H.hll[b]-H.hl[b]*H.hl[b]))); }
+      grip[i]= aiVA[i]*Math.sqrt(LV.pace*LV.grip)<BASE*0.97 ? 1 : 0;
+      cf[i]=conf;
+      if(n>=3 && H.hv[b]>0 && grip[i]){
+        r[i]=H.hv[b]/aiVA[i];
+        const w=seg[i]/Math.max(5,aiVA[i]); rs+=r[i]*w; rw+=w;
+        cvs.push(Math.sqrt(Math.max(0,H.hvv[b]-H.hv[b]*H.hv[b]))/H.hv[b]);
+      } else r[i]=0;
+    }
+    // where they are slower or quicker than their own average through the
+    // corners: brake earlier here, carry more there
+    if(rw>0){
+      const mean=rs/rw;
+      for(let i=0;i<N;i++){
+        if(!grip[i] || r[i]<=0) continue;
+        let a=0, n=0; for(let k=-2;k<=2;k++){ const x=r[(i+k+N)%N]; if(x>0){ a+=x; n++; } }
+        HUM.shape[i]=1+(clamp(Math.pow((a/n)/mean, 0.9), 0.88, 1.08)-1)*cf[i];
+      }
+    }
+    const med=a=>{ if(!a.length) return 0; const s=a.slice().sort((x,y)=>x-y); return s[s.length>>1]; };
+    // traffic is in these spreads too, so only part of them is taken
+    HUM.latSD=clamp((med(sds)||0.4)*0.7, 0.15, 1.0);
+    HUM.spdSD=clamp((med(cvs)||0.007)*0.35, 0.001, 0.012);
+    HUM.spdKnown=cvs.length>=50;
+    // lap to lap: the spread of each person's recent clean laps
+    const cv=[];
+    for(const k in H.lv){ const rec=(H.lv[k].rec||[]); if(rec.length>=4){ const m=rec.reduce((x,y)=>x+y,0)/rec.length; cv.push(Math.sqrt(rec.reduce((x,y)=>x+(y-m)*(y-m),0)/rec.length)/m); } }
+    HUM.lapCV=clamp(med(cv)||0.006, 0.002, 0.03);
+    // mistakes
+    const zn=LRN.zoneIn.length||1, w=new Array(zn).fill(0.15), off=new Array(zn).fill(0.5);
+    let errs=0;
+    for(const z in H.err){ const e=H.err[z], zi=+z; if(zi<zn){ w[zi]+=e[0]+e[1]; off[zi]=(e[0]+0.5)/(e[0]+e[1]+1); errs+=e[0]+e[1]; } }
+    HUM.errKnown = H.seen>=5;
+    HUM.errRate = HUM.errKnown ? clamp(errs/H.seen, 0, 1.5) : 0;
+    HUM.errW={w:w, total:w.reduce((x,y)=>x+y,0)}; HUM.errOff=off;
+    HUM.r0 = H.r0.n>=2 ? Math.sqrt(clamp(H.r0.m,0.85,1)) : 1;
+    HUM.ro = H.ro.n>=2 ? Math.sqrt(clamp(H.ro.m,0.85,1)) : 1;
+    for(const c of cars){
+      if(c.player || c.human || c.remote) continue;
+      c.hw=0; c.hwKick=0; c.hm=null; c.hmLap=-99; c.lapK=1; c.lapKLap=-99; c.hOut=false; c.hStops=c.stops||0; c.hOutUntil=0;
+      // the start: a human's reaction, slower on the gentler levels
+      if(H.react.n>=2) c.react=clamp(H.react.m*({f:1.25, n:1.12, d:1.0}[HUM.lk])+gauss()*0.05, 0.05, 0.9);
+    }
+    // the strategies the humans ran over this distance, for about a third of the field
+    const pl=H.plans[String(totalLaps)];
+    if(Array.isArray(pl) && pl.length){
+      for(const c of cars){
+        if(c.player || c.human || c.remote || Math.random()>0.35) continue;
+        const pick=pl[Math.floor(Math.random()*pl.length)];
+        if(!pick || pick.length<2) continue;
+        c.plan=pick.map(p=>({c:p.c, at:p.at})); c.planI=1; c.planJit=(Math.random()-0.5)*0.6;
+        if(c.plan[0].c>=0) c.comp=c.plan[0].c;
+      }
+    }
+    // The pace: every person who races gets part of the field set against their
+    // own level -- Difficile just behind them, Normal clearly, Facile well back.
+    // Without enough of their laps yet, the level keeps its usual pace.
+    const humans=cars.filter(c=>c.player||c.human);
+    const ais=cars.filter(c=>!(c.player||c.human||c.remote)).map(c=>({c:c, e:aiLapEstimate(c,1)})).sort((x,y)=>x.e-y.e);
+    if(!humans.length || !ais.length) return;
+    const groups=humans.map(h=>({who:humWho(h), cars:[]}));
+    ais.forEach((x,k)=>groups[k%groups.length].cars.push(x.c));
+    const lvOff={f:1.10, n:1.05, d:1.015}[HUM.lk];
+    const cal=(H.cal[HUM.lk]||{f:1.11, n:1.10, d:1.07}[HUM.lk]);
+    for(const G of groups){
+      const lvl=humLevelOf(H.lv[G.who]);
+      G.a=1;
+      if(lvl && G.cars.length){
+        const goal=lvl*lvOff, top=G.cars[0];
+        const est=a=>aiLapEstimate(humScale(top,a),1)*cal;
+        let lo=0.80, hi=1.12;
+        if(est(hi)>goal) G.a=hi;
+        else if(est(lo)<goal) G.a=lo;
+        else { for(let it=0;it<14;it++){ const mid=(lo+hi)/2; if(est(mid)<=goal) hi=mid; else lo=mid; } G.a=(lo+hi)/2; }
+        for(const c of G.cars){ const p=humScale(c,G.a); c.aiPace=p.aiPace; c.gripMul=p.gripMul; c.grip=GRIP_ON*p.gripMul; c.accel=p.accel; c.maxSpeed=p.maxSpeed; c.aiTop=p.aiTop; }
+      }
+      HUM.groups.push({who:G.who, a:+G.a.toFixed(4), n:G.cars.length});
+    }
+  }
+  function humRaceEnd(){
+    const H=HUM.mem; if(!H) return;
+    if(!LRN.raceWet){
+      for(const c of cars){
+        if(!(c.player||c.human) || !c.lw || !c.finished || !c.lw.plan) continue;
+        const key=String(totalLaps), list=H.plans[key]||(H.plans[key]=[]);
+        list.push(c.lw.plan); if(list.length>6) list.shift();
+      }
+    }
+    if(HUM.on){
+      const r=[];
+      for(const c of cars){ if(c.player||c.human||!c.la||!c.la.best) continue; r.push(c.la.best/aiLapEstimate(c,1)); }
+      r.sort((a,b)=>a-b);
+      if(r.length){
+        const m=r[Math.min(r.length-1,1)], cur=H.cal[HUM.lk]||{f:1.11, n:1.10, d:1.07}[HUM.lk];
+        H.cal[HUM.lk]=clamp(cur+clamp((m-cur)*0.6,-0.03,0.03), 0.95, 1.2);
+      }
+    }
+    humSave(true);
+  }
+  // the line an AI car aims for: the humans' where the memory is sure of it
+  const aiLineAt=i=> LRN.on ? LRN.line[i] : (HUM.on ? HUM.line[i] : laneA[i]);
 
   // ---- its page in Reglages ----
   function learnFmt(t){ if(!(t>0)) return "—"; const m=Math.floor(t/60), s=t-m*60; return m ? m+":"+(s<10?"0":"")+s.toFixed(2) : s.toFixed(2)+" s"; }
@@ -6761,6 +7026,7 @@ uniform float shadowFar;
   }
   function learnPanelRefresh(){ const b=$("aiMemBox"); if(b) b.innerHTML=learnPanelHTML(); }
   learnLoad();
+  humLoad();
 
   /* ============================== AI ============================== */
   const angOf=v=>Math.atan2(v.z,v.x);
@@ -6830,7 +7096,18 @@ uniform float shadowFar;
         // Extreme: how the humans defend this corner decides where to try, and whether to
         let hd=null;
         if(LRN.on && (T.player||T.human)){ const dz=LRN.mem.def[LRN.nextZone[i]]; if(dz && dz[0]>=2) hd=dz[1]/dz[0]; }
-        const stuckFor = hd!==null && hd<=0.3 ? 1.0 : 2.5+7*(1-PF.attack);
+        let stuckFor = hd!==null && hd<=0.3 ? 1.0 : 2.5+7*(1-PF.attack);
+        // gentler levels: try it where the humans try it
+        let hSide=0;
+        if(HUM.on && !c.player){
+          const HP=HUM.mem.pass, z=LRN.nextZone[i], zp=HP[z];
+          let tot=0; for(const k in HP) tot+=HP[k][0];
+          if(tot>=4){
+            const share=(zp?zp[0]:0)/tot, zn=Math.max(1,LRN.zoneIn.length);
+            if(share>=1.5/zn) stuckFor=1.2; else if(share===0) stuckFor*=1.6;
+          }
+          if(zp && zp[0]>=2) hSide = zp[1]*2>=zp[0] ? inside : -inside;
+        }
         const want = lapT || going || adv>0.004 || R.close>2.2 || (late && R.stuck>stuckFor);
         if(want && gapT<1.6 && R.cool<=0){
           R.mode="attack";
@@ -6838,6 +7115,7 @@ uniform float shadowFar;
             const roomIn=W*0.80-inside*T.lat, roomOut=W*0.80+inside*T.lat;
             if(lapT) R.side = roomIn>=roomOut ? inside : -inside;
             else if(hd!==null && hd>=0.6 && roomOut>=CAR_W*1.5 && brk>v*1.2) R.side=-inside;
+            else if(hSide===-inside && roomOut>=CAR_W*1.5 && brk>v*1.2) R.side=-inside;
             else if(roomIn>=CAR_W*1.5) R.side=inside;
             else if(roomOut>=CAR_W*1.5 && brk>v*1.6) R.side=-inside;
             else R.side=0;
@@ -6865,7 +7143,14 @@ uniform float shadowFar;
       const known = !!hp && hp[0]>=2;
       const wLo = known ? v*0.6 : v*0.8, wHi = known ? v*2.6 : v*2.0, rate = known ? (PF.defend+0.6)*6 : PF.defend*3;
       if(threat && R.defLane===null && brk<wHi && brk>wLo && Math.random()<rate*dt){
-        const cover = !known || hp[1]*2>=hp[0] ? inside : -inside;
+        let cover = !known || hp[1]*2>=hp[0] ? inside : -inside;
+        // gentler levels: cover the side the humans cover, as often as they do
+        if(HUM.on && !LRN.on){
+          const HD=HUM.mem.def, zd=HD[LRN.nextZone[i]];
+          let n=0, k=0; for(const q in HD){ n+=HD[q][0]; k+=HD[q][1]; }
+          const pIn = zd && zd[0]>=3 ? zd[1]/zd[0] : (n>=6 ? k/n : 0.7);
+          cover = Math.random()<pIn ? inside : -inside;
+        }
         R.defLane = cover===inside ? inside*W*0.30 : cover*W*0.35; R.defEnd=c.prog+brk+70;
       }
     }
@@ -6881,7 +7166,7 @@ uniform float shadowFar;
   function pickLane(c, R){
     const aim=idxAtS(c.s + CAR_L*2.2 + Math.abs(c.vf)*0.32);
     const planned = R && R.lane!==null;
-    const base = planned ? R.lane : aiLineAt(aim)+c.aiOff;
+    const base = planned ? R.lane : aiLineAt(aim)+c.aiOff+(HUM.on && !c.player ? (c.hw||0)+(c.hwKick||0) : 0);
     const hold = planned ? 2.2 : 1.0;
     let best=base, bestCost=Infinity;
     for(let q=-1;q<LANE_CAND.length;q++){
@@ -6924,6 +7209,18 @@ uniform float shadowFar;
         if(lt>target) target+=(lt-target)*LRN.conf[ahead];
       }
     }
+    if(HUM.on && !c.player){
+      // where the humans brake earlier or carry more speed than their own average
+      target*=HUM.shape[ahead];
+      // lap to lap they are never quite the same
+      if(c.lapKLap!==c.lap){ c.lapKLap=c.lap; c.lapK=1+clamp(gauss()*HUM.lapCV*0.6, -2*HUM.lapCV, 2*HUM.lapCV); }
+      target*=c.lapK;
+      // a first lap and an out-lap as careful as theirs, where the grip decides
+      if(aiVA[ahead]<BASE*1.3){
+        if(c.lap<=0 && c.s>300) target*=HUM.r0;
+        if(c.hOut) target*=HUM.ro;
+      }
+    }
     // the gentler levels also lift before the end of a straight
     if(c.aiTop<1) target=Math.min(target, c.maxSpeed*c.aiTop);
     // the car's place in the order, and the driver inside it
@@ -6932,7 +7229,10 @@ uniform float shadowFar;
     // the next, more for the scruffy ones. That is what opens and closes gaps.
     if(c.prof && !c.player){
       if(c.prog>=c.rhyAt){
-        const sd=(1-c.prof.steady)*0.012+0.0008;
+        // the gentler levels take the humans' own spread once it is known, never
+        // much steadier than the team's driver would be anyway
+        const sd0=(1-c.prof.steady)*0.012+0.0008;
+        const sd=HUM.on && HUM.spdKnown ? Math.max(sd0*0.7, HUM.spdSD) : sd0;
         c.rhyTo=clamp(gauss()*sd, -2.2*sd, 2.2*sd); c.rhyAt=c.prog+250+Math.random()*350;
         // push, or look after the tyres for the next stretch: a driver in a fight
         // always pushes, one in clean air often saves rubber, the careful ones more
@@ -7001,7 +7301,30 @@ uniform float shadowFar;
     // a mistake is possible, which is under braking and in a corner.
     c.slip2=Math.max(0, (c.slip2||0)-dt*1.6);
     c.slipT=(c.slipT||6)-dt;
-    if(c.slipT<=0){
+    if(HUM.on && !c.player){
+      // a human's line is never on rails
+      const ex=Math.exp(-Math.max(dt,1e-3)/1.5);
+      c.hw=(c.hw||0)*ex + HUM.latSD*Math.sqrt(Math.max(0,1-ex*ex))*gauss();
+      c.hwKick=(c.hwKick||0)*Math.exp(-Math.max(dt,1e-3)/0.9);
+      if(c.hStops!==c.stops){ c.hStops=c.stops; if(c.stops>0) c.hOutUntil=c.prog+TOT; }
+      c.hOut = c.prog < (c.hOutUntil||0);
+    }
+    if(HUM.on && HUM.errKnown && !c.player){
+      // mistakes the humans' way: as often, and in the same corners, either a
+      // trip wide over the kerb or a moment's big lift
+      if(c.hmLap!==c.lap){ c.hmLap=c.lap; c.hm=humMistakes(); c.slipT=1e9; }
+      if(c.hm && c.hm.length && !scOn && c.lap>=0){
+        const z=LRN.nextZone[here];
+        for(let q=0;q<c.hm.length;q++){
+          const m=c.hm[q];
+          if(m.z===z && aiBrk[here]<Math.abs(c.vf)*0.6){
+            if(m.off){ c.hwKick=-(LRN.zoneIn[z]||1)*2.8; c.slip2=0.5; }
+            else c.slip2=1;
+            c.hm.splice(q,1); break;
+          }
+        }
+      }
+    } else if(c.slipT<=0){
       const wear=1-clamp(c.tyre,0,1);
       // and under pressure, defending or wheel to wheel, a little more often
       const pressure = RC && (RC.mode==="defend" || (RC.mode==="attack" && RC.tgt && signedTo(c.s,RC.tgt.s)<CAR_L*1.2)) ? 1.5 : 1;
@@ -7039,9 +7362,10 @@ uniform float shadowFar;
       const want = scOn ? laneA[aim] : pickLane(c, RC);
       const rate = RC && (RC.mode==="attack" || RC.mode==="yield") ? 4.5 : 3.5;
       c.aiLane += (want-c.aiLane)*(1-Math.exp(-rate*Math.max(dt,1e-3)));
-      // never squeeze a car that is alongside
-      if(RC && RC.lo<=RC.hi) c.aiLane=clamp(c.aiLane, RC.lo, RC.hi);
-      lane=clamp(c.aiLane, -W*0.82, W*0.82);
+      // never squeeze a car that is alongside; a human's trip wide may reach past the kerb
+      const wide = HUM.on && !c.player && Math.abs(c.hwKick||0)>0.5, lim = wide ? W+0.6 : W*0.82;
+      if(RC && RC.lo<=RC.hi) c.aiLane=clamp(c.aiLane, wide && RC.lo<=-W*0.84+1e-6 ? -lim : RC.lo, wide && RC.hi>=W*0.84-1e-6 ? lim : RC.hi);
+      lane=clamp(c.aiLane, -lim, lim);
       if(approach>0) lane += (-W*0.92-lane)*approach;   // line up for the entry
     }
     const cte=c.lat-lane;
