@@ -928,6 +928,7 @@
             <button class="tab" role="tab" data-tab="hud">Affichage</button>
             <button class="tab" role="tab" data-tab="snd">Son</button>
             <button class="tab" role="tab" data-tab="keys">Commandes</button>
+            <button class="tab" role="tab" data-tab="ai">M&eacute;moire IA</button>
             <button class="tab" role="tab" data-tab="data">Donn&eacute;es</button>
           </div>
           <div class="setCard" id="setCard"></div>
@@ -5775,7 +5776,7 @@ uniform float shadowFar;
     if(d<0.97) return {pace:0.616, top:0.95,  grip:1.00,  accel:1.00, mix:5.2, tidy:-0.10};  // Facile
     if(d<1.02) return {pace:0.774, top:0.985, grip:1.00,  accel:1.00, mix:4.6, tidy:0.00};   // Normal
     if(d<1.10) return {pace:0.893, top:1,     grip:1.00,  accel:1.00, mix:4.0, tidy:0.08};   // Difficile
-    return            {pace:0.937, top:1,     grip:1.149, accel:1.04, mix:3.6, tidy:0.18};   // Extreme
+    return            {pace:0.937, top:1,     grip:1.149, accel:1.04, mix:3.6, tidy:0.18, extreme:true};   // Extreme
   }
   // Each team's car and driver. The car, in %: grip in the corners, speed on the
   // straights. The driver: pace in %, how steady from one part of the lap to the
@@ -6165,6 +6166,7 @@ uniform float shadowFar;
       c.a+=da*clamp(impact*0.045,0,0.40);
     }
     if(impact>3) emitSparks(c.x, c.groundY, c.z, impact);
+    if(impact>2) c.hitAt=performance.now();
     if(impact>7 && OPT.dmg!=="0") c.damage=clamp((c.damage||0)+(impact-7)*0.020, 0, 1);
     if(impact>crashAlert) crashAlert=impact;
     checkWing(c);
@@ -6268,6 +6270,7 @@ uniform float shadowFar;
       const pa = a.remote ? 0 : (b.remote ? 2 : 1), pb = b.remote ? 0 : (a.remote ? 2 : 1);
       a.x-=nx*ov*pa; a.z-=nz*ov*pa; b.x+=nx*ov*pb; b.z+=nz*ov*pb;
       const vn=(b.vx-a.vx)*nx+(b.vz-a.vz)*nz;
+      if(vn<-1.5){ const ht=performance.now(); a.hitAt=ht; b.hitAt=ht; }
       if(vn<0){
         const jj=-(1+REST)*vn/2;
         a.vx-=jj*nx; a.vz-=jj*nz; b.vx+=jj*nx; b.vz+=jj*nz;
@@ -6363,6 +6366,11 @@ uniform float shadowFar;
       // A set that still reaches the flag in shape stays on. Otherwise the car
       // comes in once the tyres drop below its strategist's window.
       const wrongTyre = weather.wet>0.35 && !c.wets;
+      // Extreme: a car on the humans' strategy stops where they stopped
+      if(!c.player && !c.wantPit && c.plan && c.planI<c.plan.length && c.lap>=0){
+        const at=c.plan[c.planI].at*totalLaps+c.planJit, left=totalLaps-(c.lap+c.s/TOT);
+        if(c.lap+c.s/TOT>=at-0.7 && left>0.6) c.wantPit=true;
+      }
       if(!c.player && !c.wantPit && c.lap>=0){
         const left=totalLaps-(c.lap+c.s/TOT);
         const reaches=c.tyre-(c.wpl||stintWear(c,c.comp||0))*left > 0.14;
@@ -6396,6 +6404,7 @@ uniform float shadowFar;
           if(!c.wets){
             const was=c.comp||0;
             c.comp = pickCompound(c, Math.max(0.5, totalLaps-(c.lap+c.s/TOT)));
+            if(c.plan && c.planI<c.plan.length){ if(c.plan[c.planI].c>=0) c.comp=c.plan[c.planI].c; c.planI++; }
             if(c.wpl) c.wpl = c.wpl/COMP_WEAR[was]*COMP_WEAR[c.comp];
           }
           if(c.player) showSector(c.wets? "PNEUS PLUIE — GO !"
@@ -6419,6 +6428,340 @@ uniform float shadowFar;
       }
     }
   }
+  /* ======================= THE AI THAT LEARNS ======================= */
+  // Every human driver is watched, in every mode: where they put the car and how
+  // fast they carry it through each part of the lap on their clean laps, where
+  // they overtake and how they defend, and the strategy that won them time. It
+  // is kept per circuit on this computer. Only the Extreme AI uses it: the lines
+  // and corner speeds that work, the humans' habits in a fight, their strategy,
+  // and a pace that stays just ahead of their best level. Nothing of it shows
+  // anywhere but its own page in Reglages.
+  const LEARN_KEY="trs_learn_v1_", LBIN=5;
+  // how much slower an Extreme AI car's best race lap is than the lap estimate,
+  // before it has been measured here: tyres, traffic and rhythm (3.7 % at
+  // Silverstone; alone on the circuit it ranges from 0.8 % better to 1.5 % worse)
+  const LRN_CAL0=1.03;
+  const LRN={mem:null, B:0, on:false, adapt:1, pace0:1, savedAt:0, pending:false, raceWet:false,
+    line:null, spd:null, conf:null, prevZone:null, nextZone:null, zoneIn:[]};
+  function learnBlank(){
+    const B=LRN.B, z=()=>new Array(B).fill(0);
+    return {v:1, TOT:Math.round(TOT), sp:z(), lat:z(), lw:z(), n:z(), laps:0, clean:0, best:[],
+            pass:{}, def:{}, strat:{}, calib:LRN_CAL0, races:0};
+  }
+  function learnLoad(){
+    LRN.B=Math.max(8, Math.ceil(TOT/LBIN));
+    let M=null;
+    try{ M=JSON.parse(localStorage.getItem(LEARN_KEY+TRACK.id)||"null"); }catch(e){}
+    const ok = M && M.v===1 && Math.abs((M.TOT||0)-TOT)<=TOT*0.01 && Array.isArray(M.sp) && M.sp.length===LRN.B;
+    LRN.mem = ok ? M : learnBlank();
+    // the braking zones of the lap, numbered from the line: turn 1, turn 2...
+    const starts=[]; for(let i=0;i<N;i++) if(aiBrk[i]===0) starts.push(i);
+    LRN.zoneIn=starts.map(i=>aiIn[i]);
+    LRN.prevZone=new Int16Array(N); LRN.nextZone=new Int16Array(N);
+    if(starts.length){
+      // the last zone started at or before each point, and the next one to come
+      let k=starts.length-1;
+      for(let i=0;i<N;i++){ if(k+1<starts.length && starts[(k+1)%starts.length]<=i) k++; else if(i===starts[0]) k=0; LRN.prevZone[i]= i<starts[0] ? starts.length-1 : k; }
+      let q=0;
+      for(let i=0;i<N;i++){ while(q<starts.length && starts[q]<i) q++; LRN.nextZone[i]= q<starts.length ? q : 0; }
+    }
+  }
+  function learnSave(force){
+    if(!LRN.mem) return;
+    const now=Date.now();
+    if(!force && now-LRN.savedAt<1500){ LRN.pending=true; return; }
+    LRN.savedAt=now; LRN.pending=false;
+    const M=LRN.mem, r2=a=>a.map(x=>Math.round(x*100)/100);
+    try{ localStorage.setItem(LEARN_KEY+TRACK.id, JSON.stringify(Object.assign({}, M, {sp:r2(M.sp), lat:r2(M.lat), lw:r2(M.lw)}))); }catch(e){}
+  }
+  // the zone a place on the lap belongs to: the braking zone just ahead if it is
+  // close, otherwise the corner just behind
+  const learnZoneAt=i=> aiBrk[i]<130 ? LRN.nextZone[i] : LRN.prevZone[i];
+  // Watch the race: called every frame while racing, and once more at the flag.
+  function learnObserve(now){
+    const M=LRN.mem; if(!M || !LRN.B || state!=="racing" && state!=="results") return;
+    if(weather.wet>0.12) LRN.raceWet=true;
+    const B=LRN.B, scNow=safety.active;
+    for(const c of cars){
+      const human = !!(c.player || c.human);
+      if(!human){ if(LRN.on) learnWatchAI(c, now); continue; }
+      let o=c.lw;
+      if(!o){
+        o=c.lw={lap:c.lap, t0:now, v:new Float32Array(B), la:new Float32Array(B), g:new Float32Array(B),
+                seen:new Uint8Array(B), assist:new Uint8Array(B), dirty:true, ord:{}, defKey:"",
+                plan:[{c:c.wets?-1:(c.comp||0), at:0}], inSvc:false};
+      }
+      // a lap is over: learn from it if it was clean, then start the next
+      if(c.lap!==o.lap){
+        if(c.lap===o.lap+1 && o.lap>=1){
+          M.laps++;
+          if(!o.dirty) learnLap(o, (now-o.t0)/1000);
+          else learnSave();
+        }
+        o.lap=c.lap; o.t0=now; o.seen.fill(0); o.assist.fill(0); o.dirty=false;
+      }
+      if(c.lap>=totalLaps || c.finished) continue;
+      // what spoils a lap: the pits, the safety car, rain, damage, going off,
+      // hitting a wall or a car, the AI at the wheel after the flag
+      if(c.netDone || c.inPitLane || c.onPit || c.service>0 || scNow || weather.wet>0.12 || (c.damage||0)>0.3
+         || Math.abs(c.lat)>W+KERB*0.6 || (c.hitAt||0)>now-500 || Math.abs(c.vf)<3) o.dirty=true;
+      const b=Math.min(B-1, Math.max(0, Math.floor(c.s/LBIN)));
+      o.seen[b]=1; o.v[b]=Math.abs(c.vf); o.la[b]=c.lat;
+      o.g[b]=c.remote ? 1 : (c.grip||GRIP_ON)/GRIP_ON;
+      if(c.draft || c.drs || (c.dirty||0)>0.2) o.assist[b]=1;
+      // the strategy: every stop and the rubber it put on
+      if(c.service>0) o.inSvc=true;
+      else if(o.inSvc){ o.inSvc=false; o.plan.push({c:c.wets?-1:(c.comp||0), at:+((c.lap+c.s/TOT)/totalLaps).toFixed(3)}); }
+      const i=idxAtS(c.s);
+      // overtakes: this driver's place against each other car swaps and stays swapped
+      if(!scNow) for(const O of cars){
+        if(O===c) continue;
+        const d=c.prog-O.prog, sg=d>0?1:-1;
+        const r=o.ord[O.i]||(o.ord[O.i]={sg:sg, at:0, zone:0, side:0});
+        if(Math.abs(d)>TOT*0.5 || O.inPitLane || c.inPitLane || O.service>0){ r.sg=sg; r.at=0; continue; }
+        if(sg!==r.sg){
+          r.sg=sg;
+          if(sg>0){ const z=learnZoneAt(i); r.at=now; r.zone=z; r.side=((c.lat-O.lat)*(LRN.zoneIn[z]||1)>0)?1:0; }
+          else r.at=0;
+        }
+        if(r.at && now-r.at>2000){
+          const p=M.pass[r.zone]||(M.pass[r.zone]=[0,0]); p[0]++; p[1]+=r.side; r.at=0;
+        }
+      }
+      // defence: someone close behind as this driver reaches a braking zone
+      if(!scNow && aiBrk[i]<10){
+        const z=LRN.nextZone[i], key=c.lap+":"+z;
+        if(o.defKey!==key){
+          let threat=false;
+          for(const O of cars){
+            if(O===c || O.inPitLane) continue;
+            const db=signedTo(O.s, c.s);
+            if(db>CAR_L*0.5 && db<30 && Math.abs(c.prog-O.prog)<TOT*0.5 && (Math.abs(O.vf)>Math.abs(c.vf)-1 || db<12)){ threat=true; break; }
+          }
+          if(threat){
+            o.defKey=key;
+            const d=M.def[z]||(M.def[z]=[0,0]); d[0]++;
+            if(c.lat*(LRN.zoneIn[z]||1)>W*0.2) d[1]++;
+          }
+        }
+      }
+    }
+  }
+  // a clean lap by a human: its speeds and its line go into the memory
+  function learnLap(o, lapTime){
+    const M=LRN.mem, B=LRN.B;
+    let seen=0; for(let b=0;b<B;b++) seen+=o.seen[b];
+    if(seen<B*0.92 || lapTime<5){ learnSave(); return; }
+    M.clean++;
+    M.best.push(+lapTime.toFixed(3)); M.best.sort((a,b)=>a-b); M.best=M.best.slice(0,5);
+    // the nearer a lap is to the best, the more its line counts
+    const w=Math.exp(-Math.max(0, lapTime/M.best[0]-1)*40);
+    for(let b=0;b<B;b++){
+      if(!o.seen[b]) continue;
+      M.n[b]=Math.min(60, (M.n[b]||0)+1);
+      // speed is kept per unit of grip, so worn tyres teach as much as new ones;
+      // a tow, an open wing or dirty air say nothing about the corner itself
+      if(!o.assist[b]) M.sp[b]=Math.max(o.v[b]/Math.sqrt(Math.max(0.4, o.g[b])), (M.sp[b]||0)*0.997);
+      const lw=M.lw[b]||0;
+      M.lat[b]=((M.lat[b]||0)*lw + o.la[b]*w)/Math.max(1e-6, lw+w);
+      M.lw[b]=Math.min(12, lw+w);
+    }
+    learnSave();
+  }
+  // Extreme AI laps, timed to calibrate the lap estimate for this circuit (a
+  // gentler level loses more to its rhythm, so only Extreme races count)
+  function learnWatchAI(c, now){
+    let a=c.la;
+    if(!a) a=c.la={lap:c.lap, t0:now, dirty:true, best:0};
+    if(c.lap!==a.lap){
+      if(c.lap===a.lap+1 && a.lap>=1 && !a.dirty){ const t=(now-a.t0)/1000; if(t>5 && (!a.best || t<a.best)) a.best=t; }
+      a.lap=c.lap; a.t0=now; a.dirty=false;
+    }
+    if(c.inPitLane || c.onPit || c.service>0 || safety.active || weather.wet>0.12 || (c.hitAt||0)>now-500 || Math.abs(c.vf)<3) a.dirty=true;
+  }
+  // A flying lap for an AI car, from its speed profile: the engine's pull against
+  // drag on the way up, the brakes on the way down. Good to a couple of percent;
+  // the rest is measured, race after race, into the calibration.
+  // A lift of the level (adapt) is a better car and driver, not a speed beyond the
+  // grip: grip grows with its square, the pull with it, top speed a little.
+  function aiLapEstimate(c, adapt){
+    const gm=(c.gripMul||1)*adapt*adapt;
+    const k=Math.sqrt(Math.max(0.2, (c.aiPace||0.9)*gm));
+    const top=(c.maxSpeed||BASE)*(1+0.35*(adapt-1))*((c.aiTop||1)<1 ? c.aiTop : 1);
+    const prof=new Float32Array(N);
+    for(let i=0;i<N;i++){
+      let tv=aiVA[i]*k;
+      if(LRN.on && LRN.spd && LRN.spd[i]>0){
+        const lt=LRN.spd[i]*Math.sqrt(gm*(c.aiPace||1)/LRN.pace0);
+        if(lt>tv) tv+=(lt-tv)*LRN.conf[i];
+      }
+      prof[i]=Math.min(tv, top);
+    }
+    for(let pass=0;pass<2;pass++) for(let i=N-1;i>=0;i--){ const j=(i+1)%N; prof[i]=Math.min(prof[i], Math.sqrt(prof[j]*prof[j]+2*AI_BRAKE*seg[i])); }
+    let v=prof[0], t=0;
+    for(let pass=0;pass<2;pass++) for(let i=0;i<N;i++){
+      const j=(i+1)%N, acc=(c.accel||30)*adapt-(c.roll||2.2)-(c.dragC||0.11)*v;
+      const nv=Math.min(prof[j], Math.sqrt(v*v+2*Math.max(0,acc)*seg[i]));
+      if(pass===1) t+=seg[i]/Math.max(1,(v+nv)*0.5);
+      v=nv;
+    }
+    return t;
+  }
+  // The level to stay ahead of: the average of the humans' three best clean laps
+  // here. The Extreme AI aims half a percent quicker, and never drives slower
+  // than its own pace for that.
+  function learnLevel(M){
+    if(!M || !M.best || !M.best.length) return 0;
+    return M.best.length>=3 ? (M.best[0]+M.best[1]+M.best[2])/3 : M.best[0]*1.008;
+  }
+  function learnAdapt(){
+    const M=LRN.mem, lvl=learnLevel(M);
+    if(!lvl) return 1;
+    const goal=lvl*0.995;
+    let top=null, tb=1e9;
+    for(const c of cars){ if(c.player||c.human) continue; const e=aiLapEstimate(c,1); if(e<tb){ tb=e; top=c; } }
+    if(!top) return 1;
+    const cal=M.calib||LRN_CAL0;
+    if(tb*cal<=goal) return 1;
+    let lo=1, hi=1.08;
+    if(aiLapEstimate(top,hi)*cal>goal) return hi;
+    for(let it=0;it<12;it++){ const mid=(lo+hi)/2; if(aiLapEstimate(top,mid)*cal<=goal) hi=mid; else lo=mid; }
+    return hi;
+  }
+  // At the start of a race: what the Extreme AI takes from the memory.
+  function learnPrepare(){
+    LRN.raceWet=false;
+    for(const c of cars){ c.lw=null; c.la=null; c.plan=null; }
+    const LV=aiLevel(diff);
+    LRN.on = !!LV.extreme && !!LRN.mem && (!NET.race || NET.role==="host");
+    LRN.adapt=1; LRN.pace0=LV.pace;
+    if(!LRN.on) return;
+    const M=LRN.mem, B=LRN.B;
+    // for every sample of the lap: the line the humans drove, the speed they
+    // carried on it, and how sure the memory is of both
+    LRN.line=new Float32Array(N); LRN.spd=new Float32Array(N); LRN.conf=new Float32Array(N);
+    for(let i=0;i<N;i++){
+      const b=Math.min(B-1, Math.floor(cum[i]/LBIN));
+      let la=0, lw=0, sp=1e9, nMin=1e9;
+      for(let k=-2;k<=2;k++){
+        const bb=(b+k+B)%B, wk=M.lw[bb]||0;
+        la+=(M.lat[bb]||0)*wk; lw+=wk; nMin=Math.min(nMin, M.n[bb]||0);
+        if(k>=-1 && k<=1) sp=Math.min(sp, M.sp[bb]||0);
+      }
+      const conf=clamp((lw/5-0.3)/1.5,0,1)*clamp((nMin-1)/3,0,1);
+      LRN.conf[i]=conf;
+      LRN.line[i]= lw>0 ? clamp(la/lw,-W*0.82,W*0.82) : laneA[i];
+      LRN.spd[i]= (nMin>=2 && sp<1e9) ? sp : 0;
+    }
+    // A line is only worth copying where it was quicker: compare the humans'
+    // speed there with what this level's own driving would do, on the same grip,
+    // and fade from one line to the other over some fifteen metres.
+    {
+      // judged only where speed is set by the grip; a straight takes the verdict
+      // of the corners either side of it, a hundred metres each way
+      const adv=new Float32Array(N), gl=Math.sqrt(LV.grip), cor=new Float32Array(N);
+      for(let i=0;i<N;i++){
+        const own=aiVA[i]*Math.sqrt(LV.pace*LV.grip), hum=LRN.spd[i]*gl;
+        cor[i]= (LRN.spd[i]>0 && own<BASE*0.97) ? LRN.conf[i]*clamp((hum/Math.max(1,own)-0.985)/0.03,0,1) : -1;
+      }
+      for(let i=0;i<N;i++){
+        if(cor[i]>=0){ adv[i]=cor[i]; continue; }
+        let m=0; for(let k=-40;k<=40;k++){ const x=cor[(i+k+N)%N]; if(x>m) m=x; }
+        adv[i]=m*LRN.conf[i];
+      }
+      for(let i=0;i<N;i++){
+        let a=0; for(let k=-6;k<=6;k++) a+=adv[(i+k+N)%N];
+        a/=13;
+        LRN.line[i]=laneA[i]+(LRN.line[i]-laneA[i])*a*0.9;
+      }
+    }
+    // the strategy that won the humans the most time over this distance, for
+    // a little over half of the field: the rest keep their own
+    const st=M.strat[String(totalLaps)];
+    if(st && Array.isArray(st.plan) && st.plan.length>1){
+      for(const c of cars){
+        if(c.player || c.human || c.remote || Math.random()>0.55) continue;
+        c.plan=st.plan.map(p=>({c:p.c, at:p.at})); c.planI=1;
+        c.planJit=(Math.random()-0.5)*0.6;
+        if(c.plan[0].c>=0) c.comp=c.plan[0].c;
+      }
+    }
+    LRN.adapt=learnAdapt();
+    // the lift goes into the cars themselves
+    if(LRN.adapt>1) for(const c of cars){
+      if(c.player || c.human || c.remote) continue;
+      const a=LRN.adapt;
+      c.gripMul*=a*a; c.grip=GRIP_ON*c.gripMul; c.accel*=a; c.maxSpeed*=1+0.35*(a-1);
+    }
+  }
+  // At the flag: the strategy that worked, and how far the estimate was off.
+  function learnRaceEnd(now){
+    const M=LRN.mem; if(!M) return;
+    learnObserve(now);
+    if(!LRN.raceWet){
+      for(const c of cars){
+        if(!(c.player||c.human) || !c.lw || !c.finished) continue;
+        const t = NET.race ? (c.netFin||0)/1000 : (c.finishT-raceStart)/1000;
+        if(!(t>0)) continue;
+        const key=String(totalLaps), cur=M.strat[key];
+        if(!cur || t<cur.t) M.strat[key]={t:+t.toFixed(2), plan:c.lw.plan};
+      }
+    }
+    if(LRN.on){
+      const r=[];
+      for(const c of cars){ if(c.player||c.human||!c.la||!c.la.best) continue; r.push(c.la.best/aiLapEstimate(c, 1)); }
+      r.sort((a,b)=>a-b);
+      if(r.length){
+        const m=r[Math.min(r.length-1,1)];            // the second best: one lucky lap in a tow says little
+        // a strange race (a safety car, a pile-up) moves it only a little
+        const cur=M.calib||LRN_CAL0;
+        M.calib=clamp(cur+clamp((m-cur)*0.5, -0.015, 0.015), 0.95, 1.12);
+      }
+    }
+    M.races=(M.races||0)+1;
+    learnSave(true);
+  }
+  // the line an AI car aims for: the humans' where the memory is sure of it (Extreme)
+  const aiLineAt=i=> LRN.on ? LRN.line[i] : laneA[i];
+
+  // ---- its page in Reglages ----
+  function learnFmt(t){ if(!(t>0)) return "—"; const m=Math.floor(t/60), s=t-m*60; return m ? m+":"+(s<10?"0":"")+s.toFixed(2) : s.toFixed(2)+" s"; }
+  function learnPanelHTML(){
+    const esc=s=>String(s).replace(/[&<>"]/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+    let h='<div class="setRow"><div class="what"><b>Mémoire de l’IA</b><small>Ce que l’IA a appris en regardant piloter les humains, circuit par circuit, dans tous les modes. Elle ne s’en sert qu’en Extrême : les trajectoires et les vitesses qui marchent, vos endroits pour doubler et votre façon de défendre, la stratégie qui a payé, et un rythme qui reste juste devant votre meilleur niveau.</small></div>'+
+      '<button class="btn ghost small" data-action="lrnClearAll">Tout effacer</button></div>';
+    for(const C of CIRCUITS){
+      let M=null;
+      try{ M=JSON.parse(localStorage.getItem(LEARN_KEY+C.id)||"null"); }catch(e){}
+      const lines=[];
+      if(!M || !M.laps){
+        lines.push("Pas encore observé.");
+      } else {
+        const B=(M.n||[]).length||1;
+        let known=0; for(const x of (M.n||[])) if(x>=2) known++;
+        lines.push("Tours observés : "+M.laps+" dont "+(M.clean||0)+" propres · tracé appris : "+Math.round(100*known/B)+" %");
+        const lvl=learnLevel(M);
+        if(lvl) lines.push("Meilleur niveau observé : "+learnFmt(lvl)+" · l’IA Extrême vise "+learnFmt(lvl*0.995)+" ou mieux");
+        const pz=Object.keys(M.pass||{}).map(z=>[+z, M.pass[z][0], M.pass[z][1]]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,3);
+        if(pz.length) lines.push("Dépassements favoris : "+pz.map(x=>"virage "+(x[0]+1)+" ("+x[1]+"×, "+(x[2]*2>=x[1]?"par l’intérieur":"par l’extérieur")+")").join(", "));
+        let dn=0, di=0; for(const z in (M.def||{})){ dn+=M.def[z][0]; di+=M.def[z][1]; }
+        if(dn) lines.push("En défense : l’intérieur fermé "+Math.round(100*di/dn)+" % du temps ("+dn+" fois)");
+        const sk=Object.keys(M.strat||{}).sort((a,b)=>a-b);
+        for(const k of sk){
+          const s=M.strat[k], p=s.plan||[];
+          const nm=x=> x<0 ? "Pluie" : COMP_NM[x]||"?";
+          const stops=p.slice(1).map(x=>"tour "+Math.max(1,Math.round(x.at*k)));
+          lines.push("Stratégie "+k+" tours : "+p.map(x=>nm(x.c)).join(" → ")+(stops.length?" (arrêt"+(stops.length>1?"s":"")+" "+stops.join(", ")+")":" (sans arrêt)")+" · "+learnFmt(s.t));
+        }
+      }
+      h+='<div class="setRow"><div class="what"><b>'+esc(C.name)+'</b><small>'+lines.map(esc).join("<br>")+'</small></div>'+
+         (M && M.laps ? '<button class="btn ghost small" data-action="lrnClear" data-circuit="'+esc(C.id)+'">Effacer</button>' : '')+'</div>';
+    }
+    return h;
+  }
+  function learnPanelRefresh(){ const b=$("aiMemBox"); if(b) b.innerHTML=learnPanelHTML(); }
+  learnLoad();
+
   /* ============================== AI ============================== */
   const angOf=v=>Math.atan2(v.z,v.x);
   // Score a handful of candidate lines and take the cheapest. This is what lets
@@ -6484,12 +6827,17 @@ uniform float shadowFar;
         // where a move can work, into a braking zone
         const late = brk<v*2.6;
         const going = R.mode==="attack" && dT<CAR_L*1.1;          // already alongside: see it through
-        const want = lapT || going || adv>0.004 || R.close>2.2 || (late && R.stuck>2.5+7*(1-PF.attack));
+        // Extreme: how the humans defend this corner decides where to try, and whether to
+        let hd=null;
+        if(LRN.on && (T.player||T.human)){ const dz=LRN.mem.def[LRN.nextZone[i]]; if(dz && dz[0]>=2) hd=dz[1]/dz[0]; }
+        const stuckFor = hd!==null && hd<=0.3 ? 1.0 : 2.5+7*(1-PF.attack);
+        const want = lapT || going || adv>0.004 || R.close>2.2 || (late && R.stuck>stuckFor);
         if(want && gapT<1.6 && R.cool<=0){
           R.mode="attack";
           if(!going && (R.side===0 || brk>v*3.2)){
             const roomIn=W*0.80-inside*T.lat, roomOut=W*0.80+inside*T.lat;
             if(lapT) R.side = roomIn>=roomOut ? inside : -inside;
+            else if(hd!==null && hd>=0.6 && roomOut>=CAR_W*1.5 && brk>v*1.2) R.side=-inside;
             else if(roomIn>=CAR_W*1.5) R.side=inside;
             else if(roomOut>=CAR_W*1.5 && brk>v*1.6) R.side=-inside;
             else R.side=0;
@@ -6511,8 +6859,14 @@ uniform float shadowFar;
     // defence, when not busy with a move of its own
     if(R.mode!=="yield" && R.mode!=="attack" && behind && !lappedBy && dB<v*0.9){
       const threat=(behind.rc && behind.rc.mode==="attack" && behind.rc.tgt===c) || behind.vf>c.vf+1.2 || ((behind.player||behind.human) && dB<CAR_L*3);
-      if(threat && R.defLane===null && brk<v*2.0 && brk>v*0.8 && Math.random()<PF.defend*dt*3){
-        R.defLane=inside*W*0.30; R.defEnd=c.prog+brk+70;
+      // Extreme: a human behind, at a corner where the humans like to pass, finds
+      // the door shut earlier, and on the side they usually take
+      const hp = LRN.on && (behind.player||behind.human) ? LRN.mem.pass[LRN.nextZone[i]] : null;
+      const known = !!hp && hp[0]>=2;
+      const wLo = known ? v*0.6 : v*0.8, wHi = known ? v*2.6 : v*2.0, rate = known ? (PF.defend+0.6)*6 : PF.defend*3;
+      if(threat && R.defLane===null && brk<wHi && brk>wLo && Math.random()<rate*dt){
+        const cover = !known || hp[1]*2>=hp[0] ? inside : -inside;
+        R.defLane = cover===inside ? inside*W*0.30 : cover*W*0.35; R.defEnd=c.prog+brk+70;
       }
     }
     if(R.defLane!==null){
@@ -6527,7 +6881,7 @@ uniform float shadowFar;
   function pickLane(c, R){
     const aim=idxAtS(c.s + CAR_L*2.2 + Math.abs(c.vf)*0.32);
     const planned = R && R.lane!==null;
-    const base = planned ? R.lane : laneA[aim]+c.aiOff;
+    const base = planned ? R.lane : aiLineAt(aim)+c.aiOff;
     const hold = planned ? 2.2 : 1.0;
     let best=base, bestCost=Infinity;
     for(let q=-1;q<LANE_CAND.length;q++){
@@ -6561,6 +6915,15 @@ uniform float shadowFar;
     // bonus), less the wake of a car ahead, sets how fast its corners can be
     const gk=(c.grip||GRIP_ON)*(1-0.17*(c.dirty||0))/GRIP_ON;
     let target=Math.min(aiVA[here], aiVA[ahead]) * Math.sqrt(Math.max(0.2, (c.aiPace||0.88)*gk));
+    if(LRN.on && !c.player){
+      // Extreme: where the humans showed a quicker way through, on the line they
+      // drove it on (the pace to stay ahead of them is in the car, see learnPrepare)
+      const ls=Math.min(LRN.spd[here], LRN.spd[ahead]);
+      if(ls>0 && Math.abs((c.aiLane||0)-LRN.line[ahead])<1.6){
+        const lt=ls*Math.sqrt(gk*(c.aiPace||1)/LRN.pace0);
+        if(lt>target) target+=(lt-target)*LRN.conf[ahead];
+      }
+    }
     // the gentler levels also lift before the end of a straight
     if(c.aiTop<1) target=Math.min(target, c.maxSpeed*c.aiTop);
     // the car's place in the order, and the driver inside it
@@ -6583,7 +6946,7 @@ uniform float shadowFar;
     {
       const R0=radA[ahead];
       if(R0<600){
-        const sg=laneA[ahead]>=0?1:-1, off=((c.aiLane||0)-laneA[ahead])*sg;
+        const sg=laneA[ahead]>=0?1:-1, off=((c.aiLane||0)-aiLineAt(ahead))*sg;
         if(off>0.3) target*=Math.sqrt(Math.max(0.55, 1-off/Math.max(R0,10)));
       }
     }
@@ -7948,6 +8311,7 @@ uniform float shadowFar;
         if(ci>6) imp=Math.max(imp,ci);
         if(imp>0) bump(imp);
         updateProgress(now);
+        if(state==="racing") learnObserve(now);
         for(const c of cars) syncMesh(c);
         updateHUD(now);
       updateSectors(now);
@@ -8010,7 +8374,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="2.3";                              // shown to players; 2.x pages all play together
+  const NET_BUILD="2.4";                              // shown to players; 2.x pages all play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -8958,6 +9322,7 @@ uniform float shadowFar;
     for(const id of ["speedVig","proxL","proxR"]){ const e=$(id); if(e) e.style.opacity=0; }
     applyWeather(0);
     makeCars();
+    learnPrepare();
     rpReset();
     csmApplyAll();
     warmUp();
@@ -8973,6 +9338,7 @@ uniform float shadowFar;
     if(actx&&actx.state==="suspended") actx.resume();
   }
   function endRace(now){
+    try{ learnRaceEnd(now||performance.now()); }catch(e){}
     state="results"; $("hud").hidden=true;
     RP.rec=false;
     RP.events.sort((a,b)=>a.t-b.t);     // confirmed passes are filed late
@@ -9249,7 +9615,7 @@ uniform float shadowFar;
   await LOAD.step(94, "Interface");
   /* ============================ WIRING ============================ */
   // ---- what is in Reglages, and what each switch does ----
-  const SET_SECS=["gfx","race","hud","snd","keys","data"];
+  const SET_SECS=["gfx","race","hud","snd","keys","ai","data"];
   const SETTINGS=[
     {sec:"gfx", key:"qual", name:"D\u00e9tail", hint:"Ombres port\u00e9es et finesse du d\u00e9cor.",
       vals:[["high","\u00c9lev\u00e9"],["low","Fluide"]]},
@@ -9310,6 +9676,7 @@ uniform float shadowFar;
       const box=document.createElement("div");
       box.className="setSec"; box.dataset.sec=sec; box.hidden=(sec!==setTab);
       if(sec==="keys"){ box.innerHTML=KEYS_HTML; card.appendChild(box); continue; }
+      if(sec==="ai"){ box.id="aiMemBox"; box.innerHTML=learnPanelHTML(); card.appendChild(box); continue; }
       for(const it of SETTINGS){
         if(it.sec!==sec) continue;
         const row=document.createElement("div");
@@ -9334,6 +9701,7 @@ uniform float shadowFar;
     document.querySelectorAll("#setTabs .tab").forEach(b=>
       b.setAttribute("aria-selected", b.dataset.tab===id ? "true":"false"));
     document.querySelectorAll("#setCard .setSec").forEach(x=>{ x.hidden=(x.dataset.sec!==id); });
+    if(id==="ai") learnPanelRefresh();
   }
   function syncOptChips(){
     document.querySelectorAll("#menu [data-opt]").forEach(el=>{
@@ -9416,6 +9784,13 @@ uniform float shadowFar;
     clearTimeout(btn._t);
     btn.dataset.armed="0"; btn.classList.remove("armed");
     if(btn.dataset.action==="resetSeason"){ newSeason(); btn.textContent="Saison remise \u00e0 z\u00e9ro"; }
+    else if(btn.dataset.action==="lrnClear" || btn.dataset.action==="lrnClearAll"){
+      const ids = btn.dataset.action==="lrnClearAll" ? CIRCUITS.map(C=>C.id) : [btn.dataset.circuit];
+      for(const id of ids) try{ localStorage.removeItem(LEARN_KEY+id); }catch(e){}
+      if(ids.indexOf(TRACK.id)>=0) LRN.mem=learnBlank();
+      learnPanelRefresh();
+      return;
+    }
     else if(btn.dataset.action==="clearRecords"){
       try{
         const ks=[];
