@@ -2220,6 +2220,10 @@ uniform float shadowFar;
   const CAR_L=4.5, CAR_W=1.95;
   const BASE=62, MPHF=3.15;
   const GRIP_ON=26, GRIP_OFF=8;
+  // What a car can really do, which is what the AI drives to. The yaw rate is
+  // capped at grip x 1.6 over speed, so that is the cornering force; the brakes
+  // give 55 plus drag, of which the profile uses a little under.
+  const AI_LAT=GRIP_ON*1.6, AI_BRAKE=52;
   // pit lane lives inside the main straight (which runs 155 before / 167 after the line)
   // The entry road has to be long enough to brake in: from top speed to the
   // pit limit takes about forty metres, so the taper carries that.
@@ -2392,7 +2396,7 @@ uniform float shadowFar;
   }
 
   let pts=[], seg=[], cum=[], TOT=0, N=0;
-  let tanA=[], norA=[], radA=[], vmaxA=[], laneA=[];
+  let tanA=[], norA=[], radA=[], vmaxA=[], laneA=[], aiVA=[];
   let elevMin=0, elevMax=0;
 
   function buildTrack(){
@@ -2458,6 +2462,14 @@ uniform float shadowFar;
       for(let k=0;k<N;k++){ const pv=(k-1+N)%N;
         vmaxA[k]=Math.min(vmaxA[k],Math.sqrt(vmaxA[pv]*vmaxA[pv]+2*26*seg[pv])); }
     }
+    // The AI's own profile, at the car's real limit. No top speed in it: a target
+    // above what the engine gives just means flat out, where the old profile,
+    // capped at top speed, had the AI lifting for the last few km/h of every
+    // straight. Very tight turns are also held to what the steering can turn.
+    aiVA=radA.map(R=>Math.min(Math.sqrt(AI_LAT*Math.min(R,5000)), 2.1*R));
+    for(let pass=0;pass<4;pass++)
+      for(let k=N-1;k>=0;k--){ const nx=(k+1)%N;
+        aiVA[k]=Math.min(aiVA[k],Math.sqrt(aiVA[nx]*aiVA[nx]+2*AI_BRAKE*seg[k])); }
     elevMin=Infinity; elevMax=-Infinity;
     for(const p of pts){ elevMin=Math.min(elevMin,p.y); elevMax=Math.max(elevMax,p.y); }
   }
@@ -5706,7 +5718,20 @@ uniform float shadowFar;
   let countStart=0, raceStart=0, playerLapStart=0, bestLap=Infinity, record=Infinity, GO_AT=3.6;
   try{ const r=localStorage.getItem("trs_best_"+TRACK.id); if(r) record=parseFloat(r); }catch(e){}
 
+  // The four levels: the share of the cornering limit they drive to (pace), how
+  // much of the top speed they use, and at the top a slightly better car. pace
+  // 1.00 on an ordinary car is a perfect lap. Timed alone on all ten circuits
+  // against that perfect lap in the player's car: Facile about +14 %, Normal
+  // +7 %, Difficile +1.5 %, Extreme about 3 % quicker (1.5 % at Spa, where the
+  // straights decide, 3.5 % at Monaco). The old Extreme was 3 % slower.
+  function aiLevel(d){
+    if(d<0.97) return {pace:0.64, top:0.95,  grip:1.00, accel:1.00, spread:0.0040, tidy:-0.10};  // Facile
+    if(d<1.02) return {pace:0.80, top:0.985, grip:1.00, accel:1.00, spread:0.0035, tidy:0.00};   // Normal
+    if(d<1.10) return {pace:0.92, top:1,     grip:1.00, accel:1.00, spread:0.0028, tidy:0.10};   // Difficile
+    return            {pace:1.00, top:1,     grip:1.12, accel:1.04, spread:0.0018, tidy:0.25};   // Extreme
+  }
   function makeCars(){
+    const LV=aiLevel(diff);
     for(const c of cars){ scene.remove(c.mesh); scene.remove(c.shadow); }
     cars=[];
     const startGap=14, rowGap=11, lat=3.1;
@@ -5745,8 +5770,8 @@ uniform float shadowFar;
         livery:L, player:me, mesh:mesh, shadow:shadow, i:i, human:hum,
         remote: NR ? (hum ? !me : NET.role==="guest") : false,
         maxSpeed: human? BASE : BASE*(0.99+Math.random()*0.02),
-        accel:30, brake:55, roll:2.2, dragC:0.11, turnRate:2.2,
-        grip:GRIP_ON*(human?1:(1+clamp((diff-1)*1.9,0,0.32))), gripOff:GRIP_OFF,
+        accel:30*(human?1:LV.accel), brake:55, roll:2.2, dragC:0.11, turnRate:2.2,
+        grip:GRIP_ON*(human?1:LV.grip), gripOff:GRIP_OFF,
         si:idx, s:s, prevS:s, lat:off, groundY:p.y, tan:t, nor:nr,
         lap:-1, prog:0, rank:1, draft:false, finished:false, finishT:0, stuckT:0,
         tyre:1, wets:false, comp:(me? compChoice : (Math.random()<0.30?0:(Math.random()<0.70?1:2))),
@@ -5756,11 +5781,11 @@ uniform float shadowFar;
         gear:0, rpm:IDLE, shiftT:0, thrIn:0, aThr:0,
         pitAt:0.30+Math.random()*0.10, warned:false, boxS:boxSFor(i),
         aiOff:(Math.random()*2-1)*1.5*clamp(1-(diff-1)*3.5,0.2,1), aiLane:off, aiAgg:(0.995+Math.random()*0.010)*diff,
-        gripMul: human?1:(1+clamp((diff-1)*1.9,0,0.32)),
+        gripMul: human?1:LV.grip, aiPace: LV.pace, aiTop: human?1:LV.top,
         // Where this car sits in the order, and how tidy its driver is. The
         // first figure comes from the team, the second is the driver's own.
-        form: 1 - i*0.0035 - Math.random()*0.004,
-        tidy: 0.45 + Math.random()*0.55,
+        form: 1 - i*LV.spread - Math.random()*LV.spread*1.1,
+        tidy: clamp(0.45 + Math.random()*0.55 + LV.tidy, 0.2, 1),
         slipT: 2 + Math.random()*14,     // seconds until the next chance of a mistake
         slip2: 0, boldness: 0.75+Math.random()*0.5
       };
@@ -6324,7 +6349,12 @@ uniform float shadowFar;
     // the speed profile already anticipates braking, so read it just ahead
     const ahead=idxAtS(c.s + CAR_L*0.8 + Math.abs(c.vf)*0.09);
     const here=idxAtS(c.s);
-    let target=Math.min(vmaxA[here], vmaxA[ahead]) * c.aiAgg * Math.sqrt(tyreGrip(c.tyre)*wetGrip(c)*compGrip(c));
+    // the grip this car has right now (tyres, rain, compound, damage, the level's
+    // bonus), less the wake of a car ahead, sets how fast its corners can be
+    const gk=(c.grip||GRIP_ON)*(1-0.17*(c.dirty||0))/GRIP_ON;
+    let target=Math.min(aiVA[here], aiVA[ahead]) * Math.sqrt(Math.max(0.2, (c.aiPace||0.88)*gk));
+    // the gentler levels also lift before the end of a straight
+    if(c.aiTop<1) target=Math.min(target, c.maxSpeed*c.aiTop);
     // the car's place in the order, and the driver inside it
     target *= (c.form!==undefined ? c.form : 1);
     // a moment gone wrong: the driver is off line and slow for about a second
@@ -7725,7 +7755,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="2.1";                              // shown to players; 2.x pages all play together
+  const NET_BUILD="2.2";                              // shown to players; 2.x pages all play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -8968,7 +8998,7 @@ uniform float shadowFar;
     {sec:"gfx", key:"fps", name:"Compteur d\u2019images", hint:"Images par seconde et r\u00e9solution r\u00e9ellement rendue, en bas de l\u2019\u00e9cran.",
       vals:[["1","Affich\u00e9"],["0","Masqu\u00e9"]]},
 
-    {sec:"race", key:"diff", name:"Adversaires", hint:"Le rythme des sept autres pilotes.",
+    {sec:"race", key:"diff", name:"Adversaires", hint:"Le rythme des sept autres pilotes. En Extrême, ils vont plus vite qu’un tour parfait.",
       vals:[["0.94","Facile"],["1.00","Normal"],["1.045","Difficile"],["1.16","Extr\u00eame"]]},
     {sec:"race", key:"line", name:"Trajectoire id\u00e9ale", hint:"Une ligne au sol : verte \u00e0 fond, orange \u00e0 l\u2019approche, rouge au freinage.",
       vals:[["0","Masqu\u00e9e"],["1","Affich\u00e9e"]]},
