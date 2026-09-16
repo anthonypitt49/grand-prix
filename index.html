@@ -525,6 +525,10 @@
   .mpRoster .row{grid-template-columns:34px 10px 1fr auto}
   .mpRoster .sw{width:10px; height:22px; border-radius:3px}
   .mpRoster .tag{font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--yellow); margin-left:8px}
+  .mpRoster .tag.link{color:var(--muted)}
+  .mpRoster .tag.link.ok{color:var(--green)}
+  .bbText{width:100%; min-height:160px; margin:10px 0 14px; background:rgba(0,0,0,.35); color:var(--white);
+    border:1px solid var(--line); border-radius:8px; font:12px/1.4 ui-monospace,Consolas,monospace; padding:8px}
   .mpActions{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:6px}
   .mpWait{color:var(--muted); font-size:14px}
   #menu .chip:disabled{cursor:default}
@@ -929,6 +933,7 @@
             <button class="tab" role="tab" data-tab="snd">Son</button>
             <button class="tab" role="tab" data-tab="keys">Commandes</button>
             <button class="tab" role="tab" data-tab="ai">M&eacute;moire IA</button>
+            <button class="tab" role="tab" data-tab="net">Bo&icirc;te noire</button>
             <button class="tab" role="tab" data-tab="data">Donn&eacute;es</button>
           </div>
           <div class="setCard" id="setCard"></div>
@@ -2224,7 +2229,8 @@ uniform float shadowFar;
     roster:[], settings:{laps:"5", wx:"auto", tod:"auto", diff:"1.00", sc:"1"},
     race:null, final:null, over:false, finAt:0,
     offset:0, offTarget:0, offSet:false, slewAt:0, rttBest:1e9, rtt:0, pingAt:0, relaxAt:0, sendAt:0,
-    snap:{}, retry:0, reclaim:false, joinTimer:0, openTimer:0
+    snap:{}, retry:0, reclaim:false, joinTimer:0, openTimer:0,
+    links:new Map(), via:"relay", relayAt:0, relayIn:0
   };
   "use strict";
   const $ = id => document.getElementById(id);
@@ -6367,7 +6373,10 @@ uniform float shadowFar;
       if(a.remote && b.remote) continue;         // their own machines settle that one
       // a car from the network whose place on this screen is old or unsure passes
       // through: better than being shoved by where it no longer is
-      if((a.remote && netUnsure(a)) || (b.remote && netUnsure(b))) continue;
+      if((a.remote && netUnsure(a)) || (b.remote && netUnsure(b))){
+        if(BB.cur && state==="racing" && Math.hypot(b.x-a.x, b.z-a.z)<CAR_W) BB.cur.ghostF++;
+        continue;
+      }
       const dx=b.x-a.x, dz=b.z-a.z, dist=Math.hypot(dx,dz)||1e-4;
       if(dist>=COL_L) continue;               // nothing can reach further than that
       const nx=dx/dist, nz=dz/dist;
@@ -6379,7 +6388,7 @@ uniform float shadowFar;
       const pa = a.remote ? 0 : (b.remote ? 2 : 1), pb = b.remote ? 0 : (a.remote ? 2 : 1);
       a.x-=nx*ov*pa; a.z-=nz*ov*pa; b.x+=nx*ov*pb; b.z+=nz*ov*pb;
       const vn=(b.vx-a.vx)*nx+(b.vz-a.vz)*nz;
-      if(vn<-1.5){ const ht=performance.now(); a.hitAt=ht; b.hitAt=ht; a.carHitAt=ht; b.carHitAt=ht; }
+      if(vn<-1.5){ const ht=performance.now(); a.hitAt=ht; b.hitAt=ht; a.carHitAt=ht; b.carHitAt=ht; if(BB.cur && (a.remote||b.remote) && state==="racing") BB.cur.contacts++; }
       if(vn<0){
         const jj=-(1+REST)*vn/2;
         a.vx-=jj*nx; a.vz-=jj*nz; b.vx+=jj*nx; b.vz+=jj*nz;
@@ -8704,8 +8713,10 @@ uniform float shadowFar;
     lastFrameAt=Date.now();
     if(!last) last=now;
     let dt=(now-last)/1000; last=now;
+    const rawDt=dt;
     dt=Math.min(dt,0.033);
     try{ netTick(dt); }catch(e){}
+    if(BB.cur) bbFrame(now);
 
     if(state==="countdown"){
       const t=(now-countStart)/1000, cn=$("countN");
@@ -8733,19 +8744,31 @@ uniform float shadowFar;
         updateDRS();
         let imp=0;
         if(NET.race) netClockTick(now);
-        for(const c of cars){
-          if(c.remote){ netDrive(c, dt); continue; }
-          if(c.service>0){ c.vx=0; c.vz=0; c.vf=0; continue; }
-          if(c===player && c.netDone){ const a=aiControls(c,dt); stepCar(c,a.t,a.s,dt); continue; }
-          if(c===player){ const w=stepCar(c,thr,str,dt); if(w>6) imp=Math.max(imp,w); }
-          else { const a=aiControls(c,dt); stepCar(c,a.t,a.s,dt); }
+        for(const c of cars) if(c.remote) netDrive(c, dt);
+        // Online the race has to keep to the clock the others keep: a long frame
+        // runs as short steps (up to a quarter of a second of them) rather than
+        // being cut to 33 ms, which put a slow computer's cars behind at every
+        // hitch and ran its AI field in slow motion.
+        const steps = NET.race ? Math.max(1, Math.min(8, Math.ceil(Math.min(rawDt, 0.25)/0.034))) : 1;
+        const h = NET.race ? Math.min(rawDt, 0.25)/steps : dt;
+        for(let st=0; st<steps; st++){
+          for(const c of cars){
+            if(c.remote) continue;
+            if(c.service>0){ c.vx=0; c.vz=0; c.vf=0; continue; }
+            if(c===player && c.netDone){ const a=aiControls(c,h); stepCar(c,a.t,a.s,h); continue; }
+            if(c===player){ const w=stepCar(c,thr,str,h); if(w>6) imp=Math.max(imp,w); }
+            else { const a=aiControls(c,h); stepCar(c,a.t,a.s,h); }
+          }
+          updateGear(h);
+          updateTyres(h);
+          updatePits(h);
+          for(const c of cars) if(!c.remote) checkStuck(c, h);
+          const ci=carCollisions();
+          if(ci>6) imp=Math.max(imp,ci);
         }
-        updateGear(dt);
-        updateTyres(dt);
-        updatePits(dt);
-        for(const c of cars) if(!c.remote) checkStuck(c, dt);
-        const ci=carCollisions();
-        if(ci>6) imp=Math.max(imp,ci);
+        // the moment these positions are true for: what goes out is stamped with
+        // it, not with the moment it is sent, which after a hitch is a frame later
+        if(NET.race) NET.simT=netNow();
         if(imp>0) bump(imp);
         updateProgress(now);
         if(state==="racing") learnObserve(now);
@@ -8811,7 +8834,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="2.6";                              // shown to players; 2.x pages all play together
+  const NET_BUILD="2.7";                              // shown to players; 2.x pages all play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -8823,15 +8846,25 @@ uniform float shadowFar;
   const NET_ROOT="trsgp/v2/";
   const PUBLIC_URL="https://anthonypitt49.github.io/grand-prix/";
 
-  // The host's clock as a player sees it. A better measurement moves the offset,
-  // but never in one step: a jump of 30 ms would move every other car by two
-  // metres at once. It glides there at 25 ms per second instead.
+  // The host's clock as a player sees it. A better measurement moves the offset.
+  // Before the lights go out nothing is moving, so it is simply set. In the race
+  // it never moves in one step: a jump of 30 ms would move every other car by
+  // two metres at once. It glides there, at 25 ms per second for a small
+  // correction and faster for a big one: the first direct link often finds the
+  // relay's estimate a few hundred milliseconds out, and gliding that at 25 ms
+  // a second left every car misplaced for the first quarter of a minute.
   function netNow(){
     const now=Date.now();
     if(NET.role!=="guest") return now;
     const el=now-NET.slewAt; NET.slewAt=now;
     const d=NET.offTarget-NET.offset;
-    if(d!==0 && el>0){ const step=Math.min(el,250)*0.025; NET.offset += d>step ? step : (d<-step ? -step : d); }
+    if(d!==0){
+      if(state!=="racing") NET.offset=NET.offTarget;
+      else if(el>0){
+        const step=Math.min(el,250)*Math.min(0.3, 0.025+Math.abs(d)*0.002);
+        NET.offset += d>step ? step : (d<-step ? -step : d);
+      }
+    }
     return now + NET.offset;
   }
   function netOnPublic(){
@@ -8935,6 +8968,351 @@ uniform float shadowFar;
     return cli;
   }
 
+  /* ---- direct links between the players' computers ----
+     The relay finds the room and carries everything that has to arrive (the
+     start, the roster, the results). Positions and clock pings go straight from
+     one computer to the other when a direct link opens: no detour through a
+     public server abroad, no second-long stalls. The relay keeps a copy going
+     now and then, and takes over completely the moment a link goes quiet. */
+  const RTC_ICE=[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]},{urls:"stun:stun.cloudflare.com:3478"}];
+  function rtcOK(){ return typeof RTCPeerConnection==="function" && !window.__noRTC; }
+  function rtcHealthy(L){
+    // in a race something comes across thirty times a second, so a short silence
+    // is enough to hand over to the relay; in the lobby only the pings do
+    return !!L && L.open && !!L.dc && L.dc.readyState==="open" && Date.now()-L.lastIn < (NET.race ? 400 : 2500);
+  }
+  function rtcSend(L, m){
+    if(!L || !L.open || !L.dc || L.dc.readyState!=="open") return false;
+    if(L.dc.bufferedAmount>65536) return false;             // the line is full: this one is dropped, the next is fresher
+    try{ L.dc.send(typeof m==="string" ? m : JSON.stringify(m)); return true; }catch(e){ return false; }
+  }
+  function rtcName(key){
+    if(key==="host"){ const r=NET.roster[0]; return r ? netClean(r.name) : "Hôte"; }
+    const r=NET.roster.find(x=>x.id===key); if(r) return netClean(r.name);
+    const P=NET.peers.get(key); return P && P.name ? netClean(P.name) : "?";
+  }
+  // what the lobby shows for a player: "direct", "relais" or still trying
+  function rtcState(key){
+    if(!rtcOK()) return "relais";
+    const L=NET.links.get(key);
+    if(L && L.open) return "direct";
+    if(L && L.gaveUp) return "relais";
+    const since = L ? L.startAt : (NET.peers.get(key) ? NET.peers.get(key).at : Date.now());
+    return Date.now()-(since||Date.now())>15000 ? "relais" : "wait";
+  }
+  function rtcNew(key, offerer, signal, n){
+    let L=NET.links.get(key);
+    if(!L){ L={key:key, n:0, tries:0, lost:0, open:false, lastIn:0, gaveUp:false, firstAt:Date.now(), startAt:Date.now(), cands:[]}; NET.links.set(key, L); }
+    if(L.pc) try{ L.pc.close(); }catch(e){}
+    clearTimeout(L.timer); clearInterval(L.pingT);
+    L.open=false; L.dc=null; L.cands=[]; L.remote=false; L.startAt=Date.now();
+    L.n = n!==undefined ? n : L.n+1;
+    let pc=null;
+    try{ pc=new RTCPeerConnection({iceServers:RTC_ICE}); }catch(e){ L.pc=null; L.gaveUp=true; return L; }
+    L.pc=pc;
+    const tag=L.n;
+    pc.onicecandidate=e=>{ if(e.candidate && L.pc===pc) signal({k:"ice", n:tag, c:(e.candidate.toJSON ? e.candidate.toJSON() : e.candidate)}); };
+    const hook=dc=>{
+      L.dc=dc;
+      dc.onopen=()=>{ if(L.pc!==pc) return; L.open=true; L.lastIn=Date.now(); clearTimeout(L.timer); rtcOpened(L); };
+      dc.onclose=()=>{ if(L.pc!==pc) return; const was=L.open; L.open=false; if(was) rtcLost(L); };
+      dc.onmessage=e=>{ if(L.pc!==pc) return; L.lastIn=Date.now(); rtcIn(L, e.data); };
+    };
+    // unordered and never resent: a position that arrives late is worth nothing
+    if(offerer) hook(pc.createDataChannel("gp", {ordered:false, maxRetransmits:0}));
+    else pc.ondatachannel=e=>hook(e.channel);
+    pc.onconnectionstatechange=()=>{
+      if(L.pc!==pc || pc.connectionState!=="failed") return;
+      const was=L.open; L.open=false;
+      if(was) rtcLost(L); else if(NET.role==="guest") rtcRetry(L);
+    };
+    return L;
+  }
+  // the player asks for the link; the host only answers
+  function rtcGuestStart(){
+    if(!rtcOK() || NET.role!=="guest" || !NET.welcomed) return;
+    let L=NET.links.get("host");
+    if(L && (L.open || L.gaveUp || (L.pc && Date.now()-L.startAt<12000))) return;
+    L=rtcNew("host", true, m=>netUp(m));
+    const pc=L.pc; if(!pc) return;
+    L.tries++;
+    pc.createOffer().then(o=>pc.setLocalDescription(o)).then(()=>{
+      if(L.pc!==pc) return;
+      netUp({k:"rtc", n:L.n, sdp:{type:pc.localDescription.type, sdp:pc.localDescription.sdp}});
+    }).catch(()=>rtcRetry(L));
+    L.timer=setTimeout(()=>{ if(L.pc===pc && !L.open) rtcRetry(L); }, 10000);
+    mpRender();
+  }
+  function rtcRetry(L){
+    if(NET.role!=="guest" || !L) return;
+    clearTimeout(L.timer);
+    if(L.pc){ try{ L.pc.close(); }catch(e){} L.pc=null; }
+    L.open=false;
+    if(L.tries>=3){ L.gaveUp=true; bbLink(L.key, "relais"); mpRender(); return; }
+    L.timer=setTimeout(()=>{ if(NET.role==="guest" && NET.welcomed) rtcGuestStart(); }, 3000);
+  }
+  function rtcHostOffer(P, m){
+    if(!rtcOK() || !m.sdp || m.sdp.type!=="offer" || typeof m.sdp.sdp!=="string") return;
+    const L=rtcNew(P.id, false, x=>netSendTo(P, x), m.n|0);
+    const pc=L.pc; if(!pc) return;
+    pc.setRemoteDescription(m.sdp).then(()=>{ if(L.pc!==pc) return; L.remote=true; rtcFlush(L); return pc.createAnswer(); })
+      .then(a=>{ if(a && L.pc===pc) return pc.setLocalDescription(a); })
+      .then(()=>{
+        if(L.pc!==pc || !pc.localDescription) return;
+        netSendTo(P, {k:"rtc", n:L.n, sdp:{type:pc.localDescription.type, sdp:pc.localDescription.sdp}});
+      }).catch(()=>{});
+  }
+  function rtcGuestAnswer(m){
+    const L=NET.links.get("host");
+    if(!L || !L.pc || (m.n|0)!==L.n || L.remote || !m.sdp || m.sdp.type!=="answer") return;
+    const pc=L.pc;
+    pc.setRemoteDescription(m.sdp).then(()=>{ if(L.pc===pc){ L.remote=true; rtcFlush(L); } }).catch(()=>rtcRetry(L));
+  }
+  function rtcIce(L, m){
+    if(!L || !L.pc || (m.n|0)!==L.n || !m.c) return;
+    if(!L.remote){ if(L.cands.length<40) L.cands.push(m.c); return; }
+    L.pc.addIceCandidate(m.c).catch(()=>{});
+  }
+  function rtcFlush(L){ const cs=L.cands; L.cands=[]; for(const c of cs) L.pc.addIceCandidate(c).catch(()=>{}); }
+  function rtcOpened(L){
+    L.gaveUp=false;
+    bbLink(L.key, "direct", Date.now()-L.firstAt);
+    if(NET.role==="guest"){
+      // the clock, measured straight across: a few quick pings, then one a second
+      const ping=()=>rtcSend(L, {k:"ping", c:Date.now()});
+      ping(); for(let i=1;i<=4;i++) setTimeout(ping, i*250);
+      L.pingT=setInterval(ping, 1000);
+    }
+    mpRender();
+  }
+  function rtcLost(L){
+    clearInterval(L.pingT);
+    bbLink(L.key, "coupé");
+    if(NET.role==="guest" && ++L.lost<=4){
+      L.tries=0; L.gaveUp=false;
+      if(L.pc){ try{ L.pc.close(); }catch(e){} L.pc=null; }
+      setTimeout(()=>{ if(NET.role==="guest" && NET.welcomed) rtcGuestStart(); }, 2000);
+    }
+    mpRender();
+  }
+  function rtcClose(key){
+    const L=NET.links.get(key); if(!L) return;
+    clearTimeout(L.timer); clearInterval(L.pingT);
+    const pc=L.pc; L.pc=null; L.open=false;
+    try{ if(L.dc) L.dc.close(); }catch(e){}
+    try{ if(pc) pc.close(); }catch(e){}
+    NET.links.delete(key);
+  }
+  function rtcCloseAll(){ for(const k of Array.from(NET.links.keys())) rtcClose(k); }
+  function rtcIn(L, data){
+    let m; try{ m=JSON.parse(data); }catch(e){ return; }
+    if(!m || typeof m!=="object") return;
+    NET.via="direct";
+    try{
+      if(NET.role==="host"){
+        const P=NET.peers.get(L.key); if(!P) return;
+        P.last=Date.now();
+        if(m.k==="st") netHostState(P, m.a);
+        else if(m.k==="ping") rtcSend(L, {k:"pong", c:m.c, h:Date.now()});
+      } else if(NET.role==="guest"){
+        NET.lastDown=Date.now();
+        if(m.k==="st") netGuestState(m);
+        else if(m.k==="pong"){ bbRtt(Date.now()-(+m.c||0), true); netGuestCtl(m); }
+      }
+    } finally { NET.via="relay"; }
+  }
+
+  /* ---- the black box ----
+     Every online race, each computer notes how it went from where it sits: the
+     link to each player, how old the positions it drew from were, every car it
+     had to correct and where (a corner, a fight, the pits), its own frame rate.
+     The players send theirs to the host at the flag. Kept on this computer only. */
+  const BB_KEY="trs_bb_v1";
+  const BB={cur:null};
+  function bbLoad(){ try{ const a=JSON.parse(localStorage.getItem(BB_KEY)||"[]"); return Array.isArray(a) ? a : []; }catch(e){ return []; } }
+  function bbSave(list){
+    list=list.slice(0,10);
+    for(;;){
+      try{ localStorage.setItem(BB_KEY, JSON.stringify(list)); return; }
+      catch(e){ if(list.length<=1) return; list=list.slice(0,list.length-1); }
+    }
+  }
+  function bbStart(){
+    const C={};
+    for(const c of cars){
+      C[c.i]={who: c.human ? netClean(c.human.name) : c.livery.nm, h: c.human?1:0, pk:0, dpk:0, ages:[], gaps:0, gapMax:0,
+              arr:0, jumps:0, big:0, tele:0, slide:0, corner:0, fight:0, pit:0, local:0, sgap:0, n:0};
+    }
+    BB.cur={v:NET_BUILD, at:Date.now(), role:NET.role, me:netClean(NET.name), circuit:TRACK.id, laps:totalLaps,
+      players:(NET.race ? NET.race.roster : []).map(r=>netClean(r.name)),
+      links:{}, linkEv:[], rttD:[], rttR:[], fr:{n:0, sum:0, slow:0, stall:0, worst:0, last:0, hitchAt:-1e9},
+      cars:C, ev:[], relayGaps:0, relayMax:0, contacts:0, ghostF:0, t0:performance.now()};
+    // the links as they stand at the start
+    if(NET.role==="host"){ for(const r of NET.roster) if(r.id!==NET.myId) BB.cur.links[netClean(r.name)]={kind:rtcState(r.id)}; }
+    else if(NET.role==="guest") BB.cur.links[rtcName("host")]={kind:rtcState("host")};
+  }
+  function bbT(){ return BB.cur ? +((performance.now()-BB.cur.t0)/1000).toFixed(1) : 0; }
+  function bbLink(key, kind, ms){
+    const who=rtcName(key);
+    if(!BB.cur) return;
+    const cur=BB.cur.links[who]||{};
+    if(kind==="direct"){ cur.kind="direct"; if(ms!==undefined && cur.ms===undefined) cur.ms=ms; }
+    else if(cur.kind!=="direct" || kind==="coupé") cur.kind=kind;
+    BB.cur.links[who]=cur;
+    if(BB.cur.linkEv.length<30) BB.cur.linkEv.push([bbT(), who, kind]);
+  }
+  function bbRtt(ms, direct){
+    const B=BB.cur; if(!B || !(ms>=0)) return;
+    const a=direct ? B.rttD : B.rttR; if(a.length<400) a.push(ms);
+  }
+  function bbPacket(liv){
+    const B=BB.cur; if(!B) return;
+    const C=B.cars[liv]; if(!C) return;
+    const now=performance.now();
+    C.pk++; if(NET.via==="direct") C.dpk++;
+    if(C.arr && state==="racing"){ const g=now-C.arr; if(g>300) C.gaps++; if(g>C.gapMax) C.gapMax=g; }
+    C.arr=now;
+  }
+  function bbRelayIn(){
+    const B=BB.cur, now=performance.now();
+    if(B && NET.relayIn && state==="racing"){ const g=now-NET.relayIn; if(g>1000){ B.relayGaps++; if(g>B.relayMax) B.relayMax=g; } }
+    NET.relayIn=now;
+  }
+  function bbFrame(now){
+    const B=BB.cur; if(!B || state!=="racing") { if(B) B.fr.last=0; return; }
+    const F=B.fr;
+    if(F.last){ const d=now-F.last; if(d>0 && d<5000){ F.n++; F.sum+=d; if(d>50) F.slow++; if(d>100) F.hitchAt=now; if(d>150) F.stall++; if(d>F.worst) F.worst=d; } }
+    F.last=now;
+  }
+  // a car from the network put somewhere else than it was being shown
+  function bbStep(c, dl, dt, age, reset, sgap){
+    const B=BB.cur; if(!B || state!=="racing") return;
+    const C=B.cars[c.i]; if(!C) return;
+    if(reset){ C.tele++; }
+    const mag=Math.max(Math.abs(dl)/1.5, Math.abs(dt)/0.5);
+    if(mag<1 && !reset) return;
+    C.jumps++;
+    const big = reset || Math.abs(dl)>4 || Math.abs(dt)>1.2;
+    if(big) C.big++;
+    const ix=idxAtS(c.s), corner=NET.kap && Math.abs(NET.kap[ix])>0.006;
+    let near=1e9; for(const o of cars){ if(o!==c){ const d=Math.hypot(o.x-c.x,o.z-c.z); if(d<near) near=d; } }
+    const fight=near<12, pit=!!c.inPitLane;
+    // why: this computer stalled a moment ago, or the other one sent nothing for a while
+    const local=performance.now()-B.fr.hitchAt<600, hole=(sgap||0)>250;
+    if(corner) C.corner++; if(fight) C.fight++; if(pit) C.pit++; if(local) C.local++; else if(hole) C.sgap++;
+    if(big && B.ev.length<80)
+      B.ev.push([bbT(), C.who, +dl.toFixed(1), +dt.toFixed(2), Math.round(age), (corner?"V":"")+(fight?"B":"")+(pit?"P":"")+(reset?"T":"")+(local?"L":"")+(hole?"S":""), Math.round(Math.abs(c.vf)*3.6)]);
+  }
+  function bbSlide(c, D, dt){
+    const B=BB.cur; if(!B || state!=="racing") return;
+    const C=B.cars[c.i]; if(!C) return;
+    C.n++;
+    if(C.n%6===0){ const S=NET.snap[c.i]; if(S){ const a=Math.max(0,(NET.viewT||netNow())-S.t); if(C.ages.length<4000) C.ages.push(a); else C.ages[Math.floor(Math.random()*4000)]=a; } }
+    if(Math.abs(D.e)>1.5 || Math.abs(D.el)>0.5) C.slide+=dt;
+  }
+  const bbPct=(a,p)=>{ if(!a.length) return 0; const s=a.slice().sort((x,y)=>x-y); return Math.round(s[Math.min(s.length-1, Math.floor(p*s.length))]); };
+  function bbSummary(){
+    const B=BB.cur; if(!B) return null;
+    const cars=[];
+    for(const k in B.cars){
+      const C=B.cars[k]; if(!C.pk) continue;
+      cars.push({who:C.who, h:C.h, pk:C.pk, direct:Math.round(100*C.dpk/Math.max(1,C.pk)),
+        age:[bbPct(C.ages,0.5), bbPct(C.ages,0.9), bbPct(C.ages,0.99), bbPct(C.ages,1)],
+        gaps:C.gaps, gapMax:Math.round(C.gapMax), jumps:C.jumps, big:C.big, tele:C.tele, slide:+C.slide.toFixed(1),
+        corner:C.corner, fight:C.fight, pit:C.pit, local:C.local, sgap:C.sgap});
+    }
+    B.ev.sort((a,b)=>Math.max(Math.abs(b[2])/4,Math.abs(b[3])/1.2)-Math.max(Math.abs(a[2])/4,Math.abs(a[3])/1.2));
+    const F=B.fr;
+    return {v:B.v, at:B.at, role:B.role, me:B.me, circuit:B.circuit, laps:B.laps, players:B.players,
+      dur:Math.round((performance.now()-B.t0)/1000), links:B.links, linkEv:B.linkEv,
+      rtt:{d:[bbPct(B.rttD,0.5), bbPct(B.rttD,1)], r:[bbPct(B.rttR,0.5), bbPct(B.rttR,1)]},
+      fps:{avg: F.n ? Math.round(1000/(F.sum/F.n)) : 0, slow:F.slow, stall:F.stall, worst:Math.round(F.worst)},
+      relay:{gaps:B.relayGaps, max:Math.round(B.relayMax)}, contacts:B.contacts, ghostF:B.ghostF,
+      cars:cars, ev:B.ev.slice(0,15), friends:[]};
+  }
+  // the flag (or the race abandoned): keep it, and a player sends theirs to the host
+  function bbFinish(){
+    const S=bbSummary(); BB.cur=null;
+    if(!S || S.dur<5) return;
+    const list=bbLoad(); list.unshift(S); bbSave(list);
+    if(NET.role==="guest" && NET.cli && NET.cli.ready){
+      const lite=Object.assign({}, S, {ev:S.ev.slice(0,8), friends:undefined, linkEv:S.linkEv.slice(0,10)});
+      netUp({k:"bb", r:lite});
+    }
+    bbPanelRefresh();
+  }
+  function bbFromFriend(P, r){
+    if(!r || typeof r!=="object") return;
+    let txt=""; try{ txt=JSON.stringify(r); }catch(e){ return; }
+    if(txt.length>24000) return;
+    const list=bbLoad(), S=list.find(x=>x.role==="host" && Date.now()-x.at<3*3600000);
+    if(!S) return;
+    r.me=netClean(P.name||r.me);
+    S.friends=(S.friends||[]).filter(f=>f.me!==r.me);
+    S.friends.push(r);
+    bbSave(list);
+    bbPanelRefresh();
+  }
+  const BB_CIRC=id=>{ const C=CIRCUITS.find(x=>x.id===id); return C ? C.short : id; };
+  const bbMs=v=> v>=1000 ? (v/1000).toFixed(1).replace(".",",")+" s" : v+" ms";
+  function bbTitle(S){
+    const d=new Date(S.at), two=x=>String(x).padStart(2,"0");
+    return two(d.getDate())+"/"+two(d.getMonth()+1)+" "+two(d.getHours())+"h"+two(d.getMinutes())+" · "+BB_CIRC(S.circuit)+
+      " · "+(S.role==="host" ? "hôte" : "invité")+" ("+S.me+") · "+(S.players||[]).length+" pilotes";
+  }
+  function bbLines(S, indent){
+    const L=[], pre=indent||"";
+    const lk=Object.keys(S.links||{}).map(w=>w+" "+(S.links[w].kind==="direct" ? "direct"+(S.links[w].ms!==undefined ? " ("+bbMs(S.links[w].ms)+")" : "") : S.links[w].kind==="wait" ? "en attente" : S.links[w].kind));
+    if(lk.length) L.push(pre+"Liens : "+lk.join(" · "));
+    const hum=(S.cars||[]).filter(c=>c.h), ai=(S.cars||[]).filter(c=>!c.h);
+    const del=hum.map(c=>c.who+" "+bbMs(c.age[0])+" / "+bbMs(c.age[3]));
+    if(ai.length){ const m=Math.round(ai.reduce((a,c)=>a+c.age[0],0)/ai.length), w=Math.max(...ai.map(c=>c.age[3])); del.push("IA "+bbMs(m)+" / "+bbMs(w)); }
+    if(del.length) L.push(pre+"Délai des positions (médian / pire) : "+del.join(" · "));
+    let j=0, b=0, t=0, v=0, f=0, p=0, sl=0, lo=0, sg=0;
+    for(const c of (S.cars||[])){ j+=c.jumps; b+=c.big; t+=c.tele; v+=c.corner; f+=c.fight; p+=c.pit; sl+=c.slide; lo+=c.local||0; sg+=c.sgap||0; }
+    L.push(pre+"Corrections visibles : "+j+" (grosses "+b+", téléportations "+t+") · en virage "+v+" · en bagarre "+f+" · aux stands "+p+" · temps décalé "+sl.toFixed(1).replace(".",",")+" s");
+    if(j) L.push(pre+"Causes : saccade de cet ordi "+lo+" · trou dans l’envoi de l’autre "+sg+" · prédiction "+Math.max(0,j-lo-sg));
+    L.push(pre+"Images/s : "+S.fps.avg+" · saccades "+S.fps.slow+" (bloqué "+S.fps.stall+") · relais coupé "+S.relay.gaps+" fois"+(S.relay.max ? " (max "+bbMs(S.relay.max)+")" : ""));
+    return L;
+  }
+  function bbReport(){
+    const list=bbLoad();
+    if(!list.length) return "Boîte noire Grand Prix : aucune course en ligne enregistrée.";
+    const out=["Boîte noire Grand Prix "+NET_BUILD+" · "+list.length+" course(s)"];
+    for(const S of list.slice(0,5)){
+      out.push("", "— "+bbTitle(S)+" · "+S.laps+" tours · "+(S.dur<90 ? S.dur+" s" : Math.round(S.dur/60)+" min"));
+      out.push(...bbLines(S));
+      for(const F of (S.friends||[])){ out.push("  Vu par "+F.me+" :"); out.push(...bbLines(F, "    ")); }
+    }
+    out.push("", "Données : "+JSON.stringify(list.slice(0,5)));
+    return out.join("\n");
+  }
+  function bbPanelHTML(){
+    const esc=s=>String(s).replace(/[&<>"]/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+    const list=bbLoad();
+    let h='<div class="setRow"><div class="what"><b>Boîte noire du multijoueur</b><small>Pendant chaque course en ligne, le jeu note tout seul comment ça se passe : le lien avec chaque pilote (direct ou par le relais), le délai des positions, les coupures, chaque auto qu’il a fallu recaler et où (virage, bagarre, stands), et la fluidité de ton ordi. À l’arrivée, tes amis envoient aussi leur relevé à l’hôte. Copie le rapport et colle-le à Claude.</small></div>'+
+      '<span class="seg"><button class="btn small" data-bb="copy">Copier le rapport</button>'+
+      (list.length ? '<button class="btn ghost small" data-action="bbClear">Effacer</button>' : '')+'</span></div>';
+    if(!list.length) h+='<div class="setRow"><div class="what"><small>Aucune course en ligne enregistrée pour l’instant.</small></div></div>';
+    for(const S of list.slice(0,6)){
+      let lines=bbLines(S);
+      for(const F of (S.friends||[])) lines=lines.concat(["Vu par "+F.me+" :"], bbLines(F, "  "));
+      h+='<div class="setRow"><div class="what"><b>'+esc(bbTitle(S))+'</b><small>'+lines.map(esc).join("<br>")+'</small></div></div>';
+    }
+    h+='<textarea class="bbText" id="bbText" readonly hidden></textarea>';
+    return h;
+  }
+  function bbPanelRefresh(){ const b=$("bbBox"); if(b) b.innerHTML=bbPanelHTML(); }
+  function bbCopy(btn){
+    const txt=bbReport();
+    const shown=()=>{ const ta=$("bbText"); if(!ta) return; ta.hidden=false; ta.value=txt; ta.focus(); ta.select(); btn.textContent="Sélectionné : Ctrl+C"; };
+    const done=()=>{ btn.textContent="Copié !"; setTimeout(()=>{ btn.textContent="Copier le rapport"; }, 1600); };
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done, shown); return; }
+    }catch(e){}
+    shown();
+  }
+
   function netErrText(t){
     if(t==="network")
       return netOnPublic()
@@ -8972,6 +9350,7 @@ uniform float shadowFar;
   }
   function netClosePeer(){
     netStopTimers();
+    rtcCloseAll();
     for(const c of (NET.tries||[])) try{ c.close(); }catch(e){}
     NET.tries=[];
     const old=NET.cli; NET.cli=null;
@@ -8986,6 +9365,7 @@ uniform float shadowFar;
     const nw=$("netWait"); if(nw) nw.hidden=true;
   }
   function netFail(txt){
+    if(BB.cur) bbFinish();
     const racing = state==="countdown"||state==="racing"||state==="results"||state==="replay";
     const wasRace=!!NET.race;
     netClosePeer(); netReset();
@@ -9031,7 +9411,7 @@ uniform float shadowFar;
         // a heartbeat for the players, and a watch for the ones who went silent
         NET.beatT=setInterval(()=>{
           if(NET.role!=="host") return;
-          if(!NET.race) netDown({k:"hb"});
+          if(!NET.race){ netDown({k:"hb"}); mpRender(); }
           const limit = NET.race ? 15000 : 75000, now=Date.now();
           for(const P of Array.from(NET.peers.values())) if(now-P.last>limit) netDrop(P.id);
         }, 3000);
@@ -9046,10 +9426,11 @@ uniform float shadowFar;
     if(!m || typeof m!=="object" || !m.from || m.from===NET.myId) return;
     let P=NET.peers.get(m.from);
     if(m.k==="hello"){
-      if(!P){ P={id:m.from, name:"", liv:-1, last:Date.now()}; NET.peers.set(m.from, P); }
+      if(!P){ P={id:m.from, name:"", liv:-1, last:Date.now(), at:Date.now()}; NET.peers.set(m.from, P); }
     }
     if(!P) return;
     P.last=Date.now();
+    bbRelayIn();
     if(m.k==="st"){ netHostState(P, m.a); return; }
     netHostCtl(P, m);
   }
@@ -9079,14 +9460,30 @@ uniform float shadowFar;
       if(c && NET.race && c.human && c.human.id===P.id){ c.finished=true; c.netDone=true; c.netFin=+m.t||0; netCheckOver(); }
     } else if(m.k==="bye"){
       netDrop(P.id);
+    } else if(m.k==="rtc"){
+      if(P.liv>=0) rtcHostOffer(P, m);
+    } else if(m.k==="ice"){
+      rtcIce(NET.links.get(P.id), m);
+    } else if(m.k==="bb"){
+      bbFromFriend(P, m.r);
     }
   }
   function netHostState(P, a){
     if(!Array.isArray(a) || P.liv<0 || (a[1]|0)!==P.liv) return;   // a player only speaks for their own car
-    netStore(a);
+    if(!netStore(a)) return;
+    // straight on to the players with a direct link, without waiting for the next send
+    if(NET.race && NET.links.size){
+      let txt=null;
+      for(const r of NET.roster){
+        if(r.id===NET.myId || r.id===P.id) continue;
+        const L=NET.links.get(r.id);
+        if(L && L.open){ if(!txt) txt=JSON.stringify({k:"st", c:[a]}); rtcSend(L, txt); }
+      }
+    }
   }
   function netDrop(pid){
     const P=NET.peers.get(pid); if(!P) return;
+    rtcClose(pid);
     netKick(P);
     const r=NET.roster.find(x=>x.id===pid);
     NET.roster=NET.roster.filter(x=>x.id!==pid);
@@ -9126,6 +9523,7 @@ uniform float shadowFar;
       NET.beatT=setInterval(()=>{
         if(NET.role!=="guest") return;
         if(NET.welcomed) netUp({k:"ping", c:Date.now()});
+        if(NET.welcomed && !NET.race) mpRender();
         const limit = NET.race ? 12000 : 75000;
         if(NET.welcomed && Date.now()-NET.lastDown>limit) netFail("La connexion avec l\u2019h\u00f4te est perdue.");
       }, 2000);
@@ -9155,6 +9553,7 @@ uniform float shadowFar;
     if(!m || typeof m!=="object") return;
     if(m.to && m.to!==NET.myId) return;
     NET.lastDown=Date.now();
+    bbRelayIn();
     if(m.k==="st"){ netGuestState(m); return; }
     netGuestCtl(m);
   }
@@ -9165,6 +9564,7 @@ uniform float shadowFar;
       if(m.circuit && m.circuit!==TRACK.id){ mpMsg("Chargement du circuit de la salle\u2026"); netGoto(m.circuit); return; }
       netUp({k:"ping", c:Date.now()});
       for(let i=1;i<=4;i++) setTimeout(()=>{ if(NET.role==="guest" && NET.welcomed) netUp({k:"ping", c:Date.now()}); }, i*350);
+      setTimeout(rtcGuestStart, 300);
       mpMsg(""); showPane("multi"); mpRender();
     } else if(m.k==="refuse"){
       netFail(m.why==="busy" ? "Une course est en cours dans cette salle. R\u00e9essaie \u00e0 la fin de la course."
@@ -9178,10 +9578,15 @@ uniform float shadowFar;
       NET.settings=m.settings||NET.settings; mpRender();
     } else if(m.k==="goto"){
       netGoto(m.circuit);
+    } else if(m.k==="rtc"){
+      rtcGuestAnswer(m);
+    } else if(m.k==="ice"){
+      rtcIce(NET.links.get("host"), m);
     } else if(m.k==="pong"){
       // keep the clock offset from the fastest exchange: the least delay is the least error
       const now=Date.now(), rtt=Math.max(0, now-m.c);
       NET.rtt=rtt;
+      if(NET.via!=="direct") bbRtt(rtt, false);
       if(now-NET.relaxAt>15000){ NET.relaxAt=now; NET.rttBest+=25; }
       if(rtt<=NET.rttBest){
         NET.rttBest=rtt; NET.offTarget=m.h + rtt/2 - now;
@@ -9218,7 +9623,7 @@ uniform float shadowFar;
     try{ window.name="trsnet:"+JSON.stringify({role:NET.role, code:NET.code, name:NET.name, settings:NET.settings}); }catch(e){}
     if(NET.role==="guest") netUp({k:"bye"});
     const cli=NET.cli;
-    netStopTimers(); NET.cli=null; NET.role=null;
+    netStopTimers(); rtcCloseAll(); NET.cli=null; NET.role=null;
     // the host leaves its presence standing: the players find the room again after the reload
     if(cli) setTimeout(()=>{ try{ cli.close(); }catch(e){} }, 60);
     pane="multi";
@@ -9283,7 +9688,12 @@ uniform float shadowFar;
       const L=LIVERY[r.liv]||LIVERY[0];
       const row=document.createElement("div");
       row.className="row"+(r.id===NET.myId?" me":"");
-      const tags=(k===0?'<span class="tag">H\u00f4te</span>':"")+(r.id===NET.myId?'<span class="tag">Toi</span>':"");
+      let tags=(k===0?'<span class="tag">H\u00f4te</span>':"")+(r.id===NET.myId?'<span class="tag">Toi</span>':"");
+      if(r.id!==NET.myId && (host || k===0)){
+        const ls=rtcState(host ? r.id : "host");
+        tags += ls==="direct" ? '<span class="tag link ok">direct</span>'
+              : ls==="relais" ? '<span class="tag link">relais</span>' : '<span class="tag link">connexion\u2026</span>';
+      }
       row.innerHTML='<span class="pos">'+(k+1)+'</span><span class="sw" style="background:#'+
         L.c.toString(16).padStart(6,"0")+'"></span><span class="nm">'+netEsc(r.name)+tags+
         '</span><span class="gap">'+L.nm+'</span>';
@@ -9334,9 +9744,10 @@ uniform float shadowFar;
   }
   function netApplyStart(m){
     NET.race={grid:m.grid, roster:m.roster, laps:m.laps, tod:m.tod, diff:m.diff, sc:(m.sc===undefined?"1":String(m.sc)), goHost:m.t0+m.go*1000};
-    NET.roster=m.roster; NET.snap={}; NET.final=null; NET.over=false; NET.finAt=0;
+    NET.roster=m.roster; NET.snap={}; NET.final=null; NET.over=false; NET.finAt=0; NET.simT=0;
     seasonMode=false;
     startRace();
+    bbStart();
     weather.will=!!(m.wx && m.wx.will); weather.at=+(m.wx && m.wx.at)||1.5;
     GO_AT=m.go;
     // everyone's lights go out on the host's clock, however late the message landed
@@ -9348,7 +9759,8 @@ uniform float shadowFar;
   function netPack(c){
     // 128: coming in for tyres (older pages ignore the bit)
     const fl=(c.drs?1:0)|(c.wets?2:0)|((c.comp||0)<<2)|(c.inPitLane?16:0)|((c.finished||c.netDone)?32:0)|(c.onPit?64:0)|(c.wantPit?128:0);
-    return [netNow(), c.i, +c.s.toFixed(2), +c.lat.toFixed(2), +c.a.toFixed(3), +c.vf.toFixed(2),
+    const T = (state==="racing" && NET.simT) ? NET.simT : netNow();
+    return [T, c.i, +c.s.toFixed(2), +c.lat.toFixed(2), +c.a.toFixed(3), +c.vf.toFixed(2),
       +c.groundY.toFixed(2), +(c.attR||0).toFixed(3), +(c.attP||0).toFixed(3), c.lap|0, fl,
       +Math.max(0,c.service||0).toFixed(2), +(c.damage||0).toFixed(2), +(c.lift||0).toFixed(2), Math.round(c.netFin||0)];
   }
@@ -9376,7 +9788,12 @@ uniform float shadowFar;
   // How much a snapshot's trend is trusted, and how briskly an error settles.
   // Tuned on a recorded race replayed through a slow, uneven relay: a nervous
   // acceleration estimate costs more smoothness than it wins in accuracy.
-  const NET_T={aw:0.5, ah:0.15, lw:0.6, lh:0.3, k:5.5, kl:6.5};
+  // Straight across, positions come thirty times a second, a few hundredths of a
+  // second old and evenly spaced: the error can settle about twice as briskly
+  // without the cars shaking, and they follow a lane change or a braking point
+  // that much more closely (replayed race: mean error 0.44 m to 0.26 m, and the
+  // heading off by a visible amount in 20 frames instead of 110).
+  const NET_T={aw:0.5, ah:0.15, lw:0.6, lh:0.3, k:5.5, kl:6.5, ka:7.0, kd:12, kld:14, kad:18};
   const NET_Q={x:0, z:0, nx:0, nz:0, i:0};
   function netAt(s){
     const sw=((s%TOT)+TOT)%TOT, i=idxAtS(sw), j=(i+1)%N, a=pts[i], b=pts[j], vn=NET.vn;
@@ -9394,7 +9811,8 @@ uniform float shadowFar;
   }
   function netStore(a){
     const liv=a[1]|0, old=NET.snap[liv], t=+a[0];
-    if(old && old.t>=t) return;                        // late and out of order: the newer one already landed
+    if(old && old.t>=t) return false;                  // late and out of order (or the relay's copy): the newer one already landed
+    bbPacket(liv);
     netFrame();
     // The sender measured its place against the straight pieces. Rebuild the
     // exact spot it meant, then measure it again against the smooth frame: in a
@@ -9413,7 +9831,7 @@ uniform float shadowFar;
     lt=(X-q.x)*q.nx+(Z-q.z)*q.nz;
     const S={t:t, s:sv, lat:lt, a:+a[4], vf:+a[5], y:+a[6], attR:+a[7], attP:+a[8],
       lap:a[9]|0, fl:a[10]|0, svc:+a[11], dmg:+a[12], lift:+a[13], fin:+a[14]||0,
-      ar:angNorm(+a[4]-Math.atan2(-q.nx, q.nz)), raw:a, p:sv, acc:0, lv:0, rt:1, i:liv};
+      ar:angNorm(+a[4]-Math.atan2(-q.nx, q.nz)), raw:a, p:sv, acc:0, lv:0, rt:1, i:liv, dir:NET.via==="direct"};
     // how fast the lap distance runs for this car: on the inside of a corner it
     // runs faster than the car's own speed, on the outside slower
     S.rt=clamp(Math.cos(S.ar)/Math.max(0.5, 1-NET.kap[q.i]*S.lat), 0.5, 1.6);
@@ -9438,6 +9856,7 @@ uniform float shadowFar;
       }
     }
     NET.snap[liv]=S;
+    return true;
   }
   // where a snapshot says the car is at a given moment, carried forward along the lap
   const NET_P1={p:0,v:0,l:0,lv:0,ar:0,vf:0}, NET_P2={p:0,v:0,l:0,lv:0,ar:0,vf:0};
@@ -9545,17 +9964,23 @@ uniform float shadowFar;
       // the error settles up to this moment first; only then does a fresher
       // snapshot hand over, so the car is where the old one would have put it
       // a big error settles faster, but never at a speed that looks like a jump
-      const ke=NET_T.k*(1+clamp((Math.abs(D.e)-3)/6, 0, 2.5)), kl=NET_T.kl*(1+clamp((Math.abs(D.el)-1)/2, 0, 2));
+      const dir=!!D.S.dir;
+      const ke=(dir?NET_T.kd:NET_T.k)*(1+clamp((Math.abs(D.e)-3)/6, 0, 2.5)), kl=(dir?NET_T.kld:NET_T.kl)*(1+clamp((Math.abs(D.el)-1)/2, 0, 2));
       netSettle(D.e,  D.ev,  ke, h, R); D.e=R[0];  D.ev=clamp(R[1],-20,20);
       netSettle(D.el, D.elv, kl, h, R); D.el=R[0]; D.elv=clamp(R[1],-6,6);
-      netSettle(D.ea, D.eav, 7.0, h, R);      D.ea=R[0]; D.eav=R[1];
+      netSettle(D.ea, D.eav, dir?NET_T.kad:NET_T.ka, h, R); D.ea=R[0]; D.eav=R[1];
       if(D.S!==S){
         const O=netPredict(D.S, now, NET_P2);
+        if(BB.cur) bbStep(c, P.p-O.p, P.l-O.l, now-D.S.t, false, S.t-D.S.t);
         D.e+=O.p-P.p; D.ev+=O.v-P.v; D.el+=O.l-P.l; D.elv+=O.lv-P.lv; D.ea+=angNorm(O.ar-P.ar);
         D.S=S;
       }
+      if(BB.cur) bbSlide(c, D, h);
     }
-    if(Math.abs(D.e)>90 || Math.abs(D.el)>16){ D.e=D.ev=D.el=D.elv=D.ea=D.eav=0; }   // hopelessly far off: go straight there
+    if(Math.abs(D.e)>90 || Math.abs(D.el)>16){                    // hopelessly far off: go straight there
+      if(BB.cur) bbStep(c, D.e, D.el, 0, true);
+      D.e=D.ev=D.el=D.elv=D.ea=D.eav=0;
+    }
     const p=P.p+D.e, lat=P.l+D.el, q=netAt(p);
     c.x=q.x+q.nx*lat; c.z=q.z+q.nz*lat;
     const ta=Math.atan2(-q.nx, q.nz)+P.ar+D.ea;
@@ -9604,12 +10029,29 @@ uniform float shadowFar;
     if(!NET.role || !NET.cli || !NET.cli.ready) return;
     if(!NET.race || !(state==="countdown" || state==="racing")) return;
     const now=Date.now();
-    if(now-NET.sendAt<50) return;
-    NET.sendAt=now;
+    // straight across 30 times a second; through the relay 20 times, or only
+    // twice a second as a spare while every link is direct
+    // (an open link is always used: whether it is healthy only decides how much
+    // the relay carries, so a link that went quiet picks up again by itself)
     if(NET.role==="guest"){
-      if(player) netUp({k:"st", a:netPack(player)});
+      const L=NET.links.get("host"), direct=rtcHealthy(L);
+      if(now-NET.sendAt < (L && L.open ? 30 : 50)) return;
+      NET.sendAt=now;
+      if(!player) return;
+      const a=netPack(player);
+      if(L && L.open) rtcSend(L, {k:"st", a:a});
+      if(now-NET.relayAt >= (direct?500:45)){ NET.relayAt=now; netUp({k:"st", a:a}); }
       return;
     }
+    let anyDirect=false, allDirect=true;
+    for(const r of NET.roster){
+      if(r.id===NET.myId) continue;
+      const L=NET.links.get(r.id);
+      if(L && L.open) anyDirect=true;
+      if(!rtcHealthy(L)) allDirect=false;
+    }
+    if(now-NET.sendAt < (anyDirect?30:50)) return;
+    NET.sendAt=now;
     // one message for everybody: every car the host drives plus the latest from
     // each player; each player skips its own car on the way in
     const list=[];
@@ -9619,7 +10061,12 @@ uniform float shadowFar;
       const S=NET.snap[r.liv]; if(S) list.push(S.raw);
     }
     const sc = safety.active ? [1, safety.phase==="in"?2:1, +safety.s.toFixed(2), +safety.lat.toFixed(2)] : [0];
-    netDown({k:"st", c:list, sc:sc});
+    const msg={k:"st", c:list, sc:sc};
+    if(anyDirect){
+      const txt=JSON.stringify(msg);
+      for(const r of NET.roster){ if(r.id===NET.myId) continue; const L=NET.links.get(r.id); if(L && L.open) rtcSend(L, txt); }
+    }
+    if(now-NET.relayAt >= (allDirect?500:45)){ NET.relayAt=now; netDown(msg); }
     netCheckOver();
   }
   function netLocalFinish(c){
@@ -9670,6 +10117,7 @@ uniform float shadowFar;
     $("netWait").hidden=true;
     if(state==="racing" || state==="countdown") endRace(performance.now());
     else if(state==="results") netFillTable(netSortedCars());
+    bbFinish();
   }
   function netFillTable(order){
     const tb=$("resTable"); if(!tb) return;
@@ -9710,6 +10158,7 @@ uniform float shadowFar;
   }
   function netToLobby(){
     if(!NET.role) return;
+    if(BB.cur) bbFinish();
     NET.race=null; NET.final=null; NET.over=false; NET.finAt=0; NET.snap={};
     $("netWait").hidden=true; $("restartBtn").disabled=false;
     toMenu();
@@ -10130,7 +10579,7 @@ uniform float shadowFar;
   await LOAD.step(94, "Interface");
   /* ============================ WIRING ============================ */
   // ---- what is in Reglages, and what each switch does ----
-  const SET_SECS=["gfx","race","hud","snd","keys","ai","data"];
+  const SET_SECS=["gfx","race","hud","snd","keys","ai","net","data"];
   const SETTINGS=[
     {sec:"gfx", key:"qual", name:"D\u00e9tail", hint:"Ombres port\u00e9es et finesse du d\u00e9cor.",
       vals:[["high","\u00c9lev\u00e9"],["low","Fluide"]]},
@@ -10192,6 +10641,7 @@ uniform float shadowFar;
       box.className="setSec"; box.dataset.sec=sec; box.hidden=(sec!==setTab);
       if(sec==="keys"){ box.innerHTML=KEYS_HTML; card.appendChild(box); continue; }
       if(sec==="ai"){ box.id="aiMemBox"; box.innerHTML=learnPanelHTML(); card.appendChild(box); continue; }
+      if(sec==="net"){ box.id="bbBox"; box.innerHTML=bbPanelHTML(); card.appendChild(box); continue; }
       for(const it of SETTINGS){
         if(it.sec!==sec) continue;
         const row=document.createElement("div");
@@ -10217,6 +10667,7 @@ uniform float shadowFar;
       b.setAttribute("aria-selected", b.dataset.tab===id ? "true":"false"));
     document.querySelectorAll("#setCard .setSec").forEach(x=>{ x.hidden=(x.dataset.sec!==id); });
     if(id==="ai") learnPanelRefresh();
+    if(id==="net") bbPanelRefresh();
   }
   function syncOptChips(){
     document.querySelectorAll("#menu [data-opt]").forEach(el=>{
@@ -10306,6 +10757,11 @@ uniform float shadowFar;
       learnPanelRefresh();
       return;
     }
+    else if(btn.dataset.action==="bbClear"){
+      try{ localStorage.removeItem(BB_KEY); }catch(e){}
+      bbPanelRefresh();
+      return;
+    }
     else if(btn.dataset.action==="clearRecords"){
       try{
         const ks=[];
@@ -10326,6 +10782,7 @@ uniform float shadowFar;
     const t=e.target.closest("button"); if(!t || !$("menu").contains(t)) return;
     if(t.dataset.go){ showPane(t.dataset.go); return; }
     if(t.dataset.tab){ showTab(t.dataset.tab); return; }
+    if(t.dataset.bb==="copy"){ bbCopy(t); return; }
     if(t.dataset.track){ chooseCircuit(t.dataset.track); return; }
     if(t.dataset.opt){ setOpt(t.dataset.opt, t.dataset.val); return; }
     if(t.dataset.action){ runAction(t); return; }
