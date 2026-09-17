@@ -5492,6 +5492,11 @@ uniform float shadowFar;
   let crashAlert=0, wingGone=false;
   // The safety car is not sent out for a knock. It comes out when somebody has
   // actually lost a front wing, which is the moment there is debris on track.
+  // Damage, when it is switched on, counts from the second lap: off the grid the
+  // whole field is packed together and the first corner is always a crowd, and
+  // a nose lost there for a nudge nobody could avoid spoiled the race. A car is
+  // on lap -1 until it crosses the line, then 0 for the whole of its first lap.
+  function dmgOn(c){ return OPT.dmg!=="0" && (c.lap|0)>=1; }
   function checkWing(c){
     if((c.damage||0)>=0.86 && !c.wingOff){ c.wingOff=true; wingGone=true; }
   }
@@ -6279,7 +6284,7 @@ uniform float shadowFar;
     }
     if(impact>3) emitSparks(c.x, c.groundY, c.z, impact);
     if(impact>2) c.hitAt=performance.now();
-    if(impact>7 && OPT.dmg!=="0") c.damage=clamp((c.damage||0)+(impact-7)*0.020, 0, 1);
+    if(impact>7 && dmgOn(c)) c.damage=clamp((c.damage||0)+(impact-7)*0.020, 0, 1);
     if(impact>crashAlert) crashAlert=impact;
     checkWing(c);
     return impact;
@@ -6397,7 +6402,8 @@ uniform float shadowFar;
         if(-vn>6.5) rpEvent("hit", cars.indexOf(a.player?a:b));
         if(-vn>7){
           const h=(-vn-7)*0.016;
-          if(OPT.dmg!=="0"){ a.damage=clamp((a.damage||0)+h,0,1); b.damage=clamp((b.damage||0)+h,0,1); }
+          if(dmgOn(a)) a.damage=clamp((a.damage||0)+h,0,1);
+          if(dmgOn(b)) b.damage=clamp((b.damage||0)+h,0,1);
           checkWing(a); checkWing(b);
           emitSparks((a.x+b.x)/2, (a.groundY+b.groundY)/2, (a.z+b.z)/2, -vn);
         }
@@ -8834,7 +8840,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="2.8";                              // shown to players; 2.x pages all play together
+  const NET_BUILD="2.9";                              // shown to players; 2.x pages all play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -10688,7 +10694,7 @@ uniform float shadowFar;
       vals:[["0.94","Facile"],["1.00","Normal"],["1.045","Difficile"],["1.16","Extr\u00eame"]]},
     {sec:"race", key:"line", name:"Trajectoire id\u00e9ale", hint:"Une ligne au sol : verte \u00e0 fond, orange \u00e0 l\u2019approche, rouge au freinage.",
       vals:[["0","Masqu\u00e9e"],["1","Affich\u00e9e"]]},
-    {sec:"race", key:"dmg", name:"D\u00e9g\u00e2ts", hint:"Un choc trop fort peut arracher l\u2019aileron avant, et la voiture ne tourne presque plus.",
+    {sec:"race", key:"dmg", name:"D\u00e9g\u00e2ts", hint:"Un choc trop fort peut arracher l\u2019aileron avant, et la voiture ne tourne presque plus. Jamais au premier tour, le temps que le peloton s\u2019\u00e9tire.",
       vals:[["1","R\u00e9alistes"],["0","D\u00e9sactiv\u00e9s"]]},
     {sec:"race", key:"sc", name:"Voiture de s\u00e9curit\u00e9", hint:"Sort quand un aileron tra\u00eene sur la piste et neutralise la course.",
       vals:[["1","Activ\u00e9e"],["0","D\u00e9sactiv\u00e9e"]]},
