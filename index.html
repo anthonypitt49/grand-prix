@@ -2431,8 +2431,44 @@ uniform float shadowFar;
 
   let pts=[], seg=[], cum=[], TOT=0, N=0;
   let tanA=[], norA=[], radA=[], vmaxA=[], laneA=[], aiVA=[], aiBrk=null, aiIn=null;
+  // the AI's line for the race, with its curvature and direction (see aiLineBuild)
+  let AIL=null;
+  const AI_LIM=W*0.82;      // a little in from the kerb: room for a car that arrives there a touch fast
   let elevMin=0, elevMax=0;
 
+  // A line for the AI to drive (lateral offsets along the lap): smoothed, and
+  // with what the driver needs at every point -- its curvature, the direction it
+  // runs in, and the speed that curvature allows at the reference grip.
+  function aiLineBuild(lat){
+    const L=new Float32Array(N), K=new Float32Array(N), TH=new Float32Array(N), X=new Float32Array(N), Z=new Float32Array(N);
+    for(let i=0;i<N;i++){ let s=0; for(let k=-2;k<=2;k++) s+=lat[((i+k)%N+N)%N]; L[i]=clamp(s/5, -AI_LIM, AI_LIM); }
+    for(let i=0;i<N;i++){
+      const p=norA[(i-1+N)%N], q=norA[i]; let x=p.x+q.x, z=p.z+q.z; const m=Math.hypot(x,z)||1;
+      X[i]=pts[i].x+x/m*L[i]; Z[i]=pts[i].z+z/m*L[i];
+    }
+    const K0=new Float32Array(N);
+    for(let i=0;i<N;i++){
+      const a=(i-2+N)%N, b=(i+2)%N;
+      const ax=X[a], az=Z[a], bx=X[i], bz=Z[i], cx=X[b], cz=Z[b];
+      const cr=(bx-ax)*(cz-bz)-(bz-az)*(cx-bx);
+      const d=Math.hypot(bx-ax,bz-az)*Math.hypot(cx-bx,cz-bz)*Math.hypot(cx-ax,cz-az);
+      K0[i]= d>1e-6 ? 2*cr/d : 0;
+      TH[i]=Math.atan2(cz-az, cx-ax);
+    }
+    for(let i=0;i<N;i++){ let s=0; for(let k=-1;k<=1;k++) s+=K0[((i+k)%N+N)%N]; K[i]=s/3; }
+    return {lat:L, k:K, th:TH, x:X, z:Z};
+  }
+  // the fastest a car turns through a curvature with a given cornering grip,
+  // also held to what its steering can turn
+  function aiCornerV(k, aLat){ const ak=Math.abs(k); return ak<1e-5 ? 1e3 : Math.min(Math.sqrt(aLat/ak), 2.2*0.97/ak); }
+  function aiLineSample(s, o){
+    const sw=((s%TOT)+TOT)%TOT, i=idxAtS(sw), j=(i+1)%N, f=seg[i]>0 ? clamp((sw-cum[i])/seg[i],0,1) : 0;
+    o.lat=AIL.lat[i]+(AIL.lat[j]-AIL.lat[i])*f;
+    o.th=AIL.th[i]+angNorm(AIL.th[j]-AIL.th[i])*f;
+    o.k=AIL.k[i]+(AIL.k[j]-AIL.k[i])*f;
+    o.i=i;
+    return o;
+  }
   function buildTrack(){
     pts=buildTrackPoints(CP,SCALE,STEP,R_MIN,TRACK.start);
     N=pts.length;
@@ -2488,6 +2524,31 @@ uniform float shadowFar;
       for(let k=-win;k<=win;k++){ s+=rawLane[((i+k)%N+N)%N]; c++; }
       laneA[i]=s/c;
     }
+    // Then the real thing: pull that line as straight as the track allows. Every
+    // point moves along its normal toward the middle of its neighbours (first far
+    // ones, then near ones), never past the edge of the tarmac. What is left is
+    // the least-curved way round: in wide, clip the apex, out wide again.
+    {
+      const e=new Float32Array(N), nx=new Float32Array(N), nz=new Float32Array(N), px=new Float32Array(N), pz=new Float32Array(N);
+      for(let i=0;i<N;i++){
+        const p=norA[(i-1+N)%N], q=norA[i]; let x=p.x+q.x, z=p.z+q.z; const m=Math.hypot(x,z)||1;
+        nx[i]=x/m; nz[i]=z/m; e[i]=clamp(laneA[i], -AI_LIM, AI_LIM);
+        px[i]=pts[i].x+nx[i]*e[i]; pz[i]=pts[i].z+nz[i]*e[i];
+      }
+      for(const k of [24,12,6,3,2]){
+        for(let it=0; it<70; it++){
+          for(let i=0;i<N;i++){
+            const a=(i-k+N)%N, b=(i+k)%N;
+            const mx=(px[a]+px[b])*0.5, mz=(pz[a]+pz[b])*0.5;
+            const want=clamp((mx-pts[i].x)*nx[i]+(mz-pts[i].z)*nz[i], -AI_LIM, AI_LIM);
+            e[i]+=(want-e[i])*0.6;
+            px[i]=pts[i].x+nx[i]*e[i]; pz[i]=pts[i].z+nz[i]*e[i];
+          }
+        }
+      }
+      // round off the places where the line meets the edge and turns back
+      for(let i=0;i<N;i++){ let a=0; for(let k=-3;k<=3;k++) a+=e[(i+k+N)%N]; laneA[i]=clamp(a/7, -AI_LIM, AI_LIM); }
+    }
     // speed profile with braking anticipation baked in
     vmaxA=radA.map(R=>Math.min(BASE,Math.sqrt(GRIP_ON*Math.min(R,5000))));
     for(let pass=0;pass<4;pass++){
@@ -2525,6 +2586,7 @@ uniform float shadowFar;
     }
     elevMin=Infinity; elevMax=-Infinity;
     for(const p of pts){ elevMin=Math.min(elevMin,p.y); elevMax=Math.max(elevMax,p.y); }
+    AIL=aiLineBuild(laneA);
   }
   buildTrack();
 
@@ -5893,7 +5955,7 @@ uniform float shadowFar;
     if(d<0.97) return {pace:0.616, top:0.95,  grip:1.00,  accel:1.00, mix:5.2, tidy:-0.10};  // Facile
     if(d<1.02) return {pace:0.774, top:0.985, grip:1.00,  accel:1.00, mix:4.6, tidy:0.00};   // Normal
     if(d<1.10) return {pace:0.893, top:1,     grip:1.00,  accel:1.00, mix:4.0, tidy:0.08};   // Difficile
-    return            {pace:0.937, top:1,     grip:1.149, accel:1.04, mix:3.6, tidy:0.18, extreme:true};   // Extreme
+    return            {pace:0.955, top:1,     grip:1.149, accel:1.04, mix:3.6, tidy:0.18, extreme:true};   // Extreme
   }
   // Each team's car and driver. The car, in %: grip in the corners, speed on the
   // straights. The driver: pace in %, how steady from one part of the lap to the
@@ -5999,7 +6061,7 @@ uniform float shadowFar;
         // the stop window differs from one strategist to the next
         pitAt:0.22+Math.random()*0.16, warned:false, boxS:boxSFor(i),
         // every driver has a line of their own through the corners
-        aiOff:clamp(gauss()*0.6, -1.2, 1.2), aiLane:off, aiAgg:diff*(0.97+0.08*PF.attack),
+        aiOff:clamp(gauss()*(LV.extreme?0.2:0.6), -1.2, 1.2), aiLane:off, aiShift:0, aiShiftV:0, aiInit:false, aiAgg:diff*(0.97+0.08*PF.attack),
         gripMul: gm, aiPace: human ? LV.pace : Math.min(0.995, LV.pace*(1+(PF.pace*LV.mix+dayF[i])/100)), aiTop: human?1:LV.top,
         prof: PF, care: PF.care, form: 1,
         // how tidy the driver is follows how steady they are
@@ -6370,6 +6432,26 @@ uniform float shadowFar;
     const fx=Math.cos(c.a), fz=Math.sin(c.a);
     return 0.5*COL_L*Math.abs(fx*nx+fz*nz) + 0.5*COL_W*Math.abs(-fz*nx+fx*nz);
   }
+  // Do two cars' outlines overlap? If so, by how much and along which direction
+  // (from a toward b) they are separated with the least movement.
+  const OBB={ov:0, nx:0, nz:0};
+  function carOverlap(a, b){
+    const dx=b.x-a.x, dz=b.z-a.z;
+    const afx=Math.cos(a.a), afz=Math.sin(a.a), bfx=Math.cos(b.a), bfz=Math.sin(b.a);
+    const hl=COL_L*0.5, hw=COL_W*0.5;
+    let best=1e9, nx=0, nz=0;
+    for(let k=0;k<4;k++){
+      const ux = k===0 ? afx : k===1 ? -afz : k===2 ? bfx : -bfz;
+      const uz = k===0 ? afz : k===1 ?  afx : k===2 ? bfz :  bfx;
+      const ra=hl*Math.abs(afx*ux+afz*uz) + hw*Math.abs(-afz*ux+afx*uz);
+      const rb=hl*Math.abs(bfx*ux+bfz*uz) + hw*Math.abs(-bfz*ux+bfx*uz);
+      const d=dx*ux+dz*uz, ov=ra+rb-Math.abs(d);
+      if(ov<=0) return false;
+      if(ov<best){ best=ov; const sg=d>=0?1:-1; nx=ux*sg; nz=uz*sg; }
+    }
+    OBB.ov=best; OBB.nx=nx; OBB.nz=nz;
+    return true;
+  }
   function carCollisions(){
     const REST=0.38;
     let big=0;
@@ -6382,12 +6464,10 @@ uniform float shadowFar;
         if(BB.cur && state==="racing" && Math.hypot(b.x-a.x, b.z-a.z)<CAR_W) BB.cur.ghostF++;
         continue;
       }
-      const dx=b.x-a.x, dz=b.z-a.z, dist=Math.hypot(dx,dz)||1e-4;
-      if(dist>=COL_L) continue;               // nothing can reach further than that
-      const nx=dx/dist, nz=dz/dist;
-      const MIN=colHalf(a,nx,nz)+colHalf(b,nx,nz);
-      if(dist>=MIN) continue;
-      const ov=(MIN-dist)/2;
+      const dx=b.x-a.x, dz=b.z-a.z;
+      if(dx*dx+dz*dz>=COL_L*COL_L+COL_W*COL_W) continue;   // too far apart to touch at all
+      if(!carOverlap(a, b)) continue;
+      const nx=OBB.nx, nz=OBB.nz, ov=OBB.ov/2;
       // a car driven on another machine cannot be pushed from here, it would only
       // spring back next frame: the local car takes the whole overlap
       const pa = a.remote ? 0 : (b.remote ? 2 : 1), pb = b.remote ? 0 : (a.remote ? 2 : 1);
@@ -6568,7 +6648,7 @@ uniform float shadowFar;
   // how much slower an Extreme AI car's best race lap is than the lap estimate,
   // before it has been measured here: tyres, traffic and rhythm (3.7 % at
   // Silverstone; alone on the circuit it ranges from 0.8 % better to 1.5 % worse)
-  const LRN_CAL0=1.03;
+  const LRN_CAL0=1.01;       // measured for the driver of version 3.0
   const LRN={mem:null, B:0, on:false, adapt:1, pace0:1, savedAt:0, pending:false, raceWet:false,
     line:null, spd:null, conf:null, prevZone:null, nextZone:null, zoneIn:[]};
   function learnBlank(){
@@ -6616,7 +6696,8 @@ uniform float shadowFar;
       let o=c.lw;
       if(!o){
         o=c.lw={lap:c.lap, t0:now, v:new Float32Array(B), la:new Float32Array(B), g:new Float32Array(B),
-                seen:new Uint8Array(B), assist:new Uint8Array(B), dirty:true, ord:{}, defKey:"",
+                seen:new Uint8Array(B), assist:new Uint8Array(B), bad:new Uint8Array(B), badTo:-1, lost:true,
+                dirty:true, ord:{}, defKey:"",
                 plan:[{c:c.wets?-1:(c.comp||0), at:0}], inSvc:false};
       }
       // a lap is over: learn from it if it was clean, then start the next
@@ -6625,16 +6706,26 @@ uniform float shadowFar;
         if(c.lap===o.lap+1 && o.lap>=1){
           M.laps++;
           if(!o.dirty) learnLap(o, (now-o.t0)/1000, c);
+          else if(!o.lost) learnLinePart(o);
           else learnSave();
         }
-        o.lap=c.lap; o.t0=now; o.seen.fill(0); o.assist.fill(0); o.dirty=false;
+        o.lap=c.lap; o.t0=now; o.seen.fill(0); o.assist.fill(0); o.bad.fill(0); o.badTo=-1; o.dirty=false; o.lost=false;
       }
       if(c.lap>=totalLaps || c.finished) continue;
       // what spoils a lap: the pits, the safety car, rain, damage, going off,
       // hitting a wall or a car, the AI at the wheel after the flag
-      if(c.netDone || c.inPitLane || c.onPit || c.service>0 || scNow || weather.wet>0.12 || (c.damage||0)>0.3
-         || Math.abs(c.lat)>W+KERB*0.6 || (c.hitAt||0)>now-500 || Math.abs(c.vf)<3) o.dirty=true;
+      // what spoils the whole lap (the pits, the safety car, rain, damage, the AI
+      // driving after the flag), and what only spoils the stretch around it (a
+      // trip off, a touch of a wall or a car, a spin)
       const b=Math.min(B-1, Math.max(0, Math.floor(c.s/LBIN)));
+      if(c.netDone || c.inPitLane || c.onPit || c.service>0 || scNow || weather.wet>0.12 || (c.damage||0)>0.3){ o.dirty=true; o.lost=true; }
+      if(Math.abs(c.lat)>W+KERB*0.6 || (c.hitAt||0)>now-500 || Math.abs(c.vf)<3){
+        o.dirty=true;
+        // sixty metres either side of it
+        for(let k=-12;k<=0;k++) o.bad[(b+k+B)%B]=1;
+        o.badTo=(b+12)%B;
+      }
+      if(o.badTo>=0){ o.bad[b]=1; if(b===o.badTo) o.badTo=-1; }
       humObserve(c, o, idxAtS(c.s), b, now);
       o.seen[b]=1; o.v[b]=Math.abs(c.vf); o.la[b]=c.lat;
       o.g[b]=c.remote ? 1 : (c.grip||GRIP_ON)/GRIP_ON;
@@ -6701,6 +6792,22 @@ uniform float shadowFar;
     }
     learnSave();
   }
+  // A lap with an incident in it: the line from the rest of it, with less weight
+  // than a clean lap's, and nothing about speed or lap time.
+  function learnLinePart(o){
+    const M=LRN.mem, B=LRN.B;
+    let seen=0; for(let b=0;b<B;b++) seen+=o.seen[b]&&!o.bad[b] ? 1 : 0;
+    if(seen<B*0.5){ learnSave(); return; }
+    const w=0.35;
+    for(let b=0;b<B;b++){
+      if(!o.seen[b] || o.bad[b]) continue;
+      M.n[b]=Math.min(60, (M.n[b]||0)+1);
+      const lw=M.lw[b]||0;
+      M.lat[b]=((M.lat[b]||0)*lw + o.la[b]*w)/Math.max(1e-6, lw+w);
+      M.lw[b]=Math.min(12, lw+w);
+    }
+    learnSave();
+  }
   // Extreme AI laps, timed to calibrate the lap estimate for this circuit (a
   // gentler level loses more to its rhythm, so only Extreme races count)
   function learnWatchAI(c, now){
@@ -6721,17 +6828,13 @@ uniform float shadowFar;
     const gm=(c.gripMul||1)*adapt*adapt;
     const k=Math.sqrt(Math.max(0.2, (c.aiPace||0.9)*gm));
     const top=(c.maxSpeed||BASE)*(1+0.35*(adapt-1))*((c.aiTop||1)<1 ? c.aiTop : 1);
-    const prof=new Float32Array(N);
+    const prof=new Float32Array(N), aLat=AI_LAT*Math.max(0.2, (c.aiPace||0.9)*gm), aB=aiBrakePlan(c);
     for(let i=0;i<N;i++){
-      let tv=aiVA[i]*k;
-      if(LRN.on && LRN.spd && LRN.spd[i]>0){
-        const lt=LRN.spd[i]*Math.sqrt(gm*(c.aiPace||1)/LRN.pace0);
-        if(lt>tv) tv+=(lt-tv)*LRN.conf[i];
-      }
+      let tv=AIL ? aiCornerV(AIL.k[i], aLat) : aiVA[i]*k;
       if(HUM.on && HUM.shape) tv*=HUM.shape[i];
       prof[i]=Math.min(tv, top);
     }
-    for(let pass=0;pass<2;pass++) for(let i=N-1;i>=0;i--){ const j=(i+1)%N; prof[i]=Math.min(prof[i], Math.sqrt(prof[j]*prof[j]+2*AI_BRAKE*seg[i])); }
+    for(let pass=0;pass<2;pass++) for(let i=N-1;i>=0;i--){ const j=(i+1)%N; prof[i]=Math.min(prof[i], Math.sqrt(prof[j]*prof[j]+2*aB*seg[i])); }
     let v=prof[0], t=0;
     for(let pass=0;pass<2;pass++) for(let i=0;i<N;i++){
       const j=(i+1)%N, acc=(c.accel||30)*adapt-(c.roll||2.2)-(c.dragC||0.11)*v;
@@ -6755,7 +6858,7 @@ uniform float shadowFar;
     let top=null, tb=1e9;
     for(const c of cars){ if(c.player||c.human) continue; const e=aiLapEstimate(c,1); if(e<tb){ tb=e; top=c; } }
     if(!top) return 1;
-    const cal=M.calib||LRN_CAL0;
+    const cal=M.calib2||LRN_CAL0;
     if(tb*cal<=goal) return 1;
     let lo=1, hi=1.08;
     if(aiLapEstimate(top,hi)*cal>goal) return hi;
@@ -6769,7 +6872,8 @@ uniform float shadowFar;
     const LV=aiLevel(diff);
     LRN.on = !!LV.extreme && !!LRN.mem && (!NET.race || NET.role==="host");
     LRN.adapt=1; LRN.pace0=LV.pace;
-    try{ humPrepare(); }catch(e){ HUM.on=false; }
+    AIL=aiLineBuild(laneA);
+    try{ humPrepare(); }catch(e){ HUM.on=false; AIL=aiLineBuild(laneA); }
     if(!LRN.on) return;
     const M=LRN.mem, B=LRN.B;
     // for every sample of the lap: the line the humans drove, the speed they
@@ -6788,28 +6892,20 @@ uniform float shadowFar;
       LRN.line[i]= lw>0 ? clamp(la/lw,-W*0.82,W*0.82) : laneA[i];
       LRN.spd[i]= (nMin>=2 && sp<1e9) ? sp : 0;
     }
-    // A line is only worth copying where it was quicker: compare the humans'
-    // speed there with what this level's own driving would do, on the same grip,
-    // and fade from one line to the other over some fifteen metres.
+    // The humans' line is copied wherever the memory is sure of it (it is already
+    // weighted toward their best laps), faded smoothly into the racing line where
+    // it is not. Their speeds are NOT copied as such: the fastest moment of each
+    // corner, taken from different laps on different lines, made a lap nobody
+    // could drive, and the car went into the wall trying. The speed on this line
+    // is worked out from its own curvature and the car's grip.
     {
-      // judged only where speed is set by the grip; a straight takes the verdict
-      // of the corners either side of it, a hundred metres each way
-      const adv=new Float32Array(N), gl=Math.sqrt(LV.grip), cor=new Float32Array(N);
+      const cf=new Float32Array(N);
+      for(let i=0;i<N;i++){ let a=0; for(let k=-6;k<=6;k++) a+=LRN.conf[(i+k+N)%N]; cf[i]=a/13; }
       for(let i=0;i<N;i++){
-        const own=aiVA[i]*Math.sqrt(LV.pace*LV.grip), hum=LRN.spd[i]*gl;
-        cor[i]= (LRN.spd[i]>0 && own<BASE*0.97) ? LRN.conf[i]*clamp((hum/Math.max(1,own)-0.985)/0.03,0,1) : -1;
-      }
-      for(let i=0;i<N;i++){
-        if(cor[i]>=0){ adv[i]=cor[i]; continue; }
-        let m=0; for(let k=-40;k<=40;k++){ const x=cor[(i+k+N)%N]; if(x>m) m=x; }
-        adv[i]=m*LRN.conf[i];
-      }
-      for(let i=0;i<N;i++){
-        let a=0; for(let k=-6;k<=6;k++) a+=adv[(i+k+N)%N];
-        a/=13;
-        LRN.line[i]=laneA[i]+(LRN.line[i]-laneA[i])*a*0.9;
+        LRN.line[i]=clamp(laneA[i]+(LRN.line[i]-laneA[i])*cf[i]*0.9, -AI_LIM, AI_LIM);
       }
     }
+    AIL=aiLineBuild(LRN.line);
     // the strategy that won the humans the most time over this distance, for
     // a little over half of the field: the rest keep their own
     const st=M.strat[String(totalLaps)];
@@ -6850,8 +6946,8 @@ uniform float shadowFar;
       if(r.length){
         const m=r[Math.min(r.length-1,1)];            // the second best: one lucky lap in a tow says little
         // a strange race (a safety car, a pile-up) moves it only a little
-        const cur=M.calib||LRN_CAL0;
-        M.calib=clamp(cur+clamp((m-cur)*0.5, -0.015, 0.015), 0.95, 1.12);
+        const cur=M.calib2||LRN_CAL0;
+        M.calib2=clamp(cur+clamp((m-cur)*0.5, -0.015, 0.015), 0.95, 1.12);
       }
     }
     M.races=(M.races||0)+1;
@@ -7024,6 +7120,7 @@ uniform float shadowFar;
         cvs.push(Math.sqrt(Math.max(0,H.hvv[b]-H.hv[b]*H.hv[b]))/H.hv[b]);
       } else r[i]=0;
     }
+    AIL=aiLineBuild(HUM.line);
     // where they are slower or quicker than their own average through the
     // corners: brake earlier here, carry more there
     if(rw>0){
@@ -7078,7 +7175,8 @@ uniform float shadowFar;
     const groups=humans.map(h=>({who:humWho(h), cars:[]}));
     ais.forEach((x,k)=>groups[k%groups.length].cars.push(x.c));
     const lvOff={f:1.10, n:1.05, d:1.015}[HUM.lk];
-    const cal=(H.cal[HUM.lk]||{f:1.11, n:1.10, d:1.07}[HUM.lk]);
+    if(!H.cal2) H.cal2={};
+    const cal=(H.cal2[HUM.lk]||{f:1.04, n:1.03, d:1.027}[HUM.lk]);
     for(const G of groups){
       const lvl=humLevelOf(H.lv[G.who]);
       G.a=1;
@@ -7108,20 +7206,21 @@ uniform float shadowFar;
       for(const c of cars){ if(c.player||c.human||!c.la||!c.la.best) continue; r.push(c.la.best/aiLapEstimate(c,1)); }
       r.sort((a,b)=>a-b);
       if(r.length){
-        const m=r[Math.min(r.length-1,1)], cur=H.cal[HUM.lk]||{f:1.11, n:1.10, d:1.07}[HUM.lk];
-        H.cal[HUM.lk]=clamp(cur+clamp((m-cur)*0.6,-0.03,0.03), 0.95, 1.2);
+        if(!H.cal2) H.cal2={};
+        const m=r[Math.min(r.length-1,1)], cur=H.cal2[HUM.lk]||{f:1.04, n:1.03, d:1.027}[HUM.lk];
+        H.cal2[HUM.lk]=clamp(cur+clamp((m-cur)*0.6,-0.03,0.03), 0.95, 1.2);
       }
     }
     humSave(true);
   }
   // the line an AI car aims for: the humans' where the memory is sure of it
-  const aiLineAt=i=> LRN.on ? LRN.line[i] : (HUM.on ? HUM.line[i] : laneA[i]);
+  const aiLineAt=i=> AIL ? AIL.lat[i] : laneA[i];
 
   // ---- its page in Reglages ----
   function learnFmt(t){ if(!(t>0)) return "—"; const m=Math.floor(t/60), s=t-m*60; return m ? m+":"+(s<10?"0":"")+s.toFixed(2) : s.toFixed(2)+" s"; }
   function learnPanelHTML(){
     const esc=s=>String(s).replace(/[&<>"]/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
-    let h='<div class="setRow"><div class="what"><b>Mémoire de l’IA</b><small>Ce que l’IA a appris en regardant piloter les humains, circuit par circuit, dans tous les modes. Elle ne s’en sert qu’en Extrême : les trajectoires et les vitesses qui marchent, vos endroits pour doubler et votre façon de défendre, la stratégie qui a payé, et un rythme qui reste juste devant votre meilleur niveau.</small></div>'+
+    let h='<div class="setRow"><div class="what"><b>Mémoire de l’IA</b><small>Ce que l’IA a appris en regardant piloter les humains, circuit par circuit, dans tous les modes. Elle ne s’en sert qu’en Extrême : vos trajectoires, copiées partout où la mémoire en est sûre et roulées à la vitesse que la voiture peut vraiment tenir, vos endroits pour doubler et votre façon de défendre, la stratégie qui a payé, et un rythme qui reste juste devant votre meilleur niveau.</small></div>'+
       '<button class="btn ghost small" data-action="lrnClearAll">Tout effacer</button></div>';
     for(const C of CIRCUITS){
       let M=null;
@@ -7133,6 +7232,15 @@ uniform float shadowFar;
         const B=(M.n||[]).length||1;
         let known=0; for(const x of (M.n||[])) if(x>=2) known++;
         lines.push("Tours observés : "+M.laps+" dont "+(M.clean||0)+" propres · tracé appris : "+Math.round(100*known/B)+" %");
+        // how much of the lap the Extreme AI follows the humans' line on (the same
+        // confidence learnPrepare uses)
+        let sure=0;
+        for(let b=0;b<B;b++){
+          let lw=0, nMin=1e9;
+          for(let k=-2;k<=2;k++){ const bb=(b+k+B)%B; lw+=(M.lw&&M.lw[bb])||0; nMin=Math.min(nMin, (M.n&&M.n[bb])||0); }
+          if(clamp((lw/5-0.3)/1.5,0,1)*clamp((nMin-1)/3,0,1)>=0.5) sure++;
+        }
+        lines.push("Trajectoire que l’IA Extrême recopie : "+Math.round(100*sure/B)+" % du tour");
         const lvl=learnLevel(M);
         if(lvl) lines.push("Meilleur niveau observé : "+learnFmt(lvl)+" · l’IA Extrême vise "+learnFmt(lvl*0.995)+" ou mieux");
         const pz=Object.keys(M.pass||{}).map(z=>[+z, M.pass[z][0], M.pass[z][1]]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,3);
@@ -7182,8 +7290,13 @@ uniform float shadowFar;
     for(const o of cars){
       if(o===c || o.onPit || o.inPitLane || o.service>0) continue;
       const ds=signedTo(c.s,o.s), dl=o.lat-c.lat;
-      if(Math.abs(ds)<CAR_L*1.1 && Math.abs(dl)<CAR_W*2.4){
-        if(dl>0) hi=Math.min(hi, o.lat-CAR_W*1.35); else lo=Math.max(lo, o.lat+CAR_W*1.35);
+      // where it will be in half a second
+      const dsF=ds+(Math.abs(o.vf)-Math.abs(c.vf))*0.5;
+      // (a car coming level beside this one, that is; one straight behind or
+      // ahead is the following distance's business)
+      const soon = Math.abs(dl)>CAR_W*0.9 && (Math.abs(dsF)<CAR_L*1.1 || (ds*dsF<0 && Math.abs(ds)<CAR_L*4));
+      if((Math.abs(ds)<CAR_L*1.1 || soon) && Math.abs(dl)<CAR_W*2.4){
+        if(dl>0) hi=Math.min(hi, o.lat-CAR_W*1.4); else lo=Math.max(lo, o.lat+CAR_W*1.4);
       }
       if(ds>=CAR_L*0.5){ if(ds<dA && ds<95){ dA=ds; ahead=o; } }
       else if(ds<=-CAR_L*0.5){ if(-ds<dB && -ds<70){ dB=-ds; behind=o; } }
@@ -7320,68 +7433,54 @@ uniform float shadowFar;
     }
     return best;
   }
+  // How hard a driver plans to brake for a corner: nearly all the car has on
+  // Extreme, a little earlier on the gentler levels.
+  function aiBrakePlan(c){
+    const p=clamp(c.aiPace||0.9, 0.5, 1);
+    return ((c.brake||55)+(c.roll||2.2))*clamp(0.58+0.42*p, 0.78, 0.95);
+  }
+  const AIS0={lat:0, th:0, k:0, i:0}, AIS1={lat:0, th:0, k:0, i:0};
   function aiControls(c, dt){
-    // the speed profile already anticipates braking, so read it just ahead
-    const ahead=idxAtS(c.s + CAR_L*0.8 + Math.abs(c.vf)*0.09);
-    const here=idxAtS(c.s);
+    const here=idxAtS(c.s), av=Math.abs(c.vf), h=Math.max(dt||0,1e-3);
+    // the first moment of a race: the plan starts where the car stands on the grid
+    if(!c.aiInit){ c.aiInit=true; c.aiShift=c.lat-aiLineAt(here); c.aiShiftV=0; }
     // the grip this car has right now (tyres, rain, compound, damage, the level's
     // bonus), less the wake of a car ahead, sets how fast its corners can be
     const gk=(c.grip||GRIP_ON)*(1-0.17*(c.dirty||0))/GRIP_ON;
-    let target=Math.min(aiVA[here], aiVA[ahead]) * Math.sqrt(Math.max(0.2, (c.aiPace||0.88)*gk));
-    if(LRN.on && !c.player){
-      // Extreme: where the humans showed a quicker way through, on the line they
-      // drove it on (the pace to stay ahead of them is in the car, see learnPrepare)
-      const ls=Math.min(LRN.spd[here], LRN.spd[ahead]);
-      if(ls>0 && Math.abs((c.aiLane||0)-LRN.line[ahead])<1.6){
-        const lt=ls*Math.sqrt(gk*(c.aiPace||1)/LRN.pace0);
-        if(lt>target) target+=(lt-target)*LRN.conf[ahead];
-      }
-    }
+    const aLat=AI_LAT*Math.max(0.2, (c.aiPace||0.88)*gk), aLim=AI_LAT*gk*0.985;
+    // everything that makes this driver quicker or slower than the car's limit
+    // through the corners, as one factor on the corner speeds
+    let spd=1;
     if(HUM.on && !c.player){
-      // where the humans brake earlier or carry more speed than their own average
-      target*=HUM.shape[ahead];
       // lap to lap they are never quite the same
       if(c.lapKLap!==c.lap){ c.lapKLap=c.lap; c.lapK=1+clamp(gauss()*HUM.lapCV*0.6, -2*HUM.lapCV, 2*HUM.lapCV); }
-      target*=c.lapK;
-      // a first lap and an out-lap as careful as theirs, where the grip decides
-      if(aiVA[ahead]<BASE*1.3){
-        if(c.lap<=0 && c.s>300) target*=HUM.r0;
-        if(c.hOut) target*=HUM.ro;
-      }
+      spd*=c.lapK;
+      // a first lap and an out-lap as careful as theirs
+      if(c.lap<=0 && c.s>300) spd*=HUM.r0;
+      if(c.hOut) spd*=HUM.ro;
     }
-    // the gentler levels also lift before the end of a straight
-    if(c.aiTop<1) target=Math.min(target, c.maxSpeed*c.aiTop);
     // the car's place in the order, and the driver inside it
-    target *= (c.form!==undefined ? c.form : 1);
+    spd *= (c.form!==undefined ? c.form : 1);
     // the driver's rhythm: a few tenths up or down from one part of the lap to
     // the next, more for the scruffy ones. That is what opens and closes gaps.
     if(c.prof && !c.player){
       if(c.prog>=c.rhyAt){
-        // the gentler levels take the humans' own spread once it is known, never
-        // much steadier than the team's driver would be anyway
         const sd0=(1-c.prof.steady)*0.012+0.0008;
         const sd=HUM.on && HUM.spdKnown ? Math.max(sd0*0.7, HUM.spdSD) : sd0;
         c.rhyTo=clamp(gauss()*sd, -2.2*sd, 2.2*sd); c.rhyAt=c.prog+250+Math.random()*350;
-        // push, or look after the tyres for the next stretch: a driver in a fight
-        // always pushes, one in clean air often saves rubber, the careful ones more
         const fight = c.rc && (c.rc.mode==="attack" || c.rc.mode==="defend" || c.rc.mode==="follow");
         c.push = (fight || Math.random() < 0.75-2*((c.prof.care||1)-0.9)) ? 1 : 0;
       }
-      c.rhy+=(c.rhyTo-c.rhy)*(1-Math.exp(-0.9*Math.max(dt,1e-3)));
-      target*=1+c.rhy-(c.push===0 ? 0.008 : 0);
-    }
-    // a line inside the racing line is a tighter corner, so a slower one
-    {
-      const R0=radA[ahead];
-      if(R0<600){
-        const sg=laneA[ahead]>=0?1:-1, off=((c.aiLane||0)-aiLineAt(ahead))*sg;
-        if(off>0.3) target*=Math.sqrt(Math.max(0.55, 1-off/Math.max(R0,10)));
-      }
+      c.rhy+=(c.rhyTo-c.rhy)*(1-Math.exp(-0.9*h));
+      spd*=1+c.rhy-(c.push===0 ? 0.008 : 0);
     }
     // a moment gone wrong: the driver is off line and slow for about a second
-    if(c.slip2>0) target *= (1 - 0.16*Math.min(1,c.slip2));
+    if(c.slip2>0) spd *= (1 - 0.16*Math.min(1,c.slip2));
+    // running out of grip a moment ago (the steering could not turn enough): ease off
+    c.aiUS=Math.max(0, (c.aiUS||0)-h*1.5);
+    if((c.understeer||0)>0.08) c.aiUS=Math.min(1, c.aiUS+h*6);
+    spd *= 1-0.05*c.aiUS;
     const scOn = safety.active && safety.phase!=="in" && !c.onPit;
-    if(scOn) target=Math.min(target, SC_SPEED);
 
     const pw=pitWidthAt(c.s);
     // Past the opening, only a car that actually made it behind the wall is
@@ -7389,38 +7488,87 @@ uniform float shadowFar;
     // rather than braking to a halt against the wall.
     const pitting=c.wantPit && pw>1.0 && (c.inPitLane || !pitWallAt(c.s));
     const RC = (!pitting && !(c.inPitLane && pw>1.0) && !scOn && !c.onPit && state==="racing") ? raceCraft(c, dt) : null;
-    if(RC) target*=RC.mul;
+    if(RC) spd*=RC.mul;
     // Coming in for tyres, a driver drifts to the pit side of the circuit at
-    // racing speed and does all the braking in the entry road. Slowing on the
-    // racing line and then turning across it is how you get hit from behind.
+    // racing speed and does all the braking in the entry road.
     let approach=0;
     if(c.wantPit && !pitting){
       let d=ENTRY_S-c.s; while(d<0) d+=TOT;
       approach=clamp((150-d)/110, 0, 1);
     }
+
+    // ---- the lateral plan: how far from the line this car wants to be ----
+    const aimS=c.s + CAR_L*2.2 + av*0.32, aimI=idxAtS(aimS);
+    const inLane = !!c.inPitLane && pw>1.0;
+    if(!(pitting || inLane)){
+      const want = scOn ? aiLineAt(aimI) : pickLane(c, RC);
+      const target = want - aiLineAt(aimI);
+      // a move across the road takes the time a driver takes: brisk in a fight
+      const rate = RC && (RC.mode==="attack" || RC.mode==="yield") ? 4.2 : 3.0;
+      const dv=clamp((target-c.aiShift)*2.5, -rate, rate);
+      c.aiShiftV += (dv-c.aiShiftV)*(1-Math.exp(-8*h));
+      c.aiShift += c.aiShiftV*h;
+    }
+
+    // ---- speed: every corner ahead, and the car in front ----
+    const aPlan=aiBrakePlan(c);
+    const m0=1.5+av*0.05, reach=av*av/(2*aPlan)+40;
+    let aNeed=0, vNow=1e3;
+    {
+      let i=here, guard=0;
+      const s0=c.s;
+      for(;;){
+        let di=cum[i]-s0; if(di<-TOT/2) di+=TOT; else if(di>TOT/2) di-=TOT;
+        if(di>reach || guard++>300) break;
+        if(di>=-2){
+          const sh=c.aiShift*Math.max(0, 1-Math.max(0,di)/90);
+          const kk=AIL.k[i]/Math.max(0.35, 1-AIL.k[i]*sh);
+          let vc=Math.min(aiCornerV(kk, aLat)*spd*(HUM.on && !c.player && HUM.shape ? HUM.shape[i] : 1), aiCornerV(kk, aLim));
+          if(di<14) vNow=Math.min(vNow, vc);
+          if(av>vc){ const need=(av*av-vc*vc)/(2*Math.max(0.5, di-m0)); if(need>aNeed) aNeed=need; }
+        }
+        i=(i+2)%N;
+      }
+    }
+    // the top of the straight, for the gentler levels
+    let vTop = c.aiTop<1 ? c.maxSpeed*c.aiTop : 1e3;
+    if(scOn) vTop=Math.min(vTop, SC_SPEED);
+    let vPit=1e3;
     if(pitting){
-      // the limit line stands where the wall starts; brake to meet it
       const dLim=((wrapS(-PIT_FULL)-c.s)%TOT+TOT)%TOT;
       const toLimit = dLim>PIT_TAPER+5 ? 0 : dLim;
-      target=Math.min(target, PIT_LIMIT+Math.sqrt(2*26*toLimit));
+      vPit=PIT_LIMIT+Math.sqrt(2*26*toLimit);
       const d=signedTo(c.s, c.boxS);
-      // ease in so the car comes to rest ON its marking, not 25 m short of it
-      if(d<32 && d>-14) target=Math.min(target, Math.max(0, d*0.55));
+      if(d<32 && d>-14) vPit=Math.min(vPit, Math.max(0, d*0.55));
     }
-    // never drive into the back of the car in front: match its pace instead
-    if(!c.onPit) for(const o of cars){
-      if(o===c || o.onPit) continue;
-      const ds=signedTo(c.s,o.s);
-      if(ds<0.5 || ds>CAR_L*5) continue;
-      if(Math.abs(o.lat-c.lat)>CAR_W*1.5) continue;
-      const gap=Math.max(0.5, ds-CAR_L*1.25);
-      // a driver who is prepared to sit close gets the tow; one who is not
-      // leaves a margin and never gets past
-      const nerve=(c.boldness!==undefined?c.boldness:1);
-      target=Math.min(target, Math.abs(o.vf)+gap*(2.4+6*Math.max(0,c.aiAgg-1))*nerve);
+    // Never into the back of the car in front. The speed kept is one this car can
+    // still stop from, behind it, if that car brakes as hard as a car can; a
+    // human's braking cannot be read in advance, so they get more room.
+    let vFollow=1e3;
+    if(!c.onPit){
+      for(const o of cars){
+        if(o===c || o.onPit || (o.inPitLane && !c.inPitLane)) continue;
+        const ds=signedTo(c.s, o.s);
+        if(ds<CAR_L*0.55 || ds>av*2.6+35) continue;
+        const myLat = aiLineAt(idxAtS(o.s)) + c.aiShift*Math.max(0, 1-ds/90);
+        const inPath = Math.abs(o.lat-myLat)<CAR_W*1.2 || (ds<CAR_L*2.6 && Math.abs(o.lat-c.lat)<CAR_W*1.15);
+        if(!inPath) continue;
+        const vo=Math.max(0, o.vf), gap=ds-CAR_L*1.02;
+        const tau=(o.player||o.human) ? 0.22 : 0.12, aS=54, g0=0.9;
+        const vs=-aS*tau+Math.sqrt(aS*aS*tau*tau + vo*vo + 2*aS*Math.max(0, gap-g0));
+        if(vs<vFollow) vFollow=vs;
+      }
     }
-    let thr = c.vf < target*0.98 ? 1 : (c.vf > target*1.03 ? -1 : 0.2);
-    if(target<=0.01) thr=-1;
+    const Kv=3.2;
+    let aDes = aNeed>aPlan*0.85 ? -Math.min(aNeed, (c.brake||55)+(c.roll||2.2)) : Kv*(Math.min(vNow, vTop)-av);
+    if(av>vFollow) aDes=Math.min(aDes, -Math.min((c.brake||55)+(c.roll||2.2), (av-vFollow)*7));
+    else aDes=Math.min(aDes, Kv*(vFollow-av)+2);
+    if(vTop<1e3) aDes=Math.min(aDes, Kv*(vTop-av));
+    if(pitting) aDes=Math.min(aDes, 5*(vPit-av));
+    const drag=(c.roll||2.2)+(c.dragC||0.11)*(c.drs?0.62:1)*av;
+    let thr = aDes+drag>=0 ? (aDes+drag)/(c.accel||30) : (aDes+drag)/(c.brake||55);
+    thr=clamp(thr,-1,1);
+    if(pitting && vPit<=0.01) thr=-1;
     // the lights are out, but a driver still needs a moment to react
     if(c.react && state==="racing" && performance.now()-raceStart<c.react*1000) thr=0;
 
@@ -7431,21 +7579,19 @@ uniform float shadowFar;
     c.slipT=(c.slipT||6)-dt;
     if(HUM.on && !c.player){
       // a human's line is never on rails
-      const ex=Math.exp(-Math.max(dt,1e-3)/1.5);
+      const ex=Math.exp(-h/1.5);
       c.hw=(c.hw||0)*ex + HUM.latSD*Math.sqrt(Math.max(0,1-ex*ex))*gauss();
-      c.hwKick=(c.hwKick||0)*Math.exp(-Math.max(dt,1e-3)/0.9);
+      c.hwKick=(c.hwKick||0)*Math.exp(-h/0.9);
       if(c.hStops!==c.stops){ c.hStops=c.stops; if(c.stops>0) c.hOutUntil=c.prog+TOT; }
       c.hOut = c.prog < (c.hOutUntil||0);
     }
     if(HUM.on && HUM.errKnown && !c.player){
-      // mistakes the humans' way: as often, and in the same corners, either a
-      // trip wide over the kerb or a moment's big lift
       if(c.hmLap!==c.lap){ c.hmLap=c.lap; c.hm=humMistakes(); c.slipT=1e9; }
       if(c.hm && c.hm.length && !scOn && c.lap>=0){
         const z=LRN.nextZone[here];
         for(let q=0;q<c.hm.length;q++){
           const m=c.hm[q];
-          if(m.z===z && aiBrk[here]<Math.abs(c.vf)*0.6){
+          if(m.z===z && aiBrk[here]<av*0.6){
             if(m.off){ c.hwKick=-(LRN.zoneIn[z]||1)*2.8; c.slip2=0.5; }
             else c.slip2=1;
             c.hm.splice(q,1); break;
@@ -7454,7 +7600,6 @@ uniform float shadowFar;
       }
     } else if(c.slipT<=0){
       const wear=1-clamp(c.tyre,0,1);
-      // and under pressure, defending or wheel to wheel, a little more often
       const pressure = RC && (RC.mode==="defend" || (RC.mode==="attack" && RC.tgt && signedTo(c.s,RC.tgt.s)<CAR_L*1.2)) ? 1.5 : 1;
       const risk=(1-(c.tidy!==undefined?c.tidy:0.7))*(0.35+0.9*wear)*(weather.wet>0.2?1.7:1)*pressure;
       const cornering=Math.abs(vmaxA[here]-BASE)>4;
@@ -7466,41 +7611,49 @@ uniform float shadowFar;
       c.slipT = 5 + Math.random()*16;
     }
 
-    const aim=idxAtS(c.s + CAR_L*1.4 + Math.abs(c.vf)*0.16);
-    const he=angNorm(angOf(tanA[aim]) - c.a);
-    let lane;
-    const inLane = !!c.inPitLane && pw>1.0;
+    // ---- steering ----
+    const tf=clamp(0.22+av/((c.maxSpeed||BASE)*0.10),0,1);
     if(pitting || inLane){
+      const aim=idxAtS(c.s + CAR_L*1.4 + av*0.16);
+      const he=angNorm(angOf(tanA[aim]) - c.a);
       const wLane=Math.min(pw, PIT_W);
+      let lane;
       if(inLane && !c.wantPit && !pitWallAt(c.s)){
         lane=-W*0.62;                              // the exit road merges back on
       } else {
-        // fast lane along the wall while travelling, working lane at the box.
-        // Both are measured from the wall, so the line still clears it while the
-        // entry road is only a metre or two wide.
+        // fast lane along the wall while travelling, working lane at the box
         const dBox=signedTo(c.s, c.boxS);
         const away=clamp(Math.abs(dBox)/34, 0, 1);
         const fast=-(W+APRON)-Math.max(1.75, wLane*0.30);
         const work=-(W+APRON)-Math.max(1.75, wLane*0.68);
         lane=fast+(work-fast)*(1-away);
       }
-      c.aiLane=lane;                               // no lag when it matters most
+      c.aiLane=lane; c.aiShift=lane-aiLineAt(here); c.aiShiftV=0;
+      const steer=Math.atan2(-(c.lat-lane)*3.4, av+CAR_L*2.5);
+      return {t:thr, s:clamp(he*1.35+steer,-1,1)};
     }
-    else {
-      const want = scOn ? laneA[aim] : pickLane(c, RC);
-      const rate = RC && (RC.mode==="attack" || RC.mode==="yield") ? 4.5 : 3.5;
-      c.aiLane += (want-c.aiLane)*(1-Math.exp(-rate*Math.max(dt,1e-3)));
-      // never squeeze a car that is alongside; a human's trip wide may reach past the kerb
-      const wide = HUM.on && !c.player && Math.abs(c.hwKick||0)>0.5, lim = wide ? W+0.6 : W*0.82;
-      if(RC && RC.lo<=RC.hi) c.aiLane=clamp(c.aiLane, wide && RC.lo<=-W*0.84+1e-6 ? -lim : RC.lo, wide && RC.hi>=W*0.84-1e-6 ? lim : RC.hi);
-      lane=clamp(c.aiLane, -lim, lim);
-      if(approach>0) lane += (-W*0.92-lane)*approach;   // line up for the entry
+    // Follow the line itself: its own curve fed forward, then the heading and
+    // the distance off it corrected, both judged a few metres ahead.
+    aiLineSample(c.s, AIS0);
+    const wide = HUM.on && !c.player && Math.abs(c.hwKick||0)>0.5, lim = wide ? W+0.6 : AI_LIM;
+    let latP=AIS0.lat+c.aiShift;
+    // never squeeze a car that is alongside
+    if(RC && RC.lo<=RC.hi){
+      const lo = wide && RC.lo<=-W*0.84+1e-6 ? -lim : RC.lo, hi = wide && RC.hi>=W*0.84-1e-6 ? lim : RC.hi;
+      const cl=clamp(latP, lo, hi);
+      if(cl!==latP){ c.aiShift+=cl-latP; latP=cl; }
     }
-    const cte=c.lat-lane;
-    // crossing into the pit lane is a deliberate move, not a drift
-    const gain=(pitting||inLane||approach>0.4) ? 3.4 : 1.9;
-    const steer=Math.atan2(-cte*gain, Math.abs(c.vf)+CAR_L*2.5);
-    return {t:thr, s:clamp(he*1.35+steer,-1,1)};
+    latP=clamp(latP, -lim, lim);
+    if(approach>0) latP += (-W*0.92-latP)*approach;     // line up for the entry
+    c.aiLane=latP;
+    // (the heading is judged right where the car is: judged ahead, on a curve it
+    // asks for more turn than the curve and the car cuts across the apex)
+    aiLineSample(c.s + av*0.03 + 0.5, AIS1);
+    const kk=AIS1.k/Math.max(0.35, 1-AIS1.k*c.aiShift);
+    const ey=latP-c.lat;
+    const psi=AIS0.th + Math.atan((2.2*ey + c.aiShiftV)/(av+6));
+    const om=av*kk + 5.5*angNorm(psi-c.a);
+    return {t:thr, s:clamp(om/Math.max(0.2, (c.turnRate||2.2)*tf), -1, 1)};
   }
 
   /* =========================== PROGRESS =========================== */
@@ -8840,7 +8993,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="2.9";                              // shown to players; 2.x pages all play together
+  const NET_BUILD="3.0";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
