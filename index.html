@@ -9,6 +9,7 @@
 <meta property="og:type" content="website">
 <style>[hidden]{display:none!important} html,body{margin:0}</style>
 <title>Grand Prix</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0a0c11">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -208,6 +209,63 @@
   .hint em{font-style:normal; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
   .flash{position:absolute; inset:0; pointer-events:none; opacity:0; box-shadow:inset 0 0 120px 20px rgba(230,38,43,.85)}
   /* the world closes in as the speed comes up */
+  /* ---- touch controls ---- */
+  #stage.touchOn{--tpad:min(33vmin,186px); --tped:min(15.5vmin,96px); --tgap:2.4vmin}
+  .tctl{position:absolute; inset:0; z-index:7; pointer-events:none; touch-action:none;
+    -webkit-user-select:none; user-select:none}
+  .tctl[hidden]{display:none}
+  .tpad{
+    position:absolute; left:var(--tgap); bottom:var(--tgap); width:var(--tpad); height:var(--tpad);
+    min-width:104px; min-height:104px;
+    border-radius:50%; pointer-events:auto; touch-action:none;
+    background:radial-gradient(circle at 50% 50%, rgba(18,22,31,.52), rgba(10,13,19,.66));
+    border:1px solid rgba(255,255,255,.22); box-shadow:0 8px 26px rgba(0,0,0,.45);
+  }
+  .tpad i{
+    position:absolute; left:50%; top:50%; width:46%; height:46%; margin:-23% 0 0 -23%;
+    border-radius:50%; background:rgba(243,244,247,.88); box-shadow:0 3px 14px rgba(0,0,0,.5);
+  }
+  .tped{
+    position:absolute; right:var(--tgap); width:min(23vmin,132px); height:var(--tped);
+    min-width:82px; min-height:56px;
+    border-radius:16px; pointer-events:auto; touch-action:none;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-num); font-size:20px; letter-spacing:.14em; color:#fff;
+    border:1px solid rgba(255,255,255,.26); box-shadow:0 8px 26px rgba(0,0,0,.45);
+  }
+  .tped.gas{bottom:var(--tgap); background:rgba(36,209,122,.34)}
+  .tped.brk{bottom:calc(var(--tgap) + var(--tped) + 8px); background:rgba(230,38,43,.34)}
+  .tped.on{filter:brightness(1.55)}
+  .tbar{
+    position:absolute; left:50%; bottom:var(--tgap); transform:translateX(-50%);
+    display:flex; gap:8px; pointer-events:auto;
+  }
+  .tmini{
+    width:44px; height:44px; border-radius:12px; font-size:17px; line-height:1;
+    background:rgba(10,13,19,.66); color:var(--white); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .tmini:active{background:rgba(232,0,45,.45)}
+  .trot{
+    position:absolute; left:50%; top:52px; transform:translateX(-50%); display:none;
+    background:rgba(10,13,19,.8); border:1px solid var(--line); border-radius:8px;
+    padding:6px 12px; font-size:12px; letter-spacing:.1em; color:var(--yellow);
+  }
+  @media (orientation: portrait){ .tctl .trot{display:block} }
+  /* the cockpit gets out of the thumbs' way */
+  #stage.touchOn .radar{left:var(--tgap); bottom:calc(var(--tgap) + var(--tpad) + 12px); transform:scale(.62); transform-origin:left bottom}
+  #stage.touchOn .speedo{right:var(--tgap); bottom:calc(var(--tgap) + 2*var(--tped) + 18px); transform:scale(.74); transform-origin:right bottom}
+  #stage.touchOn .tyres{right:var(--tgap); bottom:auto; top:74px; transform:scale(.8); transform-origin:right top}
+  #stage.touchOn .draft{bottom:calc(var(--tgap) + 54px)}
+  @media (max-height: 520px){
+    #stage.touchOn .tower{display:none}
+    #stage.touchOn .tyres{display:none}
+  }
+  /* on a touch screen the game fills the window */
+  body.tmode{padding:0}
+  body.tmode .marquee, body.tmode .foot{display:none}
+  body.tmode .frame{max-width:none !important; gap:0; height:100%}
+  body.tmode .stage{aspect-ratio:auto; height:100vh; height:100dvh; border-radius:0; border:0}
   .svig{
     position:absolute; inset:0; pointer-events:none; opacity:0;
     box-shadow:inset 0 0 130px 44px rgba(0,0,0,.75);
@@ -765,6 +823,18 @@
         <b>Maintiens</b> <span class="cap">W</span> ou <span class="cap">&uarr;</span> pour accélérer
         <em>ou maintiens le clic sur la piste</em>
       </div>
+    </div>
+
+    <div class="tctl" id="tctl" hidden>
+      <div class="tpad" id="tpad"><i id="tknob"></i></div>
+      <div class="tped brk" id="tbrk">FREIN</div>
+      <div class="tped gas" id="tgas">GAZ</div>
+      <div class="tbar">
+        <button class="tmini" id="tcam" title="Cam&eacute;ra">&#127909;</button>
+        <button class="tmini" id="tsound" title="Son">&#128266;</button>
+        <button class="tmini" id="tpause" title="Pause">&#10074;&#10074;</button>
+      </div>
+      <div class="trot">Tourne ton appareil en paysage</div>
     </div>
 
     <div class="svig" id="speedVig"></div>
@@ -2206,7 +2276,8 @@ uniform float shadowFar;
     diff:"1.00", line:"0", dmg:"1", sc:"1", seasonLaps:"5", seasonComp:"1",
     units:"kmh", cam:"0", shake:"1", mini:"1", tower:"1",
     sound:"1", vol:"80",
-    tod:"auto", wx:"auto", laps:"5", comp:"1"
+    tod:"auto", wx:"auto", laps:"5", comp:"1",
+    touch:"auto"
   };
   const OPT=Object.assign({}, OPT_DEF);
   try{
@@ -8540,6 +8611,81 @@ uniform float shadowFar;
     if(keys.has("arrowright")||keys.has("d")) s+=1;
     return {t:t,s:s};
   }
+  /* ---- touch controls: a steering pad and two pedals ---- */
+  const TOUCH={on:false, steer:0, thr:0, brk:0, padId:null, gasId:null, brkId:null, shown:null};
+  // a touch screen with no mouse on it: a phone or a tablet. A laptop with a
+  // touch screen has a mouse as its main pointer and is left alone.
+  function touchScreen(){
+    try{ return (navigator.maxTouchPoints||0)>1 && matchMedia("(pointer: coarse)").matches; }catch(e){ return false; }
+  }
+  function applyTouch(){
+    TOUCH.on = OPT.touch==="1" || (OPT.touch!=="0" && touchScreen());
+    stage.classList.toggle("touchOn", TOUCH.on);
+    document.body.classList.toggle("tmode", TOUCH.on);
+    if(!TOUCH.on){ TOUCH.steer=0; TOUCH.thr=0; TOUCH.brk=0; TOUCH.padId=null; }
+    const h=$("hint");
+    if(h) h.innerHTML = TOUCH.on
+      ? 'Maintiens <span class="cap">GAZ</span> pour acc\u00e9l\u00e9rer <em>et tourne avec le joystick</em>'
+      : 'Maintiens <span class="cap">W</span> ou <span class="cap">\u2191</span> pour acc\u00e9l\u00e9rer <em>ou maintiens le clic sur la piste</em>';
+    touchShow();
+    try{ resize(); }catch(e){}
+  }
+  // they belong on screen while driving, and nowhere else
+  function touchShow(){
+    const el=$("tctl"); if(!el) return;
+    const want = TOUCH.on && (state==="countdown" || state==="racing" || state==="paused");
+    if(TOUCH.shown===want) return;
+    TOUCH.shown=want; el.hidden=!want;
+    if(!want){ TOUCH.thr=0; TOUCH.brk=0; TOUCH.steer=0; TOUCH.padId=null;
+      const g=$("tgas"), b=$("tbrk"); if(g) g.classList.remove("on"); if(b) b.classList.remove("on");
+      const k=$("tknob"); if(k) k.style.transform="";
+    }
+  }
+  function touchWire(){
+    const pad=$("tpad"), knob=$("tknob");
+    const move=e=>{
+      const r=pad.getBoundingClientRect(), rad=Math.max(1, r.width*0.5);
+      let dx=(e.clientX-(r.left+r.width/2))/rad, dy=(e.clientY-(r.top+r.height/2))/rad;
+      const m=Math.hypot(dx,dy); if(m>1){ dx/=m; dy/=m; }
+      TOUCH.steer=clamp(dx*1.3, -1, 1);                 // full lock a little before the edge
+      knob.style.transform="translate("+(dx*78).toFixed(1)+"%,"+(dy*78).toFixed(1)+"%)";
+    };
+    const stop=()=>{ TOUCH.padId=null; TOUCH.steer=0; knob.style.transform=""; };
+    pad.addEventListener("pointerdown", e=>{
+      if(TOUCH.padId!==null) return;
+      TOUCH.padId=e.pointerId; gotInput=true; grabFocus();
+      try{ pad.setPointerCapture(e.pointerId); }catch(x){}
+      move(e); e.preventDefault();
+    });
+    pad.addEventListener("pointermove", e=>{ if(e.pointerId===TOUCH.padId){ move(e); e.preventDefault(); } });
+    for(const ev of ["pointerup","pointercancel"]) pad.addEventListener(ev, e=>{ if(e.pointerId===TOUCH.padId) stop(); });
+    // each pedal remembers which finger is on it, so lifting one never lets the
+    // other one go
+    const pedals=[[$("tgas"), "thr", "gasId"], [$("tbrk"), "brk", "brkId"]];
+    const drop=(el, key, idk)=>{ TOUCH[key]=0; TOUCH[idk]=null; el.classList.remove("on"); };
+    for(const [el, key, idk] of pedals){
+      el.addEventListener("pointerdown", e=>{
+        TOUCH[key]=1; TOUCH[idk]=e.pointerId; el.classList.add("on"); gotInput=true; grabFocus();
+        try{ el.setPointerCapture(e.pointerId); }catch(x){}
+        e.preventDefault();
+      });
+      for(const ev of ["pointerup","pointercancel"])
+        el.addEventListener(ev, e=>{ if(TOUCH[idk]===null || e.pointerId===TOUCH[idk]) drop(el, key, idk); });
+    }
+    // a finger lifted off the edge of the screen, a call coming in, the game put
+    // away: whatever that finger was holding is let go
+    const gone=e=>{
+      const id = e && e.pointerId!==undefined ? e.pointerId : null;
+      if(id===null || id===TOUCH.padId) stop();
+      for(const [el, key, idk] of pedals) if(id===null || id===TOUCH[idk]) drop(el, key, idk);
+    };
+    for(const ev of ["pointerup","pointercancel"]) window.addEventListener(ev, gone);
+    window.addEventListener("blur", ()=>gone(null));
+    document.addEventListener("visibilitychange", ()=>{ if(document.hidden) gone(null); });
+    $("tcam").addEventListener("click", cycleCam);
+    $("tsound").addEventListener("click", ()=>{ toggleSound(); $("tsound").innerHTML = sound ? "&#128266;" : "&#128264;"; });
+    $("tpause").addEventListener("click", togglePause);
+  }
   let ptrOn=false, ptrX=0;
   stage.addEventListener("pointerdown",e=>{
     gotInput=true; grabFocus();
@@ -8870,6 +9016,7 @@ uniform float shadowFar;
     requestAnimationFrame(frame);
     updateFps(now);
     lastFrameAt=Date.now();
+    if(TOUCH.on || TOUCH.shown) touchShow();
     if(!last) last=now;
     let dt=(now-last)/1000; last=now;
     const rawDt=dt;
@@ -8898,7 +9045,12 @@ uniform float shadowFar;
       try{
         const k=readKeys();
         let thr=k.t, str=k.s;
-        if(ptrOn){ thr=1; str=clamp((ptrX-stage.clientWidth/2)/(stage.clientWidth*0.28),-1,1); }
+        if(TOUCH.on){
+          // the pedals and the pad, with the keyboard still there if there is one
+          if(TOUCH.thr || TOUCH.brk) thr=(TOUCH.thr?1:0)-(TOUCH.brk?1:0);
+          if(TOUCH.padId!==null) str=TOUCH.steer;
+        }
+        else if(ptrOn){ thr=1; str=clamp((ptrX-stage.clientWidth/2)/(stage.clientWidth*0.28),-1,1); }
         updateDraft();
         updateDRS();
         let imp=0;
@@ -8993,7 +9145,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="3.0";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="3.1";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -10833,6 +10985,9 @@ uniform float shadowFar;
   /* ============================ WIRING ============================ */
   // ---- what is in Reglages, and what each switch does ----
   const SET_SECS=["gfx","race","hud","snd","keys","ai","net","data"];
+  const TOUCH_SET={sec:"keys", key:"touch", name:"Commandes tactiles",
+    hint:"Un joystick de direction \u00e0 gauche, l\u2019acc\u00e9l\u00e9rateur et le frein \u00e0 droite. En auto, elles apparaissent sur t\u00e9l\u00e9phone et tablette et le jeu prend tout l\u2019\u00e9cran.",
+    vals:[["auto","Auto"],["1","Toujours"],["0","Jamais"]]};
   const SETTINGS=[
     {sec:"gfx", key:"qual", name:"D\u00e9tail", hint:"Ombres port\u00e9es et finesse du d\u00e9cor.",
       vals:[["high","\u00c9lev\u00e9"],["low","Fluide"]]},
@@ -10869,6 +11024,7 @@ uniform float shadowFar;
       vals:[["1","Activ\u00e9"],["0","Coup\u00e9"]]},
     {sec:"snd", key:"vol", name:"Volume", hint:"", range:true},
 
+    TOUCH_SET,
     {sec:"data", action:"resetSeason", name:"Recommencer la saison", hint:"Efface le classement et repart de la premi\u00e8re manche.",
       label:"Recommencer"},
     {sec:"data", action:"clearRecords", name:"Effacer mes records", hint:"Oublie tes meilleurs tours sur les dix circuits.",
@@ -10892,7 +11048,16 @@ uniform float shadowFar;
     for(const sec of SET_SECS){
       const box=document.createElement("div");
       box.className="setSec"; box.dataset.sec=sec; box.hidden=(sec!==setTab);
-      if(sec==="keys"){ box.innerHTML=KEYS_HTML; card.appendChild(box); continue; }
+      if(sec==="keys"){
+        // the touch setting first, then the list of keys
+        const it=TOUCH_SET, row=document.createElement("div");
+        row.className="setRow";
+        row.innerHTML='<div class="what"><b>'+it.name+'</b><small>'+it.hint+'</small></div><span class="seg">'+
+          it.vals.map(v=>'<button class="chip" data-opt="'+it.key+'" data-val="'+v[0]+'">'+v[1]+'</button>').join("")+'</span>';
+        box.appendChild(row);
+        const keys=document.createElement("div"); keys.innerHTML=KEYS_HTML; box.appendChild(keys);
+        card.appendChild(box); continue;
+      }
       if(sec==="ai"){ box.id="aiMemBox"; box.innerHTML=learnPanelHTML(); card.appendChild(box); continue; }
       if(sec==="net"){ box.id="bbBox"; box.innerHTML=bbPanelHTML(); card.appendChild(box); continue; }
       for(const it of SETTINGS){
@@ -10946,6 +11111,7 @@ uniform float shadowFar;
     else if(k==="vol"){ if(master) try{ master.gain.value=0.9*clamp((+v||0)/100,0,1); }catch(e){} }
     else if(k==="tod"){ if(pane==="free") previewTOD(v==="auto" ? (LOOK.tod||"couchant") : v); }
     else if(k==="laps"){ if(!seasonMode){ totalLaps=parseInt(v,10)||5; $("lapTot").textContent=totalLaps; } }
+    else if(k==="touch") applyTouch();
   }
   function setOpt(k, v){
     if(OPT[k]===String(v)) return;
@@ -11132,6 +11298,7 @@ uniform float shadowFar;
   const frameEl=document.querySelector(".frame");
   function fitStage(){
     if(!frameEl) return;
+    if(TOUCH.on){ frameEl.style.maxWidth="none"; return; }   // the stage fills the window instead
     let other=0;
     for(const el of frameEl.children){
       if(el===stage) continue;
@@ -11256,7 +11423,8 @@ uniform float shadowFar;
   }
   // everything saved is applied once, before the first frame; the expensive
   // switches only when they differ from what was built
-  for(const k of ["rez","fps","line","diff","units","cam","mini","tower"]) applyOpt(k);
+  touchWire();
+  for(const k of ["rez","fps","line","diff","units","cam","mini","tower","touch"]) applyOpt(k);
   if(OPT.qual==="low") applyOpt("qual");
   if(OPT.fx==="1") applyOpt("fx");
   if(OPT.sound==="0" && sound) toggleSound();
