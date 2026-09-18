@@ -6163,7 +6163,8 @@ uniform float shadowFar;
         accel:30*(human?1:LV.accel*(1+PF.top*Math.min(LV.mix,1.6)/100)), brake:55, roll:2.2, dragC:0.11, turnRate:2.2,
         grip:GRIP_ON*gm, gripOff:GRIP_OFF,
         si:idx, s:s, prevS:s, lat:off, groundY:p.y, tan:t, nor:nr,
-        lap:-1, prog:0, rank:1, draft:false, finished:false, finishT:0, stuckT:0,
+        lap:-1, prog:0, rank:1, draft:false, towB:0, towIn:0, towKeep:0, drsB:0,
+        finished:false, finishT:0, stuckT:0,
         tyre:1, wets:false, comp:(me? compChoice : (human ? 1 : startCompound(PF))),
         bandShown:-1, service:0, canService:false, stops:0, wantPit:false, onPit:false, understeer:0,
         drs:false, drsArm:false, drsWas:false,
@@ -6472,7 +6473,12 @@ uniform float shadowFar;
     let vf=c.vx*f.x+c.vz*f.z, vr=c.vx*r.x+c.vz*r.z;
     updatePitState(c);
     const off=!c.onPit && !onPitTarmac(c) && Math.abs(c.lat)>W+KERB*0.5;
-    let curMax=c.maxSpeed*(c.draft?TOW_TOP:1)*(c.drs?DRS_TOP:1)*(1-0.10*(c.damage||0));
+    // The wing takes a moment to close and the air a moment to come back, so
+    // the aerodynamic share of the top speed moves rather than switches. That
+    // is what leaves you the run you built: the ceiling comes down with you in
+    // it, instead of dropping the instant you move out of the wake.
+    c.drsB=(c.drsB||0)+((c.drs?1:0)-(c.drsB||0))*(1-Math.exp(-dt/0.35));
+    let curMax=c.maxSpeed*(1+(TOW_TOP-1)*(c.towB||0)+(DRS_TOP-1)*(c.drsB||0))*(1-0.10*(c.damage||0));
     if(safety.active && safety.phase!=="in" && !c.onPit){
       curMax=Math.min(curMax, SC_SPEED*1.05);
       const dsc=signedTo(c.s, safety.s);          // how far ahead the car is
@@ -6484,7 +6490,7 @@ uniform float shadowFar;
     c.thrIn = thr; c.strIn = str;
     if(thr>0.01) vf+=c.accel*thr*dt;
     else if(thr<-0.01){ if(vf>1) vf-=c.brake*dt*(-thr); else vf-=c.accel*0.5*dt*(-thr); }
-    vf-=(c.roll+c.dragC*(c.drs?0.62:1)*Math.abs(vf))*Math.sign(vf)*dt;
+    vf-=(c.roll+c.dragC*(1-0.38*(c.drsB||0))*(1-0.20*(c.towB||0))*Math.abs(vf))*Math.sign(vf)*dt;
     if(off) vf-=8*Math.sign(vf)*dt;
     vf=clamp(vf,-curMax*0.3,curMax);
     const tf=clamp(0.22+Math.abs(vf)/(c.maxSpeed*0.10),0,1);
@@ -6606,21 +6612,56 @@ uniform float shadowFar;
   }
   // The tow helps you down the straight and the wake hurts you in the corner.
   // That pair is what modern Formula 1 racing actually feels like.
-  function updateDraft(){
+  //
+  // A tow is not a switch. The wake trails the car in front along its own
+  // heading and spreads out behind it, it takes a moment sitting in there to
+  // build a run, and -- this is the part that makes a pass possible -- the run
+  // stays with you for a moment after you pull out of the wake to go by.
+  const TOW_LEN=CAR_L*7.5;      // how far back the wake still pulls you along
+  const TOW_CHARGE=1.2;         // seconds spent in it for a full run
+  const TOW_HOLD=1.1;           // seconds of full run kept after pulling out
+  const TOW_FADE=2.0;           // and then it fades with this time constant
+  function updateDraft(dt){
+    const st=clamp(dt||0.016, 0.001, 0.1);
     for(const c of cars){
-      c.draft=false; c.dirty=0;
-      const fx=Math.cos(c.a), fz=Math.sin(c.a);
+      let tow=0; c.dirty=0;
+      const fx=Math.cos(c.a), fz=Math.sin(c.a), sp=Math.abs(c.vf);
       for(const o of cars){
-        if(o===c || o.service>0) continue;
+        if(o===c || o.service>0 || !!o.onPit!==!!c.onPit) continue;
         const dx=o.x-c.x, dz=o.z-c.z, d=Math.hypot(dx,dz);
         if(d<0.5) continue;
+        const ox=Math.cos(o.a), oz=Math.sin(o.a);
+        const back=dx*ox+dz*oz;              // how far up the road it is
+        const side=Math.abs(dz*ox-dx*oz);    // and how far off its line you are
+        if(back>CAR_L*0.6 && back<TOW_LEN){
+          const half=CAR_W*1.15+0.06*back;   // the wake widens as it trails
+          if(side<half){
+            const f=Math.pow(1-back/TOW_LEN,0.7)
+                  * (1-(side/half)*(side/half))
+                  * clamp((ox*fx+oz*fz-0.55)/0.35,0,1)   // both going the same way
+                  * clamp((sp-BASE*0.30)/(BASE*0.22),0,1);
+            if(f*1.6>tow) tow=Math.min(1,f*1.6);   // full within a few lengths
+          }
+        }
         const ahead=(fx*dx+fz*dz)/d;
-        if(d<CAR_L*5 && d>CAR_L*0.7 && ahead>0.85) c.draft=true;
         if(d<CAR_L*4.2 && ahead>0.80){
           const f=(1-d/(CAR_L*4.2))*((ahead-0.80)/0.20);
           if(f>c.dirty) c.dirty=Math.min(1,f);
         }
       }
+      // build it up, keep it for a moment once you leave, then let it fade
+      c.towIn = tow>0.15 ? Math.min(TOW_CHARGE,(c.towIn||0)+st)
+                         : Math.max(0,(c.towIn||0)-st*0.7);
+      if(tow >= (c.towB||0)-0.02){
+        c.towB=(c.towB||0)+(tow-(c.towB||0))*(1-Math.exp(-st/0.25));
+        c.towKeep=TOW_HOLD*((c.towIn||0)/TOW_CHARGE);
+      } else if((c.towKeep||0)>0){
+        c.towKeep=(c.towKeep||0)-st;
+      } else {
+        c.towB=(c.towB||0)+(tow-(c.towB||0))*(1-Math.exp(-st/TOW_FADE));
+      }
+      c.towRaw=tow;
+      c.draft=(c.towB||0)>0.20;
     }
   }
 
@@ -8909,6 +8950,8 @@ uniform float shadowFar;
     $("stopsLbl").textContent = player.service>0
       ? ("STAND " + player.service.toFixed(1) + "s")
       : (player.stops + (player.stops>1?" arrêts":" arrêt"));
+    // out of the wake but still carrying what it gave you: that is the run
+    hudText("draftBadge", (player.draft && (player.towRaw||0)<0.15) ? "\u00c9LAN" : "ASPIRATION");
     $("draftBadge").classList.toggle("on", player.draft && player.vf>BASE*0.35);
     const t=player.tan;
     $("warn").classList.toggle("on",
@@ -9195,7 +9238,7 @@ uniform float shadowFar;
           if(ts!==null) str=ts;
         }
         else if(ptrOn){ thr=1; str=clamp((ptrX-stage.clientWidth/2)/(stage.clientWidth*0.28),-1,1); }
-        updateDraft();
+        updateDraft(dt);
         updateDRS();
         let imp=0;
         if(NET.race) netClockTick(now);
@@ -9289,7 +9332,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="3.3";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="3.4";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
