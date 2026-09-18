@@ -211,7 +211,7 @@
   /* the world closes in as the speed comes up */
   /* ---- touch controls ---- */
   #stage.touchOn{--tpad:min(33vmin,186px); --tped:min(15.5vmin,96px); --tgap:2.4vmin}
-  .tctl, .tpad, .tped, .tbar, .tmini, .trot{
+  .tctl, .tpad, .tped, .tbar, .tmini, .trot, .tarr, .tarr button, .ttilt{
     -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
     -webkit-tap-highlight-color:transparent; touch-action:none;
   }
@@ -228,6 +228,28 @@
     position:absolute; left:50%; top:50%; width:46%; height:46%; margin:-23% 0 0 -23%;
     border-radius:50%; background:rgba(243,244,247,.88); box-shadow:0 3px 14px rgba(0,0,0,.5);
   }
+  /* the two arrows, and the bar that shows where the tilt is pointing */
+  .tarr{position:absolute; left:var(--tgap); bottom:var(--tgap); display:none; gap:10px}
+  .tarr button{
+    width:min(19vmin,112px); height:var(--tped); min-width:72px; min-height:56px;
+    border-radius:16px; pointer-events:auto; color:#fff; font-size:22px; line-height:1;
+    background:rgba(10,13,19,.62); border:1px solid rgba(255,255,255,.26);
+    box-shadow:0 8px 26px rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center;
+  }
+  .tarr button.on{background:rgba(232,0,45,.5)}
+  .ttilt{
+    position:absolute; left:var(--tgap); bottom:var(--tgap); display:none;
+    width:min(46vmin,260px); height:44px; border-radius:14px; pointer-events:none;
+    background:rgba(10,13,19,.6); border:1px solid rgba(255,255,255,.22);
+  }
+  .ttilt i{position:absolute; left:50%; top:5px; bottom:5px; width:12px; margin-left:-6px; border-radius:6px; background:rgba(243,244,247,.9)}
+  .ttilt u{position:absolute; left:50%; top:0; bottom:0; width:1px; background:rgba(255,255,255,.25)}
+  #stage.sch-arrows .tpad, #stage.sch-tilt .tpad{display:none}
+  #stage.sch-arrows .tarr{display:flex}
+  #stage.sch-tilt .ttilt{display:block}
+  #stage.sch-pad{--tleft:var(--tpad)}
+  #stage.sch-arrows{--tleft:var(--tped)}
+  #stage.sch-tilt{--tleft:44px}
   .tped{
     position:absolute; right:var(--tgap); width:min(23vmin,132px); height:var(--tped);
     min-width:82px; min-height:56px;
@@ -252,6 +274,7 @@
     display:flex; align-items:center; justify-content:center; cursor:pointer;
   }
   .tmini:active{background:rgba(232,0,45,.45)}
+  .setRow small.bad{color:var(--yellow); display:block; margin-top:4px}
   .trot{
     position:absolute; left:50%; top:52px; transform:translateX(-50%); display:none;
     background:rgba(10,13,19,.8); border:1px solid var(--line); border-radius:8px;
@@ -259,7 +282,7 @@
   }
   @media (orientation: portrait){ .tctl .trot{display:block} }
   /* the cockpit gets out of the thumbs' way */
-  #stage.touchOn .radar{left:var(--tgap); bottom:calc(var(--tgap) + var(--tpad) + 12px); transform:scale(.62); transform-origin:left bottom}
+  #stage.touchOn .radar{left:var(--tgap); bottom:calc(var(--tgap) + var(--tleft) + 12px); transform:scale(.62); transform-origin:left bottom}
   #stage.touchOn .speedo{right:var(--tgap); bottom:calc(var(--tgap) + 2*var(--tped) + 18px); transform:scale(.74); transform-origin:right bottom}
   #stage.touchOn .tyres{right:var(--tgap); bottom:auto; top:74px; transform:scale(.8); transform-origin:right top}
   #stage.touchOn .draft{bottom:calc(var(--tgap) + 54px)}
@@ -837,11 +860,18 @@
 
     <div class="tctl" id="tctl" hidden>
       <div class="tpad" id="tpad"><i id="tknob"></i></div>
+      <div class="tarr" id="tarr">
+        <button id="tleft" aria-label="Tourner \u00e0 gauche">&#9664;</button>
+        <button id="tright" aria-label="Tourner \u00e0 droite">&#9654;</button>
+      </div>
+      <div class="ttilt" id="ttilt"><u></u><i id="ttiltI"></i></div>
       <div class="tped brk" id="tbrk"></div>
       <div class="tped gas" id="tgas"></div>
       <div class="tbar" id="tbar">
         <button class="tmini" id="tcam" title="Cam&eacute;ra">&#127909;</button>
         <button class="tmini" id="tsound" title="Son">&#128266;</button>
+        <button class="tmini" id="tgyro" title="Activer l&rsquo;inclinaison" hidden>&#128241;</button>
+        <button class="tmini" id="tzero" title="Recentrer l&rsquo;inclinaison" hidden>&#8982;</button>
         <button class="tmini" id="tpause" title="Pause">&#10074;&#10074;</button>
       </div>
       <div class="trot">Tourne ton appareil en paysage</div>
@@ -2287,7 +2317,7 @@ uniform float shadowFar;
     units:"kmh", cam:"0", shake:"1", mini:"1", tower:"1",
     sound:"1", vol:"80",
     tod:"auto", wx:"auto", laps:"5", comp:"1",
-    touch:"auto"
+    touch:"auto", tsteer:"pad"
   };
   const OPT=Object.assign({}, OPT_DEF);
   try{
@@ -8622,7 +8652,67 @@ uniform float shadowFar;
     return {t:t,s:s};
   }
   /* ---- touch controls: a steering pad and two pedals ---- */
-  const TOUCH={on:false, steer:0, thr:0, brk:0, padId:null, gasId:null, brkId:null, shown:null};
+  const TOUCH={on:false, scheme:"pad", steer:0, thr:0, brk:0, padId:null, gasId:null, brkId:null,
+    left:0, right:0, leftId:null, rightId:null,
+    tiltOn:false, tiltRaw:null, tiltZero:0, tiltAsked:false, shown:null};
+  // Which way the device is being tilted, whichever way round it is being held.
+  function tiltAngle(e){
+    const a=(screen.orientation && screen.orientation.angle) || window.orientation || 0;
+    const g=e.gamma, b=e.beta;
+    if(g===null || b===null) return null;
+    if(a===90) return b;
+    if(a===270 || a===-90) return -b;
+    if(a===180) return -g;
+    return g;
+  }
+  function onTilt(e){
+    const t=tiltAngle(e);
+    if(t===null) return;
+    if(TOUCH.tiltRaw===null) TOUCH.tiltZero=t;          // the first reading is the neutral one
+    TOUCH.tiltRaw=t;
+    const bar=$("ttiltI");
+    if(bar) bar.style.transform="translateX("+(touchTilt()*46).toFixed(0)+"px)";
+  }
+  // -1 to 1 from the tilt, with a small dead zone so a steady hand runs straight
+  function touchTilt(){
+    if(TOUCH.tiltRaw===null) return 0;
+    const d=TOUCH.tiltRaw-TOUCH.tiltZero, s=Math.sign(d), m=Math.abs(d);
+    return m<2.5 ? 0 : clamp(s*(m-2.5)/22, -1, 1);
+  }
+  function tiltZero(){ if(TOUCH.tiltRaw!==null) TOUCH.tiltZero=TOUCH.tiltRaw; }
+  // what the driver is asking for, or null when they are not touching anything
+  function touchSteer(){
+    if(TOUCH.scheme==="arrows") return (TOUCH.left||TOUCH.right) ? (TOUCH.right?1:0)-(TOUCH.left?1:0) : null;
+    if(TOUCH.scheme==="tilt") return TOUCH.tiltRaw===null ? null : touchTilt();
+    return TOUCH.padId!==null ? TOUCH.steer : null;
+  }
+  function tiltNote(txt){
+    const el=$("tsteerNote");
+    if(el){ el.textContent=txt||""; el.hidden=!txt; }
+  }
+  // the device is asked for its tilt; iOS only answers a tap
+  function tiltAsk(){
+    const D=window.DeviceOrientationEvent;
+    if(!D){ tiltNote("Cet appareil ne donne pas son inclinaison."); return; }
+    if(typeof D.requestPermission!=="function"){ tiltListen(true); tiltNote(""); return; }
+    try{
+      D.requestPermission().then(r=>{
+        if(r==="granted"){ tiltListen(true); tiltNote(""); }
+        else tiltNote("L’appareil a refusé l’inclinaison. Touche le bouton téléphone, en bas de l’écran pendant la course, pour redemander, ou choisis Joystick ou Flèches.");
+      }).catch(()=>tiltNote("L’inclinaison n’a pas pu être activée ici."));
+    }catch(e){ tiltNote("L’inclinaison n’a pas pu être activée ici."); }
+  }
+  // does the device still have to be asked?
+  function tiltNeed(){
+    const D=window.DeviceOrientationEvent;
+    return TOUCH.scheme==="tilt" && !TOUCH.tiltOn && !!D && typeof D.requestPermission==="function";
+  }
+  function tiltListen(on){
+    if(on===TOUCH.tiltOn) return;
+    TOUCH.tiltOn=on;
+    if(on) window.addEventListener("deviceorientation", onTilt);
+    else { window.removeEventListener("deviceorientation", onTilt); TOUCH.tiltRaw=null; }
+  }
   // a touch screen with no mouse on it: a phone or a tablet. A laptop with a
   // touch screen has a mouse as its main pointer and is left alone.
   function touchScreen(){
@@ -8630,12 +8720,23 @@ uniform float shadowFar;
   }
   function applyTouch(){
     TOUCH.on = OPT.touch==="1" || (OPT.touch!=="0" && touchScreen());
+    TOUCH.scheme = ["pad","arrows","tilt"].indexOf(OPT.tsteer)>=0 ? OPT.tsteer : "pad";
     stage.classList.toggle("touchOn", TOUCH.on);
+    for(const s of ["pad","arrows","tilt"]) stage.classList.toggle("sch-"+s, TOUCH.scheme===s);
+    const z=$("tzero"); if(z) z.hidden = TOUCH.scheme!=="tilt";
+    if(TOUCH.on && TOUCH.scheme==="tilt"){
+      // asked straight away when the setting is touched (that tap is what iOS
+      // wants); after a reload the button in the controls asks again
+      if(!TOUCH.tiltOn && TOUCH.byTap) tiltAsk();
+      else if(!tiltNeed()) tiltListen(true);
+    } else { tiltListen(false); tiltNote(""); }
+    const gy=$("tgyro"); if(gy) gy.hidden = !(TOUCH.on && tiltNeed());
     document.body.classList.toggle("tmode", TOUCH.on);
-    if(!TOUCH.on){ TOUCH.steer=0; TOUCH.thr=0; TOUCH.brk=0; TOUCH.padId=null; }
+    if(!TOUCH.on){ TOUCH.steer=0; TOUCH.thr=0; TOUCH.brk=0; TOUCH.padId=null; TOUCH.left=0; TOUCH.right=0; }
     const h=$("hint");
     if(h) h.innerHTML = TOUCH.on
-      ? 'Maintiens <span class="cap">GAZ</span> pour acc\u00e9l\u00e9rer <em>et tourne avec le joystick</em>'
+      ? 'Maintiens <span class="cap">GAZ</span> pour acc\u00e9l\u00e9rer <em>et tourne '+
+        (TOUCH.scheme==="arrows" ? "avec les fl\u00e8ches" : TOUCH.scheme==="tilt" ? "en inclinant l\u2019appareil" : "avec le joystick")+'</em>'
       : 'Maintiens <span class="cap">W</span> ou <span class="cap">\u2191</span> pour acc\u00e9l\u00e9rer <em>ou maintiens le clic sur la piste</em>';
     touchShow();
     try{ resize(); }catch(e){}
@@ -8646,7 +8747,8 @@ uniform float shadowFar;
     const want = TOUCH.on && (state==="countdown" || state==="racing" || state==="paused");
     if(TOUCH.shown===want) return;
     TOUCH.shown=want; el.hidden=!want;
-    if(!want){ TOUCH.thr=0; TOUCH.brk=0; TOUCH.steer=0; TOUCH.padId=null;
+    if(want) TOUCH.tiltRaw=null;                 // the neutral position is taken again here
+    if(!want){ TOUCH.thr=0; TOUCH.brk=0; TOUCH.steer=0; TOUCH.padId=null; TOUCH.left=0; TOUCH.right=0;
       const g=$("tgas"), b=$("tbrk"); if(g) g.classList.remove("on"); if(b) b.classList.remove("on");
       const k=$("tknob"); if(k) k.style.transform="";
     }
@@ -8687,11 +8789,22 @@ uniform float shadowFar;
     const gone=e=>{
       const id = e && e.pointerId!==undefined ? e.pointerId : null;
       if(id===null || id===TOUCH.padId) stop();
-      for(const [el, key, idk] of pedals) if(id===null || id===TOUCH[idk]) drop(el, key, idk);
+      for(const [el, key, idk] of pedals.concat(arrows)) if(id===null || id===TOUCH[idk]) drop(el, key, idk);
     };
     for(const ev of ["pointerup","pointercancel"]) window.addEventListener(ev, gone);
     window.addEventListener("blur", ()=>gone(null));
     document.addEventListener("visibilitychange", ()=>{ if(document.hidden) gone(null); });
+    // the two arrows, one finger each
+    const arrows=[[$("tleft"), "left", "leftId"], [$("tright"), "right", "rightId"]];
+    for(const [el, key, idk] of arrows){
+      el.addEventListener("pointerdown", e=>{
+        TOUCH[key]=1; TOUCH[idk]=e.pointerId; el.classList.add("on"); gotInput=true; grabFocus();
+        try{ el.setPointerCapture(e.pointerId); }catch(x){}
+        e.preventDefault();
+      });
+      for(const ev of ["pointerup","pointercancel"])
+        el.addEventListener(ev, e=>{ if(TOUCH[idk]===null || e.pointerId===TOUCH[idk]) drop(el, key, idk); });
+    }
     // The small buttons answer the release of the finger, because the touch
     // events below are answered and iOS then sends no click of its own.
     const tap=(el, fn)=>{
@@ -8701,11 +8814,13 @@ uniform float shadowFar;
     tap($("tcam"), cycleCam);
     tap($("tsound"), ()=>{ toggleSound(); $("tsound").innerHTML = sound ? "&#128266;" : "&#128264;"; });
     tap($("tpause"), togglePause);
+    tap($("tzero"), tiltZero);
+    tap($("tgyro"), ()=>{ tiltAsk(); setTimeout(()=>{ const gy=$("tgyro"); if(gy) gy.hidden=!tiltNeed(); }, 400); });
     // iOS reads a long press on anything as "select this", and puts its
     // magnifier over the game: every touch on a control is answered here so it
     // never gets that far.
     const eat=e=>{ e.preventDefault(); };
-    for(const el of [pad, $("tgas"), $("tbrk"), $("tbar"), $("tcam"), $("tsound"), $("tpause")]){
+    for(const el of [pad, $("tgas"), $("tbrk"), $("tbar"), $("tcam"), $("tsound"), $("tpause"), $("tzero"), $("tgyro"), $("tleft"), $("tright")]){
       for(const ev of ["touchstart","touchmove","touchend","touchcancel","contextmenu","selectstart","dragstart"])
         el.addEventListener(ev, eat, {passive:false});
     }
@@ -9076,7 +9191,8 @@ uniform float shadowFar;
         if(TOUCH.on){
           // the pedals and the pad, with the keyboard still there if there is one
           if(TOUCH.thr || TOUCH.brk) thr=(TOUCH.thr?1:0)-(TOUCH.brk?1:0);
-          if(TOUCH.padId!==null) str=TOUCH.steer;
+          const ts=touchSteer();
+          if(ts!==null) str=ts;
         }
         else if(ptrOn){ thr=1; str=clamp((ptrX-stage.clientWidth/2)/(stage.clientWidth*0.28),-1,1); }
         updateDraft();
@@ -9173,7 +9289,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="3.2";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="3.3";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -11016,6 +11132,10 @@ uniform float shadowFar;
   const TOUCH_SET={sec:"keys", key:"touch", name:"Commandes tactiles",
     hint:"Un joystick de direction \u00e0 gauche, l\u2019acc\u00e9l\u00e9rateur et le frein \u00e0 droite. En auto, elles apparaissent sur t\u00e9l\u00e9phone et tablette et le jeu prend tout l\u2019\u00e9cran.",
     vals:[["auto","Auto"],["1","Toujours"],["0","Jamais"]]};
+  const TSTEER_SET={sec:"keys", key:"tsteer", name:"Direction au doigt",
+    hint:"Trois fa\u00e7ons de tourner sur t\u00e9l\u00e9phone et tablette. L\u2019acc\u00e9l\u00e9rateur et le frein ne bougent pas. Avec l\u2019inclinaison, la position neutre est prise au d\u00e9part de chaque course et le bouton \u2732 la reprend en course.",
+    vals:[["pad","Joystick"],["arrows","Fl\u00e8ches"],["tilt","Inclinaison"]]};
+  const TOUCH_SETS=[TOUCH_SET, TSTEER_SET];
   const SETTINGS=[
     {sec:"gfx", key:"qual", name:"D\u00e9tail", hint:"Ombres port\u00e9es et finesse du d\u00e9cor.",
       vals:[["high","\u00c9lev\u00e9"],["low","Fluide"]]},
@@ -11052,7 +11172,6 @@ uniform float shadowFar;
       vals:[["1","Activ\u00e9"],["0","Coup\u00e9"]]},
     {sec:"snd", key:"vol", name:"Volume", hint:"", range:true},
 
-    TOUCH_SET,
     {sec:"data", action:"resetSeason", name:"Recommencer la saison", hint:"Efface le classement et repart de la premi\u00e8re manche.",
       label:"Recommencer"},
     {sec:"data", action:"clearRecords", name:"Effacer mes records", hint:"Oublie tes meilleurs tours sur les dix circuits.",
@@ -11077,12 +11196,15 @@ uniform float shadowFar;
       const box=document.createElement("div");
       box.className="setSec"; box.dataset.sec=sec; box.hidden=(sec!==setTab);
       if(sec==="keys"){
-        // the touch setting first, then the list of keys
-        const it=TOUCH_SET, row=document.createElement("div");
-        row.className="setRow";
-        row.innerHTML='<div class="what"><b>'+it.name+'</b><small>'+it.hint+'</small></div><span class="seg">'+
-          it.vals.map(v=>'<button class="chip" data-opt="'+it.key+'" data-val="'+v[0]+'">'+v[1]+'</button>').join("")+'</span>';
-        box.appendChild(row);
+        // the touch settings first, then the list of keys
+        for(const it of TOUCH_SETS){
+          const row=document.createElement("div");
+          row.className="setRow";
+          row.innerHTML='<div class="what"><b>'+it.name+'</b><small>'+it.hint+'</small>'+
+            (it.key==="tsteer" ? '<small id="tsteerNote" class="bad" hidden></small>' : '')+'</div><span class="seg">'+
+            it.vals.map(v=>'<button class="chip" data-opt="'+it.key+'" data-val="'+v[0]+'">'+v[1]+'</button>').join("")+'</span>';
+          box.appendChild(row);
+        }
         const keys=document.createElement("div"); keys.innerHTML=KEYS_HTML; box.appendChild(keys);
         card.appendChild(box); continue;
       }
@@ -11139,11 +11261,14 @@ uniform float shadowFar;
     else if(k==="vol"){ if(master) try{ master.gain.value=0.9*clamp((+v||0)/100,0,1); }catch(e){} }
     else if(k==="tod"){ if(pane==="free") previewTOD(v==="auto" ? (LOOK.tod||"couchant") : v); }
     else if(k==="laps"){ if(!seasonMode){ totalLaps=parseInt(v,10)||5; $("lapTot").textContent=totalLaps; } }
-    else if(k==="touch") applyTouch();
+    else if(k==="touch" || k==="tsteer") applyTouch();
   }
   function setOpt(k, v){
     if(OPT[k]===String(v)) return;
-    OPT[k]=String(v); saveOpts(); applyOpt(k); syncOptChips();
+    OPT[k]=String(v);
+    if(k==="tsteer" || k==="touch") TOUCH.byTap=true;     // a tap is what lets iOS be asked
+    saveOpts(); applyOpt(k); syncOptChips();
+    TOUCH.byTap=false;
   }
   function previewTOD(k){ if(todKey!==k) applyTOD(k); }
 
@@ -11452,7 +11577,7 @@ uniform float shadowFar;
   // everything saved is applied once, before the first frame; the expensive
   // switches only when they differ from what was built
   touchWire();
-  for(const k of ["rez","fps","line","diff","units","cam","mini","tower","touch"]) applyOpt(k);
+  for(const k of ["rez","fps","line","diff","units","cam","mini","tower","touch","tsteer"]) applyOpt(k);
   if(OPT.qual==="low") applyOpt("qual");
   if(OPT.fx==="1") applyOpt("fx");
   if(OPT.sound==="0" && sound) toggleSound();
