@@ -211,8 +211,11 @@
   /* the world closes in as the speed comes up */
   /* ---- touch controls ---- */
   #stage.touchOn{--tpad:min(33vmin,186px); --tped:min(15.5vmin,96px); --tgap:2.4vmin}
-  .tctl{position:absolute; inset:0; z-index:7; pointer-events:none; touch-action:none;
-    -webkit-user-select:none; user-select:none}
+  .tctl, .tpad, .tped, .tbar, .tmini, .trot{
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+    -webkit-tap-highlight-color:transparent; touch-action:none;
+  }
+  .tctl{position:absolute; inset:0; z-index:7; pointer-events:none}
   .tctl[hidden]{display:none}
   .tpad{
     position:absolute; left:var(--tgap); bottom:var(--tgap); width:var(--tpad); height:var(--tpad);
@@ -235,6 +238,9 @@
   }
   .tped.gas{bottom:var(--tgap); background:rgba(36,209,122,.34)}
   .tped.brk{bottom:calc(var(--tgap) + var(--tped) + 8px); background:rgba(230,38,43,.34)}
+  /* the labels are drawn, not written: a text node is something iOS can select */
+  .tped.gas::after{content:"GAZ"}
+  .tped.brk::after{content:"FREIN"}
   .tped.on{filter:brightness(1.55)}
   .tbar{
     position:absolute; left:50%; bottom:var(--tgap); transform:translateX(-50%);
@@ -263,6 +269,10 @@
   }
   /* on a touch screen the game fills the window */
   body.tmode{padding:0}
+  /* on a touch screen nothing in the game view is text to be selected, except
+     what there is to type in */
+  body.tmode .stage, body.tmode .stage *{-webkit-user-select:none; user-select:none; -webkit-touch-callout:none}
+  body.tmode .stage input, body.tmode .stage textarea{-webkit-user-select:text; user-select:text}
   body.tmode .marquee, body.tmode .foot{display:none}
   body.tmode .frame{max-width:none !important; gap:0; height:100%}
   body.tmode .stage{aspect-ratio:auto; height:100vh; height:100dvh; border-radius:0; border:0}
@@ -827,9 +837,9 @@
 
     <div class="tctl" id="tctl" hidden>
       <div class="tpad" id="tpad"><i id="tknob"></i></div>
-      <div class="tped brk" id="tbrk">FREIN</div>
-      <div class="tped gas" id="tgas">GAZ</div>
-      <div class="tbar">
+      <div class="tped brk" id="tbrk"></div>
+      <div class="tped gas" id="tgas"></div>
+      <div class="tbar" id="tbar">
         <button class="tmini" id="tcam" title="Cam&eacute;ra">&#127909;</button>
         <button class="tmini" id="tsound" title="Son">&#128266;</button>
         <button class="tmini" id="tpause" title="Pause">&#10074;&#10074;</button>
@@ -8682,13 +8692,31 @@ uniform float shadowFar;
     for(const ev of ["pointerup","pointercancel"]) window.addEventListener(ev, gone);
     window.addEventListener("blur", ()=>gone(null));
     document.addEventListener("visibilitychange", ()=>{ if(document.hidden) gone(null); });
-    $("tcam").addEventListener("click", cycleCam);
-    $("tsound").addEventListener("click", ()=>{ toggleSound(); $("tsound").innerHTML = sound ? "&#128266;" : "&#128264;"; });
-    $("tpause").addEventListener("click", togglePause);
+    // The small buttons answer the release of the finger, because the touch
+    // events below are answered and iOS then sends no click of its own.
+    const tap=(el, fn)=>{
+      el.addEventListener("pointerup", e=>{ e.preventDefault(); fn(); });
+      el.addEventListener("click", e=>{ e.preventDefault(); });
+    };
+    tap($("tcam"), cycleCam);
+    tap($("tsound"), ()=>{ toggleSound(); $("tsound").innerHTML = sound ? "&#128266;" : "&#128264;"; });
+    tap($("tpause"), togglePause);
+    // iOS reads a long press on anything as "select this", and puts its
+    // magnifier over the game: every touch on a control is answered here so it
+    // never gets that far.
+    const eat=e=>{ e.preventDefault(); };
+    for(const el of [pad, $("tgas"), $("tbrk"), $("tbar"), $("tcam"), $("tsound"), $("tpause")]){
+      for(const ev of ["touchstart","touchmove","touchend","touchcancel","contextmenu","selectstart","dragstart"])
+        el.addEventListener(ev, eat, {passive:false});
+    }
+    // and no pinch zoom while driving
+    for(const ev of ["gesturestart","gesturechange"])
+      document.addEventListener(ev, e=>{ if(TOUCH.on) e.preventDefault(); }, {passive:false});
   }
   let ptrOn=false, ptrX=0;
   stage.addEventListener("pointerdown",e=>{
     gotInput=true; grabFocus();
+    if(TOUCH.on) return;                       // the pad and the pedals do the driving
     if(state!=="racing") return;
     ptrOn=true; ptrX=e.clientX-stage.getBoundingClientRect().left;
   });
@@ -9145,7 +9173,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="3.1";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="3.2";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
