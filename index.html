@@ -163,10 +163,46 @@
     opacity:0; transition:opacity .2s;
   }
   .sector.on{opacity:1}
-  .draft.dirty{bottom:58px; background:#8a5a12; color:#ffe9b8; box-shadow:0 0 22px rgba(190,120,20,.45)}
-  .draft.blue{bottom:94px; background:#1c4fa8; color:#e8f0ff; box-shadow:0 0 22px rgba(40,100,220,.5)}
-  .draft.drs{bottom:130px; background:#17904c; color:#eaffef; box-shadow:0 0 24px rgba(36,209,122,.55)}
+  .draft.blue{background:#1c4fa8; color:#e8f0ff; box-shadow:0 0 22px rgba(40,100,220,.5)}
+  .draft.drs{bottom:58px; background:#17904c; color:#eaffef; box-shadow:0 0 24px rgba(36,209,122,.55)}
   .draft.drs.arm{background:#2f2a12; color:#ffcf3f; box-shadow:0 0 16px rgba(255,207,63,.35)}
+  /* the pit wall */
+  .stratFacts{display:flex; gap:8px; margin:2px 0 10px}
+  .stratFacts .sf{
+    flex:1; border:1px solid var(--line); border-radius:10px; padding:8px 10px;
+    background:rgba(255,255,255,.02);
+  }
+  .stratFacts .sf b{display:block; font-size:12px; letter-spacing:.14em; text-transform:uppercase}
+  .stratFacts .sf span{display:block; font-family:var(--font-num); font-size:19px; margin-top:2px}
+  .stratFacts .sf i{display:block; font-style:normal; font-size:11px; color:var(--muted); margin-top:1px}
+  .stratFacts .sf.c0 b{color:#ff6b70} .stratFacts .sf.c1 b{color:#ffd34d} .stratFacts .sf.c2 b{color:#e6e9ef}
+  .stratBar{display:flex; gap:3px; height:52px; margin:4px 0 8px}
+  .stratBar .stint{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    border-radius:8px; color:#0b0f16; overflow:hidden; min-width:30px; padding:0 2px; text-align:center;
+  }
+  .stratBar .stint u{font-size:10px; letter-spacing:.1em; text-decoration:none; opacity:.72}
+  .stratBar .stint b{font-family:var(--font-num); font-size:15px; line-height:1.1}
+  .stratBar .stint.c0{background:#ff6b70} .stratBar .stint.c1{background:#ffd34d} .stratBar .stint.c2{background:#e6e9ef}
+  .stratBar .stint.over{box-shadow:inset 0 0 0 3px var(--red)}
+  .stratSum{font-size:13px; line-height:1.55}
+  .stratSum .big{font-family:var(--font-num); font-size:22px; color:var(--white)}
+  .stratSum .bad{color:#ff8a8f}
+  .stratSum .ok{color:var(--green)}
+  .stopRow .lapPick{display:inline-flex; align-items:center; gap:6px}
+  .stopRow .lapPick button{
+    width:26px; height:26px; border-radius:7px; border:1px solid var(--line);
+    background:rgba(255,255,255,.04); color:var(--white); font-size:15px; cursor:pointer;
+  }
+  .stopRow .lapPick b{font-family:var(--font-num); font-size:16px; min-width:44px; text-align:center; display:inline-block}
+  .stopRow .xBtn{
+    border:1px solid var(--line); background:transparent; color:var(--muted);
+    border-radius:7px; width:26px; height:26px; cursor:pointer; font-size:14px;
+  }
+  .stratPresets{display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 12px}
+  #pause .optRow{justify-content:center; margin:12px auto 2px; max-width:680px}
+  .planLbl{color:var(--muted)}
+  .planLbl.due{color:#0b0f16; background:var(--yellow); border-radius:5px; padding:0 6px}
   .scban{
     position:absolute; left:50%; top:82px; transform:translateX(-50%);
     font-family:var(--font-num); font-size:20px; letter-spacing:.14em;
@@ -286,6 +322,7 @@
   #stage.touchOn .speedo{right:var(--tgap); bottom:calc(var(--tgap) + 2*var(--tped) + 18px); transform:scale(.74); transform-origin:right bottom}
   #stage.touchOn .tyres{right:var(--tgap); bottom:auto; top:74px; transform:scale(.8); transform-origin:right top}
   #stage.touchOn .draft{bottom:calc(var(--tgap) + 54px)}
+  #stage.touchOn .draft.drs{bottom:calc(var(--tgap) + 90px)}
   @media (max-height: 520px){
     #stage.touchOn .tower{display:none}
     #stage.touchOn .tyres{display:none}
@@ -837,6 +874,7 @@
         <div class="lbl">Pneus <span id="tyrePct">100%</span><span id="tyreKind"></span></div>
         <div class="gauge"><i id="tyreBar"></i></div>
         <div class="lbl" id="stopsLbl">0 arrêt</div>
+        <div class="lbl planLbl" id="planLbl"></div>
         <div class="lbl" id="dmgLbl">Aileron intact</div>
       </div>
       <div class="tower" id="tower"></div>
@@ -847,8 +885,6 @@
     <div class="rainban" id="rainban" hidden>PLUIE <i>passe aux pneus pluie</i></div>
     <div class="netwait" id="netWait" hidden>ARRIV&Eacute;E <i>en attente des autres pilotes</i></div>
     <div class="pittimer" id="pitTimer" hidden><b id="pitT">0.0</b><i>Arr&ecirc;t au stand</i></div>
-      <div class="draft" id="draftBadge">ASPIRATION</div>
-      <div class="draft dirty" id="dirtyBadge">AIR SALE</div>
       <div class="draft blue" id="blueBadge">DRAPEAU BLEU</div>
       <div class="draft drs" id="drsBadge">DRS</div>
       <div class="warn" id="warn">&#9668; SENS INVERSE &#9658;</div>
@@ -939,6 +975,14 @@
                 <button class="chip" data-opt="seasonComp" data-val="2">Dur</button>
               </span>
             </div>
+            <div class="optRow">
+              <span class="lbl">Qualifications</span>
+              <span class="seg">
+                <button class="chip" data-opt="quali" data-val="1" title="Un tour lanc&eacute;, seul en piste : ton temps fait ta place sur la grille">Tour lanc&eacute;</button>
+                <button class="chip" data-opt="quali" data-val="0" title="La grille est tir&eacute;e au sort selon la forme des &eacute;quipes ; tu pars 6e">Simul&eacute;es</button>
+              </span>
+            </div>
+            <button class="btn ghost" data-go="strat">Strat&eacute;gie de course</button>
             <button class="btn" id="startBtn">Disputer la manche</button>
           </div>
           <div class="col">
@@ -1025,7 +1069,52 @@
                 <button class="chip" data-opt="comp" data-val="2">Dur</button>
               </span>
             </div>
+            <div class="optRow">
+              <span class="lbl">Qualifications</span>
+              <span class="seg">
+                <button class="chip" data-opt="quali" data-val="1" title="Un tour lanc&eacute;, seul en piste : ton temps fait ta place sur la grille">Tour lanc&eacute;</button>
+                <button class="chip" data-opt="quali" data-val="0" title="La grille est tir&eacute;e au sort selon la forme des &eacute;quipes ; tu pars 6e">Simul&eacute;es</button>
+              </span>
+            </div>
+            <button class="btn ghost" data-go="strat">Strat&eacute;gie de course</button>
             <button class="btn" id="freeStartBtn">Prendre le d&eacute;part</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="pane" id="pStrat" data-pane="strat" hidden>
+        <div class="paneHead">
+          <button class="backBtn" id="stratBack">&lsaquo; Retour</button>
+          <div>
+            <div class="kicker">Mur des stands</div>
+            <h2 id="stratTitle">Strat&eacute;gie</h2>
+          </div>
+        </div>
+        <div class="twoCol">
+          <div class="col">
+            <div class="colLbl" id="stratSub">&mdash;</div>
+            <div class="stratFacts" id="stratFacts"></div>
+            <div class="stratBar" id="stratBar"></div>
+            <div class="stratSum" id="stratSum"></div>
+          </div>
+          <div class="col">
+            <div class="optRow">
+              <span class="lbl">D&eacute;part</span>
+              <span class="seg">
+                <button class="chip" data-strat="start" data-val="0">Tendre</button>
+                <button class="chip" data-strat="start" data-val="1">Medium</button>
+                <button class="chip" data-strat="start" data-val="2">Dur</button>
+              </span>
+            </div>
+            <div id="stratStops"></div>
+            <div class="stratPresets">
+              <button class="chip" id="stratAdd">+ Arr&ecirc;t</button>
+              <button class="chip" id="stratAuto">Conseil de l&rsquo;ing&eacute;nieur</button>
+              <button class="chip" id="stratNone">Sans arr&ecirc;t</button>
+              <button class="chip" id="stratOne">Un arr&ecirc;t</button>
+              <button class="chip" id="stratTwo">Deux arr&ecirc;ts</button>
+            </div>
+            <button class="btn" id="stratGo">Prendre le d&eacute;part</button>
           </div>
         </div>
       </section>
@@ -1153,6 +1242,7 @@
                 </span>
               </div>
               <div class="mpActions">
+                <button class="btn ghost" data-go="strat">Strat&eacute;gie de course</button>
                 <button class="btn" id="mpGo">Lancer la course</button>
                 <span class="mpWait" id="mpWaitHost">L&rsquo;h&ocirc;te lancera la course.</span>
                 <button class="btn ghost" id="mpLeave">Quitter la salle</button>
@@ -1172,6 +1262,7 @@
         <div class="resPoints" id="resPoints" hidden></div>
         <div class="reel" id="resReel" hidden></div>
         <div class="btnrow">
+          <button class="btn" id="qualiGoBtn" hidden>Prendre le d&eacute;part</button>
           <button class="btn" id="nextBtn" hidden>Manche suivante</button>
           <button class="btn ghost" id="replayBtn">Revoir la course</button>
           <button class="btn ghost" id="againBtn">Rejouer</button>
@@ -1203,6 +1294,16 @@
     <div class="screen" id="pause" hidden>
       <div class="kicker">Course en cours</div>
       <h2>Pause</h2>
+      <div class="optRow" id="pauseStrat" hidden>
+        <span class="lbl">Prochain arr&ecirc;t</span>
+        <span class="lapPick" id="pauseLap"><button data-pl="-1">&minus;</button><b>&mdash;</b><button data-pl="1">+</button></span>
+        <span class="seg">
+          <button class="chip" data-pstrat="0">Tendre</button>
+          <button class="chip" data-pstrat="1">Medium</button>
+          <button class="chip" data-pstrat="2">Dur</button>
+        </span>
+        <button class="chip" id="pauseNoStop">Aucun</button>
+      </div>
       <div class="btnrow">
         <button class="btn" id="resumeBtn">Reprendre</button>
         <button class="btn ghost" id="homeBtn">Retour &agrave; l&rsquo;accueil</button>
@@ -2314,7 +2415,7 @@ uniform float shadowFar;
   const OPT_DEF={
     qual:"high", fx:"0", rez:"auto", fps:"1",
     diff:"1.00", line:"0", dmg:"1", sc:"1", seasonLaps:"5", seasonComp:"1",
-    units:"kmh", cam:"0", shake:"1", mini:"1", tower:"1",
+    units:"kmh", cam:"0", shake:"1", mini:"1", tower:"1", quali:"0",
     sound:"1", vol:"80",
     tod:"auto", wx:"auto", laps:"5", comp:"1",
     touch:"auto", tsteer:"pad"
@@ -2332,7 +2433,7 @@ uniform float shadowFar;
   for(const k of ["laps","seasonLaps"]) if(["5","10","21"].indexOf(OPT[k])<0) OPT[k]="5";
   function saveOpts(){ try{ localStorage.setItem(OPT_KEY, JSON.stringify(OPT)); }catch(e){} }
   let pane="home";
-  const PANE_BACK={play:"home", season:"play", free:"play", settings:"home", multi:"home"};
+  const PANE_BACK={play:"home", season:"play", free:"play", settings:"home", multi:"home", strat:"free"};
   // the room, known to everything from the first line so no handler can reach it early
   const NET={
     role:null, cli:null, tries:[], code:"", myId:"", name:"", welcomed:false, present:false,
@@ -2387,9 +2488,183 @@ uniform float shadowFar;
   const COMP_GRIP=[1.045, 1.000, 0.955];
   const COMP_WEAR=[1.42,  1.000, 0.74 ];
   let compChoice=1;
+  let RACE_PLAN={start:1, stops:[]};          // the plan this race is being run to
   const compGrip=c=> c.wets ? 1 : COMP_GRIP[c.comp||0];
   const wetGrip=c=> c.wets ? (0.82+0.18*weather.wet) : (1-0.42*weather.wet);
   const tyreGrip=t=>0.68+0.32*t;
+  // A set's life, in laps, rather than a feeling. Wear is charged by the second,
+  // so one lap costs a set its own lap time; the factor below was measured on
+  // three circuits against a car driven at racing pace (0.97 / 0.98 / 1.01).
+  const TYRE_F=0.98;
+  const TYRE_END=0.22;                       // under this a set is finished
+  let REF_LAP={id:"", t:0};
+
+  /* ------------------------------ the plan ------------------------------
+     A race plan is a starting compound and a list of stops: {lap, c}. "lap 8"
+     means the stop happens at the end of lap 8, so the eighth lap is the last
+     one on that set. Everything else -- the stints, the time it costs, whether
+     a set can actually go that far -- is worked out from those two things. */
+  const PLAN_LS="trs_plan_v1";
+  let PLANS={};
+  try{ PLANS=JSON.parse(localStorage.getItem(PLAN_LS)||"{}")||{}; }catch(e){ PLANS={}; }
+  let STRAT_CUR=null, STRAT_BACK="free";
+  function planLaps(){
+    // in a room the distance is the host's, not the one on the local screen
+    if(STRAT_BACK==="multi") return parseInt(NET.settings.laps,10)||5;
+    return seasonMode ? (parseInt(OPT.seasonLaps,10)||5) : (parseInt(OPT.laps,10)||5);
+  }
+  function planKey(laps){ return TRACK.id+"|"+(laps||planLaps()); }
+  function planGet(laps){
+    laps=laps||planLaps();
+    const p=PLANS[planKey(laps)];
+    if(!p) return {start:(parseInt(seasonMode?OPT.seasonComp:OPT.comp,10)||0)%3, stops:[]};
+    return {start:(p.start|0)%3, stops:(p.stops||[]).map(s=>({lap:s.lap|0, c:(s.c|0)%3}))};
+  }
+  function planSave(p, laps){
+    laps=laps||planLaps();
+    PLANS[planKey(laps)]={start:p.start, stops:p.stops};
+    try{ localStorage.setItem(PLAN_LS, JSON.stringify(PLANS)); }catch(e){}
+  }
+  function planTidy(p, laps){
+    p.start=clamp(p.start|0,0,2);
+    p.stops=(p.stops||[]).map(s=>({lap:clamp(s.lap|0,1,laps-1), c:clamp(s.c|0,0,2)}))
+                         .sort((a,b)=>a.lap-b.lap);
+    for(let i=1;i<p.stops.length;i++)
+      if(p.stops[i].lap<=p.stops[i-1].lap) p.stops[i].lap=p.stops[i-1].lap+1;
+    p.stops=p.stops.filter(s=>s.lap<=laps-1);
+    return p;
+  }
+  function planStints(p, laps){
+    const out=[]; let k=p.start, from=1;
+    for(const s of p.stops){ out.push({c:k, from:from, to:s.lap, laps:s.lap-from+1}); k=s.c; from=s.lap+1; }
+    out.push({c:k, from:from, to:laps, laps:laps-from+1});
+    return out.filter(x=>x.laps>0);
+  }
+  // how long the plan takes, and by how much the worst stint outlives its set
+  function planEval(p, laps){
+    const lapT=refLapT(), loss=pitLoss();
+    let t=0, k=p.start, tyre=1, si=0, over=0;
+    for(let L=1; L<=laps; L++){
+      t+=lapOn(k, Math.max(0,tyre), lapT);
+      tyre-=wearLap(k, laps);
+      if(tyre<TYRE_END) over=Math.max(over, TYRE_END-tyre);
+      if(si<p.stops.length && p.stops[si].lap===L){ t+=loss; k=p.stops[si].c; tyre=1; si++; }
+    }
+    return {t:t, over:over};
+  }
+  // the engineer's answer: every plan up to two stops, the quickest one wins
+  function planBest(laps){
+    const cand=[];
+    for(let a=0;a<3;a++){
+      cand.push({start:a, stops:[]});
+      for(let b=0;b<3;b++) for(let L=1;L<laps;L++) cand.push({start:a, stops:[{lap:L,c:b}]});
+    }
+    if(laps>=6) for(let a=0;a<3;a++) for(let b=0;b<3;b++) for(let d=0;d<3;d++)
+      for(let L1=1;L1<laps-1;L1++) for(let L2=L1+1;L2<laps;L2++)
+        cand.push({start:a, stops:[{lap:L1,c:b},{lap:L2,c:d}]});
+    let best=cand[0], bt=Infinity;
+    for(const p of cand){ const e=planEval(p,laps); if(e.t<bt){ bt=e.t; best=p; } }
+    return {start:best.start, stops:best.stops.map(s=>({lap:s.lap, c:s.c}))};
+  }
+  function fmtMin(s){
+    const m=Math.floor(s/60), r=s-m*60;
+    return m+":"+(r<10?"0":"")+r.toFixed(1);
+  }
+  function renderStrat(){
+    const laps=planLaps();
+    const p=planTidy(STRAT_CUR||planGet(laps), laps);
+    STRAT_CUR=p;
+    const lapT=refLapT();
+    $("stratTitle").textContent=TRACK.name;
+    $("stratSub").textContent=laps+" tours · tour de référence "+lapT.toFixed(1)+
+      " s · un arrêt coûte ≈ "+pitLoss().toFixed(1)+" s";
+    const fx=$("stratFacts"); fx.innerHTML="";
+    for(let k=0;k<3;k++){
+      const d=lapOn(k,1,lapT)-lapOn(1,1,lapT);
+      const el=document.createElement("div");
+      el.className="sf c"+k;
+      el.innerHTML="<b>"+COMP_NM[k]+"</b><span>"+setLaps(k,laps).toFixed(1)+" tours</span>"+
+        "<i>"+(k===1 ? "référence" : (d<0?"−":"+")+Math.abs(d).toFixed(2)+" s/tour à neuf")+"</i>";
+      fx.appendChild(el);
+    }
+    const bar=$("stratBar"); bar.innerHTML="";
+    const stints=planStints(p, laps);
+    for(const st of stints){
+      const over=st.laps>setLaps(st.c,laps)+0.05;
+      const el=document.createElement("div");
+      el.className="stint c"+st.c+(over?" over":"");
+      el.style.flex=st.laps+" 1 0";
+      el.innerHTML="<u>"+COMP_SHORT[st.c]+"</u><b>"+st.laps+"</b><u>T"+st.from+"–"+st.to+"</u>";
+      bar.appendChild(el);
+    }
+    const ev=planEval(p, laps);
+    let html="<div><span class='big'>"+fmtMin(ev.t)+"</span> estimé · "+
+      (p.stops.length===0 ? "aucun arrêt" : p.stops.length+" arrêt"+(p.stops.length>1?"s":""))+"</div>";
+    let bad=false;
+    for(const st of stints){
+      const life=setLaps(st.c, laps);
+      if(st.laps>life+0.05){
+        bad=true;
+        html+="<div class='bad'>⚠ "+COMP_NM[st.c]+" sur "+st.laps+" tours : "+
+          (st.laps-life).toFixed(1)+" tours de trop, la fin du relais sera sans grip.</div>";
+      }
+    }
+    if(!bad) html+="<div class='ok'>Chaque train tient son relais.</div>";
+    $("stratSum").innerHTML=html;
+    // the room has its own start button; this screen only plans
+    $("stratGo").hidden = (STRAT_BACK==="multi");
+    const box=$("stratStops"); box.innerHTML="";
+    p.stops.forEach((s,i)=>{
+      const row=document.createElement("div");
+      row.className="optRow stopRow";
+      row.innerHTML="<span class='lbl'>Arrêt "+(i+1)+"</span>"+
+        "<span class='lapPick'><button data-sl='-1' data-i='"+i+"'>−</button><b>tour "+s.lap+
+        "</b><button data-sl='1' data-i='"+i+"'>+</button></span>"+
+        "<span class='seg'>"+[0,1,2].map(k=>"<button class='chip' data-sc='"+k+"' data-i='"+i+
+          "' aria-pressed='"+(s.c===k)+"'>"+COMP_NM[k]+"</button>").join("")+"</span>"+
+        "<button class='xBtn' data-sx='"+i+"'>×</button>";
+      box.appendChild(row);
+    });
+    document.querySelectorAll("#pStrat [data-strat='start']").forEach(el=>{
+      el.setAttribute("aria-pressed", String((p.start|0)===parseInt(el.dataset.val,10)));
+    });
+  }
+  function stratEdit(fn){
+    const laps=planLaps();
+    fn(STRAT_CUR||(STRAT_CUR=planGet(laps)), laps);
+    planTidy(STRAT_CUR, laps);
+    planSave(STRAT_CUR, laps);
+    renderStrat();
+  }
+  function refLapT(){
+    if(REF_LAP.id===TRACK.id && REF_LAP.t) return REF_LAP.t;
+    let t=35;
+    try{ t=aiLapEstimate({maxSpeed:BASE, accel:30, brake:55, roll:2.2, dragC:0.11,
+                          gripMul:1, aiPace:1, aiTop:1}, 1); }catch(e){}
+    REF_LAP={id:TRACK.id, t:t};
+    return t;
+  }
+  const tyreScaleFor=laps=> laps<=5 ? 1 : 5/laps;
+  // what one lap takes off a new set of compound k, over a race of this length
+  function wearLap(k, laps){ return TYRE_RATE*tyreScaleFor(laps)*COMP_WEAR[k]*refLapT()*TYRE_F; }
+  // how many laps that set is worth
+  function setLaps(k, laps){ return (1-TYRE_END)/Math.max(1e-4, wearLap(k,laps)); }
+  // and how many are left on the set a car is running, measured once it has a lap
+  function tyreLeft(c){
+    const per = (c.wpl && c.wpl>1e-4) ? c.wpl : wearLap(c.comp||0, totalLaps);
+    return Math.max(0, (c.tyre-TYRE_END)/per);
+  }
+  // a lap on this compound at this wear, against a lap on a new medium: grip
+  // buys lap time back roughly as its square root
+  function lapOn(k, t, lapT){ return lapT/Math.sqrt(Math.max(0.3, COMP_GRIP[k]*tyreGrip(t))); }
+  // what a stop costs: the limited stretch at the limiter instead of at speed,
+  // plus the seconds the crew take
+  function pitLoss(){
+    let lim=0;
+    for(let i=0;i<N;i++) if(pitWallAt(cum[i])) lim+=seg[i];
+    const vRace=1.15*TOT/Math.max(8, refLapT());
+    return lim/PIT_LIMIT - lim/vRace + 3.0;
+  }
 
   // Ten circuits from the real calendar, drawn by hand as control points
   // rather than from survey data: the corner sequence and the proportions
@@ -6120,11 +6395,15 @@ uniform float shadowFar;
       const free=[0,1,2,3,4,6,7].slice(0,quali.length);
       quali.forEach((x,k)=>{ gridSlot[x.i]=free[k]; });
       if(pl>=0) gridSlot[pl]=Math.min(5, LIVERY.length-1);
+      // a lap actually driven beats a simulated one
+      if(QU.on){ if(pl>=0) gridSlot[pl]=0; }
+      else if(QU.done && QU.order) QU.order.forEach((li,k)=>{ if(li>=0) gridSlot[li]=k; });
     }
     for(let i=0;i<LIVERY.length;i++){
       const NR=NET.race;
       const hum = NR ? (NR.roster.find(r=>r.liv===i)||null) : null;
       const me = NR ? !!(hum && hum.id===NET.myId) : !!LIVERY[i].player;
+      if(QU.on && !me) continue;                  // qualifying runs alone
       const human = NR ? !!hum : !!LIVERY[i].player;
       const slot = NR ? (NR.grid[i]|0) : gridSlot[i];
       const PF = human ? TEAM_NEUTRAL : (TEAM[LIVERY[i].nm]||TEAM_NEUTRAL);
@@ -6165,8 +6444,10 @@ uniform float shadowFar;
         si:idx, s:s, prevS:s, lat:off, groundY:p.y, tan:t, nor:nr,
         lap:-1, prog:0, rank:1, draft:false, towB:0, towIn:0, towKeep:0, drsB:0,
         finished:false, finishT:0, stuckT:0,
-        tyre:1, wets:false, comp:(me? compChoice : (human ? 1 : startCompound(PF))),
+        // a qualifying lap is run on the softest set, as everybody does
+        tyre:1, wets:false, comp:(me? (QU.on?0:compChoice) : (human ? 1 : startCompound(PF))),
         bandShown:-1, service:0, canService:false, stops:0, wantPit:false, onPit:false, understeer:0,
+        myPlan: me ? RACE_PLAN.stops.map(s=>({lap:s.lap, c:s.c})) : null, myPlanI:0,
         drs:false, drsArm:false, drsWas:false,
         damage:0, dmgShown:-1, wingOff:false,
         gear:0, rpm:IDLE, shiftT:0, thrIn:0, aThr:0,
@@ -6765,6 +7046,8 @@ uniform float shadowFar;
             const was=c.comp||0;
             c.comp = pickCompound(c, Math.max(0.5, totalLaps-(c.lap+c.s/TOT)));
             if(c.plan && c.planI<c.plan.length){ if(c.plan[c.planI].c>=0) c.comp=c.plan[c.planI].c; c.planI++; }
+            // the driver's own plan wins over the strategist's guess
+            if(c.player && c.myPlan && c.myPlanI<c.myPlan.length){ c.comp=c.myPlan[c.myPlanI].c; c.myPlanI++; c.planSaid=false; }
             if(c.wpl) c.wpl = c.wpl/COMP_WEAR[was]*COMP_WEAR[c.comp];
           }
           if(c.player) showSector(c.wets? "PNEUS PLUIE — GO !"
@@ -7818,7 +8101,7 @@ uniform float shadowFar;
       if(d>TOT/2) c.lap--;
       else if(d<-TOT/2){ c.lap++; if(c.player) onPlayerLap(now); }
       c.prevS=c.s; c.prog=c.lap*TOT+c.s;
-      if(c.lap>=totalLaps && !c.finished){
+      if(c.lap>=totalLaps && !c.finished && !QU.on){
         c.finished=true; c.finishT=now; finishOrder.push(c);
         if(NET.race && c.netFin===undefined) c.netFin=netNow()-NET.race.goHost;
         rpEvent("flag", cars.indexOf(c));
@@ -7853,6 +8136,17 @@ uniform float shadowFar;
   }
 
   function onPlayerLap(now){
+    if(QU.on){
+      const lt=(now-playerLapStart)/1000;
+      playerLapStart=now;
+      if(player.lap===1){ showSector("TOUR LANC\u00c9 \u2014 VAS-Y"); return; }
+      if(player.lap>=2){
+        if(lt<bestLap) bestLap=lt;
+        if(lt<record){ record=lt; try{ localStorage.setItem("trs_best_"+TRACK.id, String(lt)); }catch(e){} }
+        endQuali(lt);
+      }
+      return;
+    }
     if(player.lap>0){          // crossing 0 is the start, not a lap time
       const lt=(now-playerLapStart)/1000;
       if(lt<bestLap){ bestLap=lt; rpEvent("best", cars.indexOf(player)); }
@@ -8675,7 +8969,11 @@ uniform float shadowFar;
       }
       return;
     }
-    if(k==="escape" && state==="menu"){ if(pane==="multi" && NET.role) return; if(PANE_BACK[pane]) showPane(PANE_BACK[pane]); return; }
+    if(k==="escape" && state==="menu"){
+      if(pane==="multi" && NET.role) return;
+      if(pane==="strat"){ showPane(STRAT_BACK); return; }
+      if(PANE_BACK[pane]) showPane(PANE_BACK[pane]); return;
+    }
     if(k==="escape"){ togglePause(); return; }
     if(k==="c"){ cycleCam(); return; }
     if(k==="m"){ toggleSound(); return; }
@@ -8920,9 +9218,7 @@ uniform float shadowFar;
       }
     }
     {
-      // dirty air and blue flags
-      const dz=$("dirtyBadge");
-      if(dz) dz.classList.toggle("on", (player.dirty||0)>0.35 && Math.abs(player.vf)>14);
+      // blue flags, and the wing
       let blue=false;
       for(const o of cars){
         if(o===player || o.onPit) continue;
@@ -8950,9 +9246,30 @@ uniform float shadowFar;
     $("stopsLbl").textContent = player.service>0
       ? ("STAND " + player.service.toFixed(1) + "s")
       : (player.stops + (player.stops>1?" arrêts":" arrêt"));
-    // out of the wake but still carrying what it gave you: that is the run
-    hudText("draftBadge", (player.draft && (player.towRaw||0)<0.15) ? "\u00c9LAN" : "ASPIRATION");
-    $("draftBadge").classList.toggle("on", player.draft && player.vf>BASE*0.35);
+    {
+      // how much set is left, what the plan says to do next, and the call when
+      // the lap comes up. One short line: the pod is narrow.
+      const pl=$("planLbl");
+      if(pl){
+        // on wet tyres the dry wear figure means nothing until a lap is measured
+        const known = !player.wets || (player.wpl>1e-4);
+        const left = known ? tyreLeft(player) : -1;
+        const life = !known ? "" :
+          left<0.95 ? "dernier tour" :
+          left<2 ? "1 tour" : Math.floor(left)+" tours";
+        const PP=player.myPlan, pi=player.myPlanI|0;
+        if(PP && pi<PP.length){
+          const nx=PP[pi], due=(player.lap+1)>=nx.lap;
+          hudText("planLbl", due ? ("STAND CE TOUR \u00b7 "+COMP_SHORT[nx.c])
+                                 : (life+" \u00b7 stand T"+nx.lap));
+          pl.classList.toggle("due", due);
+          if(due && !player.planSaid){ player.planSaid=true; showSector("STAND CE TOUR \u2014 "+COMP_SHORT[nx.c]); }
+        } else {
+          hudText("planLbl", life ? life+" de gomme" : "");
+          pl.classList.remove("due");
+        }
+      }
+    }
     const t=player.tan;
     $("warn").classList.toggle("on",
       (Math.cos(player.a)*t.x+Math.sin(player.a)*t.z)<-0.3 && Math.abs(player.vf)>6);
@@ -9332,7 +9649,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="3.4";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="3.5";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -10834,28 +11151,34 @@ uniform float shadowFar;
       diff=NET.race.diff||1;
       totalLaps=NET.race.laps||5;
       wxMode="dry";                                // the host's decision is written over it
-      compChoice=parseInt(OPT.comp,10)||0;
       want = NET.race.tod==="auto" ? (LOOK.tod||"couchant") : NET.race.tod;
     } else if(seasonMode){
       totalLaps=parseInt(OPT.seasonLaps,10)||5;
       wxMode="auto";
-      compChoice=parseInt(OPT.seasonComp,10)||0;
       want=LOOK.tod||"couchant";
     } else {
       totalLaps=parseInt(OPT.laps,10)||5;
       wxMode=OPT.wx;
-      compChoice=parseInt(OPT.comp,10)||0;
       want = OPT.tod==="auto" ? (LOOK.tod||"couchant") : OPT.tod;
     }
+    // whatever the mode, the race is run to the plan made for this circuit over
+    // this distance; with no plan that is simply the compound picked on screen
+    RACE_PLAN=planTidy(planGet(totalLaps), totalLaps);
+    compChoice=RACE_PLAN.start;
     if(todKey!==want) applyTOD(want);
     $("lapTot").textContent=totalLaps;
     camIdx=(parseInt(OPT.cam,10)||0)%CAMS.length;
     $("camtag").textContent="Cam\u00e9ra : "+CAMS[camIdx].name;
   }
-  function startRace(){
+  function startRace(quali){
     rpStop();
+    QU.want = OPT.quali==="1";
+    if(!quali && QU.want && !QU.done && !NET.race && (state==="menu" || state==="results")) quali=true;
+    QU.on=!!quali;
     applyRaceSetup();
+    if(QU.on){ totalLaps=2; $("lapTot").textContent=2; }
     tyreScale=raceTyreScale();
+    $("qualiGoBtn").hidden=true;
     $("menu").hidden=true; $("results").hidden=true; $("pause").hidden=true; $("hud").hidden=false;
     $("lapTot").textContent=totalLaps; $("field").textContent=LIVERY.length;
     bestLap=Infinity; finishOrder=[]; resetSectors(performance.now());
@@ -10865,7 +11188,7 @@ uniform float shadowFar;
     $("scban").hidden=true;
     // roughly one race in three turns wet, somewhere in the first two laps,
     // unless the driver has asked for a dry race or for rain outright
-    weather.will = wxMode==="wet" ? true : (wxMode==="dry" ? false : Math.random()<0.35);
+    weather.will = QU.on ? false : (wxMode==="wet" ? true : (wxMode==="dry" ? false : Math.random()<0.35));
     weather.at   = wxMode==="wet" ? 0.5 : (1.0+Math.random());
     weather.on=false; weather.wet=0; weather.target=0; weather.shown=-1;
     rainSeeded=false; rainMesh.visible=false; spray.visible=false;
@@ -10882,6 +11205,8 @@ uniform float shadowFar;
     camPos.set(player.x-Math.cos(player.a)*12, player.groundY+4, player.z-Math.sin(player.a)*12);
     camLook.set(player.x, player.groundY+1.3, player.z);
     gotInput=false; $("hint").classList.remove("on"); grabFocus();
+    stage.classList.toggle("noTower", QU.on || OPT.tower==="0");
+    if(QU.on) showSector("TOUR DE SORTIE · GOMME TENDRE");
     state="countdown"; countStart=performance.now();
     rezGrace=3;                                     // ignore the warm-up frames
     GO_AT=3.3+Math.random()*0.9;            // the real lights hold for an unknown beat
@@ -10890,7 +11215,65 @@ uniform float shadowFar;
     initAudio();
     if(actx&&actx.state==="suspended") actx.resume();
   }
+  /* --------------------------- qualifying ---------------------------
+     One lap that counts, alone, with an out lap before it. The rest of the
+     field does not drive it: what each car is worth here is already known from
+     the same numbers the race is run with, so their times are worked out and
+     the player's real lap is dropped in among them. */
+  const QU={want:false, on:false, done:false, myT:0, rows:null, slot:5, order:null};
+  function qualiTimes(){
+    const LV=aiLevel(diff), rows=[];
+    for(let i=0;i<LIVERY.length;i++){
+      const L=LIVERY[i];
+      if(L.player) continue;
+      const PF=TEAM[L.nm]||TEAM_NEUTRAL;
+      const gm=LV.grip*(1+(PF.grip*LV.mix+(Math.random()-0.5)*0.8)/100);
+      const stub={maxSpeed:BASE*(1+PF.top*Math.min(LV.mix,1.6)/100),
+                  accel:30*LV.accel*(1+PF.top*Math.min(LV.mix,1.6)/100),
+                  brake:55, roll:2.2, dragC:0.11, gripMul:gm,
+                  aiPace:Math.min(0.995, LV.pace*(1+(PF.pace*LV.mix+(Math.random()-0.5))/100)),
+                  aiTop:LV.top};
+      // a qualifying lap is one with nothing held back, and a little luck
+      // the estimate is a perfect lap; nobody quite puts one together
+      rows.push({i:i, nm:L.nm, no:L.no, t:aiLapEstimate(stub,1)*(1.01+gauss()*0.006)});
+    }
+    return rows;
+  }
+  function endQuali(t){
+    // QU.on stays set until the next start: the lap that has just been timed
+    // must not also be read as taking the flag
+    QU.done=true; QU.myT=t;
+    const pl=LIVERY.findIndex(L=>L.player);
+    const rows=qualiTimes();
+    rows.push({i:pl, nm:LIVERY[pl]?LIVERY[pl].nm:"Toi", no:player?player.livery.no:0, t:t, me:true});
+    rows.sort((a,b)=>a.t-b.t);
+    QU.rows=rows; QU.order=rows.map(r=>r.i);
+    QU.slot=Math.max(0, rows.findIndex(r=>r.me));
+    state="results"; $("hud").hidden=true;
+    stage.classList.toggle("noTower", OPT.tower==="0");
+    const pole=rows[0].t;
+    $("resKicker").textContent="Qualifications \u00b7 "+TRACK.name;
+    $("resTitle").textContent = QU.slot===0 ? "Pole position !" : (QU.slot+1)+"e sur la grille";
+    const tb=$("resTable"); tb.innerHTML="";
+    rows.forEach((r,k)=>{
+      const row=document.createElement("div");
+      row.className="row"+(r.me?" me":"");
+      row.innerHTML='<span class="pos">P'+(k+1)+'</span><span class="no">#'+r.no+
+                    '</span><span class="nm">'+(r.me?"Toi":r.nm)+'</span>'+
+                    '<span class="gap">'+(k===0 ? r.t.toFixed(2)+"s" : "+"+(r.t-pole).toFixed(2)+"s")+'</span>';
+      tb.appendChild(row);
+    });
+    $("resPoints").hidden=true; $("nextBtn").hidden=true;
+    $("resReel").hidden=true;
+    $("replayBtn").hidden=true; $("againBtn").hidden=true;
+    $("qualiGoBtn").hidden=false;
+    $("results").hidden=false;
+    silence();
+  }
   function endRace(now){
+    QU.done=false; QU.on=false;              // the next race qualifies afresh
+    $("qualiGoBtn").hidden=true;
+    $("replayBtn").hidden=false; $("againBtn").hidden=false;
     try{ learnRaceEnd(now||performance.now()); }catch(e){}
     state="results"; $("hud").hidden=true;
     RP.rec=false;
@@ -10973,6 +11356,9 @@ uniform float shadowFar;
   // rain banner, the engine.
   function toMenu(){
     rpStop();
+    QU.on=false; QU.done=false;
+    $("qualiGoBtn").hidden=true;
+    $("replayBtn").hidden=false; $("againBtn").hidden=false;
     state="menu";
     $("pause").hidden=true; $("results").hidden=true; $("count").hidden=true;
     $("hud").hidden=true;   $("menu").hidden=false; showPane("home");
@@ -10986,16 +11372,40 @@ uniform float shadowFar;
     silence();
     refreshMenuFacts();
   }
+  // the next stop, from inside the race
+  function renderPauseStrat(){
+    const box=$("pauseStrat"); if(!box) return;
+    if(!player || !(state==="racing"||state==="paused")){ box.hidden=true; return; }
+    box.hidden=false;
+    const PP=player.myPlan||(player.myPlan=[]), pi=player.myPlanI|0, has=pi<PP.length;
+    const b=$("pauseLap").querySelector("b");
+    b.textContent = has ? ("tour "+PP[pi].lap) : "aucun";
+    document.querySelectorAll("#pauseStrat [data-pstrat]").forEach(el=>{
+      el.setAttribute("aria-pressed", String(has && PP[pi].c===parseInt(el.dataset.pstrat,10)));
+    });
+  }
+  function pauseStratEdit(fn){
+    if(!player) return;
+    const PP=player.myPlan||(player.myPlan=[]);
+    fn(PP, player.myPlanI|0);
+    // keep what is left in order and still ahead of us
+    const now=Math.max(1, player.lap+1);
+    for(let i=player.myPlanI|0;i<PP.length;i++) PP[i].lap=clamp(PP[i].lap, now, totalLaps-1);
+    PP.sort((a,b)=>a.lap-b.lap);
+    player.planSaid=false;
+    renderPauseStrat();
+  }
   function togglePause(){
     if(NET.race){
       if(state!=="racing") return;
       const pz=$("pause"), kk=pz.querySelector(".kicker");
       if(kk) kk.textContent = "Course en ligne \u00b7 la course continue";
       pz.hidden=!pz.hidden;
+      if(!pz.hidden) renderPauseStrat();
       return;
     }
     { const kk=$("pause").querySelector(".kicker"); if(kk) kk.textContent="Course en cours"; }
-    if(state==="racing"){ state="paused"; $("pause").hidden=false; }
+    if(state==="racing"){ state="paused"; $("pause").hidden=false; renderPauseStrat(); }
     else if(state==="paused"){ $("pause").hidden=true; state="racing"; last=performance.now(); }
   }
   function cycleCam(){
@@ -11334,6 +11744,7 @@ uniform float shadowFar;
   }
   function showPane(name){
     if(!document.querySelector('#menu .pane[data-pane="'+name+'"]')) name="home";
+    if(name==="strat" && (pane==="free"||pane==="season"||pane==="multi")) STRAT_BACK=pane;
     pane=name;
     document.querySelectorAll("#menu .pane").forEach(x=>{ x.hidden=(x.dataset.pane!==name); });
     $("menu").dataset.pane=name;
@@ -11345,6 +11756,7 @@ uniform float shadowFar;
       previewTOD(OPT.tod==="auto" ? (LOOK.tod||"couchant") : OPT.tod);
       refreshMenuFacts(); resize();
     }
+    else if(name==="strat"){ STRAT_CUR=null; renderStrat(); }
     else if(name==="settings") showTab(setTab);
     else if(name==="multi") mpRender();
     syncOptChips();
@@ -11400,6 +11812,27 @@ uniform float shadowFar;
     if(t.dataset.bb==="copy"){ bbCopy(t); return; }
     if(t.dataset.track){ chooseCircuit(t.dataset.track); return; }
     if(t.dataset.opt){ setOpt(t.dataset.opt, t.dataset.val); return; }
+    if(t.dataset.strat==="start"){
+      const k=parseInt(t.dataset.val,10)||0;
+      stratEdit(p=>{ p.start=k; });
+      if(STRAT_BACK!=="multi") setOpt(seasonMode?"seasonComp":"comp", String(k));  // the two stay in step
+      return;
+    }
+    if(t.dataset.sl!==undefined){
+      const i=parseInt(t.dataset.i,10), d=parseInt(t.dataset.sl,10);
+      stratEdit((p,laps)=>{ if(p.stops[i]) p.stops[i].lap=clamp(p.stops[i].lap+d,1,laps-1); });
+      return;
+    }
+    if(t.dataset.sc!==undefined){
+      const i=parseInt(t.dataset.i,10), k=parseInt(t.dataset.sc,10);
+      stratEdit(p=>{ if(p.stops[i]) p.stops[i].c=k; });
+      return;
+    }
+    if(t.dataset.sx!==undefined){
+      const i=parseInt(t.dataset.sx,10);
+      stratEdit(p=>{ p.stops.splice(i,1); });
+      return;
+    }
     if(t.dataset.action){ runAction(t); return; }
   });
   $("menu").addEventListener("input", e=>{
@@ -11409,13 +11842,60 @@ uniform float shadowFar;
       const vo=$("volOut"); if(vo) vo.textContent=OPT.vol+" %";
     }
   });
+  $("pause").addEventListener("click", e=>{
+    const t=e.target.closest("button"); if(!t) return;
+    if(t.dataset.pl!==undefined){
+      const d=parseInt(t.dataset.pl,10);
+      pauseStratEdit((PP,i)=>{ if(PP[i]) PP[i].lap+=d; });
+      return;
+    }
+    if(t.dataset.pstrat!==undefined){
+      const k=parseInt(t.dataset.pstrat,10);
+      // no stop left to change? then this is a call to come in next lap
+      pauseStratEdit((PP,i)=>{
+        if(PP[i]) PP[i].c=k;
+        else PP.push({lap:clamp(player.lap+2, 1, Math.max(1,totalLaps-1)), c:k});
+      });
+      return;
+    }
+    if(t.id==="pauseNoStop"){ pauseStratEdit((PP,i)=>{ if(PP[i]) PP.splice(i,1); }); return; }
+  });
+  $("stratBack").addEventListener("click",()=>showPane(STRAT_BACK));
+  $("stratGo").addEventListener("click",()=>{
+    if(STRAT_BACK==="season") $("startBtn").click(); else $("freeStartBtn").click();
+  });
+  $("stratAdd").addEventListener("click",()=>stratEdit((p,laps)=>{
+    // a new stop lands in the middle of the longest stint, on the set that fits
+    const st=planStints(p,laps).sort((a,b)=>b.laps-a.laps)[0];
+    const at=clamp(Math.round((st.from+st.to)/2),1,laps-1);
+    let k=2; for(let j=0;j<3;j++) if(setLaps(j,laps)>=laps-at){ k=j; break; }
+    p.stops.push({lap:at, c:k});
+  }));
+  $("stratAuto").addEventListener("click",()=>stratEdit((p,laps)=>{
+    const b=planBest(laps); p.start=b.start; p.stops=b.stops;
+  }));
+  $("stratNone").addEventListener("click",()=>stratEdit((p,laps)=>{
+    p.stops=[];
+    let k=2; for(let j=0;j<3;j++) if(setLaps(j,laps)>=laps){ k=j; break; }
+    p.start=k;
+  }));
+  $("stratOne").addEventListener("click",()=>stratEdit((p,laps)=>{
+    const b=planBest(laps);
+    p.start=b.start; p.stops=b.stops.slice(0,1);
+    if(!p.stops.length) p.stops=[{lap:Math.max(1,Math.round(laps/2)), c:2}];
+  }));
+  $("stratTwo").addEventListener("click",()=>stratEdit((p,laps)=>{
+    p.stops=[{lap:Math.max(1,Math.round(laps/3)), c:1},
+             {lap:Math.max(2,Math.round(2*laps/3)), c:2}];
+  }));
   $("freeStartBtn").addEventListener("click",()=>{ setMode(false); startRace(); });
   $("startBtn").addEventListener("click",()=>{
     if(!seasonMode){ startRace(); return; }
     if(seasonOver()){ newSeason(); return; }
     goToRound(true);
   });
-  $("againBtn").addEventListener("click",startRace);
+  $("qualiGoBtn").addEventListener("click",()=>{ $("results").hidden=true; startRace(); });
+  $("againBtn").addEventListener("click",()=>startRace());
   $("resumeBtn").addEventListener("click",togglePause);
   $("restartBtn").addEventListener("click",()=>{ if(state!=="menu" && !NET.race) startRace(); });
   $("homeBtn").addEventListener("click",()=>{ if(NET.race) netLeave(); toMenu(); });
