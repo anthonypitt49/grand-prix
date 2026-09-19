@@ -2610,6 +2610,13 @@ uniform float shadowFar;
       }
     }
     if(!bad) html+="<div class='ok'>Chaque train tient son relais.</div>";
+    // and the engineer's verdict: is this the quickest way round, or not
+    {
+      const bt=planEval(planBest(laps), laps).t;
+      html += ev.t<=bt+0.05
+        ? "<div class='ok'>C’est le plan le plus rapide que je trouve.</div>"
+        : "<div>L’ingénieur trouve mieux de <b>"+(ev.t-bt).toFixed(1)+" s</b>.</div>";
+    }
     $("stratSum").innerHTML=html;
     // the room has its own start button; this screen only plans
     $("stratGo").hidden = (STRAT_BACK==="multi");
