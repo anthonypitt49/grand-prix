@@ -2469,7 +2469,12 @@ uniform float shadowFar;
   // pit lane lives inside the main straight (which runs 155 before / 167 after the line)
   // The entry road has to be long enough to brake in: from top speed to the
   // pit limit takes about forty metres, so the taper carries that.
-  const PIT_W=12.0, PIT_LIMIT=14, PIT_FULL=110, PIT_TAPER=44;
+  // 22 m/s is 80 km/h, the limit Formula 1 actually uses; at 50 km/h a stop cost
+  // two fifths of a lap and was never worth making twice
+  const PIT_W=12.0, PIT_LIMIT=22, PIT_FULL=110, PIT_TAPER=44;
+  // the entry road is still taken at the old pace: at 80 km/h to the limit line
+  // a driver ran out of room to get across and missed the lane lap after lap
+  const PIT_ENTRY_V=14;
   const PWALL_H=1.05, PWALL_T=0.28;               // the wall between lane and circuit
   const PIT_ENTRY_W=4.5;                          // the entry road is a road, not a wedge
   const TYRE_RATE=0.0084;                         // measured: a set is finished after three laps
@@ -2485,18 +2490,21 @@ uniform float shadowFar;
   // Three dry compounds, the same trade the real teams make: the softer the
   // rubber the more grip it gives and the sooner it is gone.
   const COMP_NM=["Tendre","Medium","Dur"], COMP_SHORT=["TENDRE","MEDIUM","DUR"];
-  const COMP_GRIP=[1.045, 1.000, 0.955];
+  const COMP_GRIP=[1.085, 1.000, 0.925];
   const COMP_WEAR=[1.42,  1.000, 0.74 ];
   let compChoice=1;
   let RACE_PLAN={start:1, stops:[]};          // the plan this race is being run to
   const compGrip=c=> c.wets ? 1 : COMP_GRIP[c.comp||0];
   const wetGrip=c=> c.wets ? (0.82+0.18*weather.wet) : (1-0.42*weather.wet);
-  const tyreGrip=t=>0.68+0.32*t;
+  // Down to the end of a set the grip fades evenly; past it the rubber is gone
+  // and it falls off a cliff. Without the cliff, three laps on bald tyres were
+  // quicker than a stop.
+  const TYRE_END=0.22;                       // under this a set is finished
+  const tyreGrip=t=> t>=TYRE_END ? 0.68+0.32*t : 0.48+(0.68+0.32*TYRE_END-0.48)*(t/TYRE_END);
   // A set's life, in laps, rather than a feeling. Wear is charged by the second,
   // so one lap costs a set its own lap time; the factor below was measured on
   // three circuits against a car driven at racing pace (0.97 / 0.98 / 1.01).
   const TYRE_F=0.98;
-  const TYRE_END=0.22;                       // under this a set is finished
   let REF_LAP={id:"", t:0};
 
   /* ------------------------------ the plan ------------------------------
@@ -2540,31 +2548,42 @@ uniform float shadowFar;
     out.push({c:k, from:from, to:laps, laps:laps-from+1});
     return out.filter(x=>x.laps>0);
   }
-  // how long the plan takes, and by how much the worst stint outlives its set
-  function planEval(p, laps){
+  // How long the plan takes from lap `from` to the flag on a new set, and by
+  // how much the worst stint outlives its rubber. wm scales the wear: a careful
+  // driver, or a rate actually measured in the race.
+  function planEval(p, laps, from, wm){
+    from=from||1; wm=wm||1;
     const lapT=refLapT(), loss=pitLoss();
     let t=0, k=p.start, tyre=1, si=0, over=0;
-    for(let L=1; L<=laps; L++){
-      t+=lapOn(k, Math.max(0,tyre), lapT);
-      tyre-=wearLap(k, laps);
+    for(let L=from; L<=laps; L++){
+      // a lap is driven on the rubber it has half way round, and a finished set
+      // costs more than its pace: the slides, and the cars that get by
+      const w=wearLap(k, laps)*wm, mid=tyre-w*0.5;
+      t+=lapOn(k, mid, lapT) + 1.5*clamp((TYRE_END-mid)/TYRE_END, 0, 1);
+      tyre-=w;
       if(tyre<TYRE_END) over=Math.max(over, TYRE_END-tyre);
       if(si<p.stops.length && p.stops[si].lap===L){ t+=loss; k=p.stops[si].c; tyre=1; si++; }
     }
     return {t:t, over:over};
   }
-  // the engineer's answer: every plan up to two stops, the quickest one wins
-  function planBest(laps){
-    const cand=[];
+  // every sensible plan from lap `from`, up to two stops, with its time
+  function planAll(laps, from, wm){
+    from=from||1;
+    const out=[], add=p=>out.push({p:p, t:planEval(p,laps,from,wm).t});
     for(let a=0;a<3;a++){
-      cand.push({start:a, stops:[]});
-      for(let b=0;b<3;b++) for(let L=1;L<laps;L++) cand.push({start:a, stops:[{lap:L,c:b}]});
+      add({start:a, stops:[]});
+      for(let b=0;b<3;b++) for(let L=from;L<laps;L++) add({start:a, stops:[{lap:L,c:b}]});
     }
-    if(laps>=6) for(let a=0;a<3;a++) for(let b=0;b<3;b++) for(let d=0;d<3;d++)
-      for(let L1=1;L1<laps-1;L1++) for(let L2=L1+1;L2<laps;L2++)
-        cand.push({start:a, stops:[{lap:L1,c:b},{lap:L2,c:d}]});
-    let best=cand[0], bt=Infinity;
-    for(const p of cand){ const e=planEval(p,laps); if(e.t<bt){ bt=e.t; best=p; } }
-    return {start:best.start, stops:best.stops.map(s=>({lap:s.lap, c:s.c}))};
+    if(laps-from+1>=6) for(let a=0;a<3;a++) for(let b=0;b<3;b++) for(let d=0;d<3;d++)
+      for(let L1=from;L1<laps-1;L1++) for(let L2=L1+1;L2<laps;L2++)
+        add({start:a, stops:[{lap:L1,c:b},{lap:L2,c:d}]});
+    return out;
+  }
+  // the engineer's answer: the quickest of them
+  function planBest(laps, from, wm){
+    let best=null;
+    for(const x of planAll(laps, from, wm)) if(!best || x.t<best.t) best=x;
+    return {start:best.p.start, stops:best.p.stops.map(s=>({lap:s.lap, c:s.c}))};
   }
   function fmtMin(s){
     const m=Math.floor(s/60), r=s-m*60;
@@ -2661,16 +2680,40 @@ uniform float shadowFar;
     const per = (c.wpl && c.wpl>1e-4) ? c.wpl : wearLap(c.comp||0, totalLaps);
     return Math.max(0, (c.tyre-TYRE_END)/per);
   }
-  // a lap on this compound at this wear, against a lap on a new medium: grip
-  // buys lap time back roughly as its square root
-  function lapOn(k, t, lapT){ return lapT/Math.sqrt(Math.max(0.3, COMP_GRIP[k]*tyreGrip(t))); }
+  // A lap on compound k at wear t, from the lap estimator itself: it knows which
+  // part of the lap is corners, where grip counts, and which is straight, where
+  // it does not. Checked at Spa against real laps: within a tenth.
+  let LAPTAB={id:"", tab:null};
+  function lapTab(){
+    if(LAPTAB.id===TRACK.id && LAPTAB.tab) return LAPTAB.tab;
+    const tab=[0,1,2].map(k=>{
+      const a=new Float32Array(21);
+      for(let j=0;j<=20;j++){
+        let t=35;
+        try{ t=aiLapEstimate({maxSpeed:BASE, accel:30, brake:55, roll:2.2, dragC:0.11,
+                              gripMul:COMP_GRIP[k]*tyreGrip(j/20), aiPace:1, aiTop:1}, 1); }catch(e){}
+        a[j]=t;
+      }
+      return a;
+    });
+    LAPTAB={id:TRACK.id, tab:tab};
+    return tab;
+  }
+  function lapOn(k, t, lapT){
+    const tb=lapTab(), a=tb[k], x=clamp(t,0,1)*20, j=Math.min(19,Math.floor(x)), f=x-j;
+    return lapT*(a[j]+(a[j+1]-a[j])*f)/tb[1][20];
+  }
   // what a stop costs: the limited stretch at the limiter instead of at speed,
-  // plus the seconds the crew take
+  // the crew's three seconds, and slowing in and getting back up to speed
+  // (measured at Spa: 10.8 s all told, 1.1 s of it braking in and pulling out)
+  let PITLOSS={id:"", v:0};
   function pitLoss(){
+    if(PITLOSS.id===TRACK.id) return PITLOSS.v;
     let lim=0;
     for(let i=0;i<N;i++) if(pitWallAt(cum[i])) lim+=seg[i];
     const vRace=1.15*TOT/Math.max(8, refLapT());
-    return lim/PIT_LIMIT - lim/vRace + 3.0;
+    PITLOSS={id:TRACK.id, v:lim/PIT_LIMIT - lim/vRace + 3.0 + 1.1};
+    return PITLOSS.v;
   }
 
   // Ten circuits from the real calendar, drawn by hand as control points
@@ -6368,7 +6411,7 @@ uniform float shadowFar;
   const TEAM_NEUTRAL={grip:0, top:0, pace:0, steady:0.85, attack:0.80, defend:0.80, care:1.00, start:0.70};
   function gauss(){ let u=0; while(u===0) u=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(6.283185307*Math.random()); }
   // wear per lap of compound k on this car, before a lap has been measured
-  function stintWear(c, k){ return TYRE_RATE*1.05*(TOT/47)*tyreScale*COMP_WEAR[k]/(c.care||1); }
+  function stintWear(c, k){ return wearLap(k, totalLaps)/(c.care||1); }
   // the softest set that reaches the flag; if none does, the one that shares the
   // distance best between the stops still to come
   function pickCompound(c, left){
@@ -6384,6 +6427,47 @@ uniform float shadowFar;
     const r=Math.random()-0.25*(PF.attack-0.75);
     if(r<0.28 && lifeSoft>=Math.min(totalLaps*0.3, 2.2)) return 0;
     return r<0.72 ? 1 : 2;
+  }
+  /* ---------------------------- AI strategist ----------------------------
+     Every team without a human's plan to copy lays its race out at the start,
+     with the arithmetic the player's engineer uses and its own wear. It takes a
+     plan close to the quickest rather than always the very quickest -- teams
+     read a race differently, and a field on one strategy is a procession. At
+     each stop it lays the rest out again from what its tyres actually did. */
+  let AIPLAN_CACHE={};
+  function aiPlanPick(c, from, wm){
+    const key=from+"|"+wm.toFixed(2);
+    let all=AIPLAN_CACHE[key];
+    if(!all){ all=planAll(totalLaps, from, wm); AIPLAN_CACHE[key]=all; }
+    let bt=Infinity; for(const x of all) if(x.t<bt) bt=x.t;
+    const tol=0.8+0.003*bt;                 // about 3 s over a 21-lap race
+    const pool=all.filter(x=>x.t<=bt+tol);
+    let sum=0; for(const x of pool){ x.w=Math.exp(-(x.t-bt)/(tol*0.35)); sum+=x.w; }
+    let r=Math.random()*sum, pick=pool[0];
+    for(const x of pool){ r-=x.w; if(r<=0){ pick=x; break; } }
+    return {start:pick.p.start, stops:pick.p.stops.map(s=>({lap:s.lap, c:s.c}))};
+  }
+  function aiPlanAll(){
+    AIPLAN_CACHE={};
+    for(const c of cars){
+      if(c.player || c.human || c.remote || c.plan) continue;
+      // wear rounded so teams that treat tyres alike share the arithmetic; in a
+      // race, pushing and fighting, a set goes 3-4 % quicker than when alone
+      const wm=Math.round(20*1.035/(c.care||1))/20;
+      const p=aiPlanPick(c, 1, wm);
+      c.comp=p.start; c.aiPlan=p.stops; c.aiPlanI=0;
+    }
+  }
+  // laps until this car's next stop, or the flag, and laps its set has in it
+  function aiLapsToStop(c){
+    const now=c.lap+c.s/TOT;
+    if(c.plan && c.planI<c.plan.length) return Math.max(0, c.plan[c.planI].at*totalLaps-now);
+    if(c.aiPlan && c.aiPlanI<c.aiPlan.length) return Math.max(0, c.aiPlan[c.aiPlanI].lap-now);
+    return Math.max(0, totalLaps-now);
+  }
+  function aiLapsLeft(c){
+    const per=(c.wpl && c.wpl>1e-4) ? c.wpl : wearLap(c.comp||0, totalLaps)/(c.care||1);
+    return Math.max(0, (c.tyre-TYRE_END)/per);
   }
   function makeCars(){
     const LV=aiLevel(diff);
@@ -7015,7 +7099,34 @@ uniform float shadowFar;
         const at=c.plan[c.planI].at*totalLaps+c.planJit, left=totalLaps-(c.lap+c.s/TOT);
         if(c.lap+c.s/TOT>=at-0.7 && left>0.6) c.wantPit=true;
       }
-      if(!c.player && !c.wantPit && c.lap>=0){
+      const planned = !c.player && !c.plan && !c.wets && c.aiPlan;
+      if(planned && !c.wantPit && c.lap>=0){
+        const left=totalLaps-(c.lap+c.s/TOT), nx=c.aiPlan[c.aiPlanI];
+        // "lap 8" is the last lap on this set: come in at the end of it
+        if(nx && c.lap+1>=nx.lap && left>0.6) c.wantPit=true;
+        // a rival within a couple of seconds dives in while our window is open:
+        // some teams answer at once rather than hand them the fresh-tyre laps
+        if(!c.wantPit && nx && c.coverLap!==c.lap){
+          const win=nx.lap-(c.lap+1);
+          if(win>=1 && win<=3 && c.tyre<0.7){
+            const v=Math.max(20, Math.abs(c.vf));
+            for(const o of cars){
+              if(o===c || !o.inPitLane || !(o.wantPit || o.player || o.human)) continue;
+              if(Math.abs(o.prog-c.prog) > 2.5*v) continue;
+              c.coverLap=c.lap;
+              const bold=(c.prof && c.prof.attack) || 0.75;
+              if(Math.random() < bold-0.4) nx.lap=c.lap+1;
+              break;
+            }
+          }
+        }
+        // the plan read the wear wrong: a finished set comes in now
+        if(!c.wantPit && left>0.6 && c.tyre<0.10){
+          const reaches=c.tyre-(c.wpl||stintWear(c,c.comp||0))*left > 0.02;
+          if(!reaches) c.wantPit=true;
+        }
+        if(wrongTyre && left>0.6) c.wantPit=true;
+      } else if(!c.player && !c.wantPit && c.lap>=0){
         const left=totalLaps-(c.lap+c.s/TOT);
         const reaches=c.tyre-(c.wpl||stintWear(c,c.comp||0))*left > 0.14;
         if(left>0.6 && (wrongTyre || (c.tyre<c.pitAt && !reaches))) c.wantPit=true;
@@ -7053,6 +7164,18 @@ uniform float shadowFar;
             const was=c.comp||0;
             c.comp = pickCompound(c, Math.max(0.5, totalLaps-(c.lap+c.s/TOT)));
             if(c.plan && c.planI<c.plan.length){ if(c.plan[c.planI].c>=0) c.comp=c.plan[c.planI].c; c.planI++; }
+            else if(!c.player && !c.human && !c.plan && c.aiPlan!==undefined){
+              const from=Math.round(c.lap+c.s/TOT)+1;
+              if(from<=totalLaps){
+                // the wear this car has actually been putting on its tyres
+                const wm = c.wpl ? clamp(c.wpl/Math.max(1e-4, wearLap(was,totalLaps)), 0.6, 1.8)
+                                 : 1/(c.care||1);
+                try{
+                  const p=aiPlanPick(c, from, Math.round(wm*20)/20);
+                  c.comp=p.start; c.aiPlan=p.stops; c.aiPlanI=0;
+                }catch(e){}
+              }
+            }
             // the driver's own plan wins over the strategist's guess
             if(c.player && c.myPlan && c.myPlanI<c.myPlan.length){ c.comp=c.myPlan[c.myPlanI].c; c.myPlanI++; c.planSaid=false; }
             if(c.wpl) c.wpl = c.wpl/COMP_WEAR[was]*COMP_WEAR[c.comp];
@@ -7911,7 +8034,13 @@ uniform float shadowFar;
         const sd=HUM.on && HUM.spdKnown ? Math.max(sd0*0.7, HUM.spdSD) : sd0;
         c.rhyTo=clamp(gauss()*sd, -2.2*sd, 2.2*sd); c.rhyAt=c.prog+250+Math.random()*350;
         const fight = c.rc && (c.rc.mode==="attack" || c.rc.mode==="defend" || c.rc.mode==="follow");
-        c.push = (fight || Math.random() < 0.75-2*((c.prof.care||1)-0.9)) ? 1 : 0;
+        // save the set when it has further to go than it can; use it when
+        // there is rubber to spare
+        const need=aiLapsToStop(c), have=aiLapsLeft(c), dry=!c.wets && weather.wet<0.35;
+        if(fight) c.push=1;
+        else if(dry && have<need*1.02) c.push=0;
+        else if(dry && have>need*1.3+0.5) c.push=1;
+        else c.push = Math.random() < 0.75-2*((c.prof.care||1)-0.9) ? 1 : 0;
       }
       c.rhy+=(c.rhyTo-c.rhy)*(1-Math.exp(-0.9*h));
       spd*=1+c.rhy-(c.push===0 ? 0.008 : 0);
@@ -7979,7 +8108,7 @@ uniform float shadowFar;
     if(pitting){
       const dLim=((wrapS(-PIT_FULL)-c.s)%TOT+TOT)%TOT;
       const toLimit = dLim>PIT_TAPER+5 ? 0 : dLim;
-      vPit=PIT_LIMIT+Math.sqrt(2*26*toLimit);
+      vPit=(c.inPitLane ? PIT_LIMIT : PIT_ENTRY_V)+Math.sqrt(2*26*toLimit);
       const d=signedTo(c.s, c.boxS);
       if(d<32 && d>-14) vPit=Math.min(vPit, Math.max(0, d*0.55));
     }
@@ -9656,7 +9785,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="3.5";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="3.6";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -10747,7 +10876,7 @@ uniform float shadowFar;
       const L=Math.max(0.5, seg[idxAtS(p)]);
       let vt = inPit ? Math.min(v, PIT_LIMIT) : r*ref(p+L);
       // coming in: brake for the limit line the way the drivers do
-      if(wp && !inPit){ const dl=signedTo(wrapS(p+L), limS); if(dl>-250 && dl<220) vt=Math.min(vt, dl<=0 ? PIT_LIMIT : PIT_LIMIT+Math.sqrt(2*26*dl)); }
+      if(wp && !inPit){ const dl=signedTo(wrapS(p+L), limS); if(dl>-250 && dl<220) vt=Math.min(vt, dl<=0 ? PIT_LIMIT : PIT_ENTRY_V+Math.sqrt(2*26*dl)); }
       const vn = vt>v ? Math.min(vt, Math.sqrt(v*v+2*22*L)) : vt;
       const avg=Math.max(1,(v+vn)*0.5), step=L/avg;
       if(step>=left){ p+=avg*left; v+=(vn-v)*(left/step); left=0; break; }
@@ -11206,6 +11335,7 @@ uniform float shadowFar;
     applyWeather(0);
     makeCars();
     learnPrepare();
+    try{ aiPlanAll(); }catch(e){}
     rpReset();
     csmApplyAll();
     warmUp();
@@ -11234,7 +11364,7 @@ uniform float shadowFar;
       const L=LIVERY[i];
       if(L.player) continue;
       const PF=TEAM[L.nm]||TEAM_NEUTRAL;
-      const gm=LV.grip*(1+(PF.grip*LV.mix+(Math.random()-0.5)*0.8)/100);
+      const gm=LV.grip*(1+(PF.grip*LV.mix+(Math.random()-0.5)*0.8)/100)*COMP_GRIP[0];
       const stub={maxSpeed:BASE*(1+PF.top*Math.min(LV.mix,1.6)/100),
                   accel:30*LV.accel*(1+PF.top*Math.min(LV.mix,1.6)/100),
                   brake:55, roll:2.2, dragC:0.11, gripMul:gm,
