@@ -167,15 +167,34 @@
   .draft.drs{bottom:58px; background:#17904c; color:#eaffef; box-shadow:0 0 24px rgba(36,209,122,.55)}
   .draft.drs.arm{background:#2f2a12; color:#ffcf3f; box-shadow:0 0 16px rgba(255,207,63,.35)}
   /* the pit wall */
-  .stratFacts{display:flex; gap:8px; margin:2px 0 10px}
-  .stratFacts .sf{
-    flex:1; border:1px solid var(--line); border-radius:10px; padding:8px 10px;
-    background:rgba(255,255,255,.02);
+  .engBox{
+    border:1px solid rgba(255,207,63,.45); background:rgba(255,207,63,.07);
+    border-radius:12px; padding:12px 14px; margin:2px 0 14px;
   }
-  .stratFacts .sf b{display:block; font-size:12px; letter-spacing:.14em; text-transform:uppercase}
-  .stratFacts .sf span{display:block; font-family:var(--font-num); font-size:19px; margin-top:2px}
-  .stratFacts .sf i{display:block; font-style:normal; font-size:11px; color:var(--muted); margin-top:1px}
-  .stratFacts .sf.c0 b{color:#ff6b70} .stratFacts .sf.c1 b{color:#ffd34d} .stratFacts .sf.c2 b{color:#e6e9ef}
+  .engBox .kick{font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--yellow)}
+  .engBox .say{font-size:17px; line-height:1.45; margin-top:5px; color:var(--white)}
+  .engBox .why{font-size:12.5px; line-height:1.5; color:var(--muted); margin-top:5px}
+  .stratCards{display:flex; flex-direction:column; gap:8px}
+  .sCard{
+    display:block; width:100%; text-align:left; cursor:pointer; font:inherit; color:var(--white);
+    border:1px solid var(--line); background:rgba(255,255,255,.03); border-radius:10px; padding:9px 12px;
+  }
+  .sCard[aria-pressed="true"]{border-color:var(--yellow); background:rgba(255,207,63,.09)}
+  .sCard .top{display:flex; justify-content:space-between; align-items:baseline; gap:8px}
+  .sCard .top b{font-size:14px}
+  .sCard .top em{font-style:normal; font-size:12px; color:var(--muted); white-space:nowrap}
+  .sCard .top em.best{color:var(--yellow)}
+  .sCard .mini{display:flex; gap:2px; height:7px; margin:7px 0 5px}
+  .sCard .mini i{border-radius:3px}
+  .sCard .mini i.c0{background:#ff6b70} .sCard .mini i.c1{background:#ffd34d} .sCard .mini i.c2{background:#e6e9ef}
+  .sCard .txt{font-size:12.5px; color:var(--muted)}
+  .stratLegend{font-size:12px; color:var(--muted); margin-top:12px; line-height:1.7}
+  .stratLegend i{display:inline-block; width:9px; height:9px; border-radius:50%; margin:0 4px 0 6px}
+  .stratLegend i.c0{background:#ff6b70} .stratLegend i.c1{background:#ffd34d} .stratLegend i.c2{background:#e6e9ef}
+  #pStrat details{margin:12px 0 14px; border-top:1px solid var(--line); padding-top:10px}
+  #pStrat summary{cursor:pointer; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
+  #pStrat details[open] summary{margin-bottom:8px}
+  .stratChip{max-width:100%; white-space:normal; text-align:left}
   .stratBar{display:flex; gap:3px; height:52px; margin:4px 0 8px}
   .stratBar .stint{
     display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -967,13 +986,9 @@
               <div class="seasonHead"><b id="seasonHead">&mdash;</b><span id="seasonSub">&mdash;</span></div>
               <div class="calendar" id="calendar"></div>
             </div>
-            <div class="optRow">
-              <span class="lbl">Gommes</span>
-              <span class="seg">
-                <button class="chip" data-opt="seasonComp" data-val="0">Tendre</button>
-                <button class="chip" data-opt="seasonComp" data-val="1">Medium</button>
-                <button class="chip" data-opt="seasonComp" data-val="2">Dur</button>
-              </span>
+            <div class="optRow" id="seasonStratRow">
+              <span class="lbl">Pneus</span>
+              <button class="chip stratChip" id="seasonStratChip" data-go="strat">&mdash;</button>
             </div>
             <div class="optRow">
               <span class="lbl">Qualifications</span>
@@ -982,7 +997,6 @@
                 <button class="chip" data-opt="quali" data-val="0" title="La grille est tir&eacute;e au sort selon la forme des &eacute;quipes ; tu pars 6e">Simul&eacute;es</button>
               </span>
             </div>
-            <button class="btn ghost" data-go="strat">Strat&eacute;gie de course</button>
             <button class="btn" id="startBtn">Disputer la manche</button>
           </div>
           <div class="col">
@@ -1062,12 +1076,8 @@
               </span>
             </div>
             <div class="optRow">
-              <span class="lbl">Gommes</span>
-              <span class="seg">
-                <button class="chip" data-opt="comp" data-val="0">Tendre</button>
-                <button class="chip" data-opt="comp" data-val="1">Medium</button>
-                <button class="chip" data-opt="comp" data-val="2">Dur</button>
-              </span>
+              <span class="lbl">Pneus</span>
+              <button class="chip stratChip" id="freeStratChip" data-go="strat">&mdash;</button>
             </div>
             <div class="optRow">
               <span class="lbl">Qualifications</span>
@@ -1076,7 +1086,6 @@
                 <button class="chip" data-opt="quali" data-val="0" title="La grille est tir&eacute;e au sort selon la forme des &eacute;quipes ; tu pars 6e">Simul&eacute;es</button>
               </span>
             </div>
-            <button class="btn ghost" data-go="strat">Strat&eacute;gie de course</button>
             <button class="btn" id="freeStartBtn">Prendre le d&eacute;part</button>
           </div>
         </div>
@@ -1093,27 +1102,30 @@
         <div class="twoCol">
           <div class="col">
             <div class="colLbl" id="stratSub">&mdash;</div>
-            <div class="stratFacts" id="stratFacts"></div>
-            <div class="stratBar" id="stratBar"></div>
-            <div class="stratSum" id="stratSum"></div>
+            <div class="engBox" id="stratAdvice"></div>
+            <div class="colLbl">Choisis ta strat&eacute;gie</div>
+            <div class="stratCards" id="stratCards"></div>
+            <div class="stratLegend" id="stratLegend"></div>
           </div>
           <div class="col">
-            <div class="optRow">
-              <span class="lbl">D&eacute;part</span>
-              <span class="seg">
-                <button class="chip" data-strat="start" data-val="0">Tendre</button>
-                <button class="chip" data-strat="start" data-val="1">Medium</button>
-                <button class="chip" data-strat="start" data-val="2">Dur</button>
-              </span>
-            </div>
-            <div id="stratStops"></div>
-            <div class="stratPresets">
-              <button class="chip" id="stratAdd">+ Arr&ecirc;t</button>
-              <button class="chip" id="stratAuto">Conseil de l&rsquo;ing&eacute;nieur</button>
-              <button class="chip" id="stratNone">Sans arr&ecirc;t</button>
-              <button class="chip" id="stratOne">Un arr&ecirc;t</button>
-              <button class="chip" id="stratTwo">Deux arr&ecirc;ts</button>
-            </div>
+            <div class="colLbl">Ton plan</div>
+            <div class="stratBar" id="stratBar"></div>
+            <div class="stratSum" id="stratSum"></div>
+            <details id="stratMore">
+              <summary>Personnaliser</summary>
+              <div class="optRow">
+                <span class="lbl">D&eacute;part</span>
+                <span class="seg">
+                  <button class="chip" data-strat="start" data-val="0">Tendre</button>
+                  <button class="chip" data-strat="start" data-val="1">Medium</button>
+                  <button class="chip" data-strat="start" data-val="2">Dur</button>
+                </span>
+              </div>
+              <div id="stratStops"></div>
+              <div class="stratPresets">
+                <button class="chip" id="stratAdd">+ Ajouter un arr&ecirc;t</button>
+              </div>
+            </details>
             <button class="btn" id="stratGo">Prendre le d&eacute;part</button>
           </div>
         </div>
@@ -2512,7 +2524,7 @@ uniform float shadowFar;
      means the stop happens at the end of lap 8, so the eighth lap is the last
      one on that set. Everything else -- the stints, the time it costs, whether
      a set can actually go that far -- is worked out from those two things. */
-  const PLAN_LS="trs_plan_v1";
+  const PLAN_LS="trs_plan_v2";
   let PLANS={};
   try{ PLANS=JSON.parse(localStorage.getItem(PLAN_LS)||"{}")||{}; }catch(e){ PLANS={}; }
   let STRAT_CUR=null, STRAT_BACK="free";
@@ -2525,7 +2537,8 @@ uniform float shadowFar;
   function planGet(laps){
     laps=laps||planLaps();
     const p=PLANS[planKey(laps)];
-    if(!p) return {start:(parseInt(seasonMode?OPT.seasonComp:OPT.comp,10)||0)%3, stops:[]};
+    // nothing chosen: the race is run to the engineer's plan
+    if(!p){ const b=planChoices(laps).best.p; return {start:b.start, stops:b.stops.map(s=>({lap:s.lap, c:s.c}))}; }
     return {start:(p.start|0)%3, stops:(p.stops||[]).map(s=>({lap:s.lap|0, c:(s.c|0)%3}))};
   }
   function planSave(p, laps){
@@ -2585,6 +2598,60 @@ uniform float shadowFar;
     for(const x of planAll(laps, from, wm)) if(!best || x.t<best.t) best=x;
     return {start:best.p.start, stops:best.p.stops.map(s=>({lap:s.lap, c:s.c}))};
   }
+  // The quickest plan for each number of stops, and the quickest of all: what
+  // the screen offers, worked out once per circuit and distance.
+  let CHOICES={key:"", v:null};
+  function planChoices(laps){
+    const key=TRACK.id+"|"+laps;
+    if(CHOICES.key===key && CHOICES.v) return CHOICES.v;
+    const byN=[null,null,null];
+    for(const x of planAll(laps)){ const n=x.p.stops.length; if(!byN[n] || x.t<byN[n].t) byN[n]=x; }
+    const list=byN.filter(Boolean).map(x=>({n:x.p.stops.length, p:x.p, t:x.t}));
+    let best=list[0]; for(const x of list) if(x.t<best.t) best=x;
+    CHOICES={key:key, v:{list:list, best:best}};
+    return CHOICES.v;
+  }
+  function samePlan(a, b){
+    if(!a || !b || a.start!==b.start || a.stops.length!==b.stops.length) return false;
+    for(let i=0;i<a.stops.length;i++) if(a.stops[i].lap!==b.stops[i].lap || a.stops[i].c!==b.stops[i].c) return false;
+    return true;
+  }
+  const comma=(x,d)=>x.toFixed(d).replace(".", ",");
+  // a plan in a few words: "Tendre -> Medium (T4)"
+  function planShort(p){
+    const ks=[p.start].concat(p.stops.map(s=>s.c)).map(k=>COMP_NM[k]);
+    if(!p.stops.length) return ks[0]+", sans arr\u00eat";
+    return ks.join(" \u2192 ")+" (T"+p.stops.map(s=>s.lap).join(", T")+")";
+  }
+  // what the engineer tells you, in one sentence
+  function engineerSays(p){
+    const N=k=>"<b>"+COMP_NM[k]+"</b>";
+    if(!p.stops.length) return "Pars en "+N(p.start)+" et ne t\u2019arr\u00eate pas.";
+    if(p.stops.length===1) return "Pars en "+N(p.start)+", rentre \u00e0 la fin du <b>tour "+p.stops[0].lap+
+      "</b> et repars en "+N(p.stops[0].c)+".";
+    return "Pars en "+N(p.start)+", rentre aux <b>tours "+p.stops[0].lap+"</b> et <b>"+p.stops[1].lap+
+      "</b> : "+N(p.stops[0].c)+" puis "+N(p.stops[1].c)+".";
+  }
+  // the one line on the race screens (only once the circuit is fully built:
+  // worked out earlier, the lap tables would be cached from a half-made track)
+  let STRAT_READY=false;
+  function stratChipsUpdate(){
+    if(!STRAT_READY) return;
+    const set=(id, laps)=>{
+      const el=$(id); if(!el) return;
+      const p=planGet(laps), rec=samePlan(p, planChoices(laps).best.p);
+      el.textContent=(rec ? "\u2605 " : "")+planShort(p)+"  \u203a";
+      el.title = rec ? "Le plan conseill\u00e9 par l\u2019ing\u00e9nieur" : "Ton plan";
+    };
+    try{ set("freeStratChip", parseInt(OPT.laps,10)||5); }catch(e){}
+    try{
+      // a round on another circuit is planned once that circuit is loaded
+      const row=$("seasonStratRow"), c=roundCircuit(season.round);
+      const here=!!c && c.id===TRACK.id && !seasonOver();
+      if(row) row.hidden=!here;
+      if(here) set("seasonStratChip", parseInt(OPT.seasonLaps,10)||5);
+    }catch(e){}
+  }
   function fmtMin(s){
     const m=Math.floor(s/60), r=s-m*60;
     return m+":"+(r<10?"0":"")+r.toFixed(1);
@@ -2593,18 +2660,36 @@ uniform float shadowFar;
     const laps=planLaps();
     const p=planTidy(STRAT_CUR||planGet(laps), laps);
     STRAT_CUR=p;
-    const lapT=refLapT();
+    const CH=planChoices(laps), best=CH.best;
     $("stratTitle").textContent=TRACK.name;
-    $("stratSub").textContent=laps+" tours · tour de référence "+lapT.toFixed(1)+
-      " s · un arrêt coûte ≈ "+pitLoss().toFixed(1)+" s";
-    const fx=$("stratFacts"); fx.innerHTML="";
-    for(let k=0;k<3;k++){
-      const d=lapOn(k,1,lapT)-lapOn(1,1,lapT);
-      const el=document.createElement("div");
-      el.className="sf c"+k;
-      el.innerHTML="<b>"+COMP_NM[k]+"</b><span>"+setLaps(k,laps).toFixed(1)+" tours</span>"+
-        "<i>"+(k===1 ? "référence" : (d<0?"−":"+")+Math.abs(d).toFixed(2)+" s/tour à neuf")+"</i>";
-      fx.appendChild(el);
+    $("stratSub").textContent=laps+" tours \u00b7 un arr\u00eat co\u00fbte environ "+Math.round(pitLoss())+" s";
+    // the engineer, in plain words
+    {
+      const lbl=["sans arr\u00eat","avec un arr\u00eat","avec deux arr\u00eats"];
+      let why="";
+      const others=CH.list.filter(x=>x!==best).sort((a,b)=>a.t-b.t);
+      if(others.length) why="C\u2019est "+comma(others[0].t-best.t,1)+" s de mieux que "+lbl[others[0].n]+".";
+      if(planEval(best.p,laps).over>0.02) why+=" Tes pneus seront \u00e0 bout \u00e0 la fin : m\u00e9nage-les dans les derniers tours.";
+      $("stratAdvice").innerHTML="<div class='kick'>Conseil de l\u2019ing\u00e9nieur</div>"+
+        "<div class='say'>"+engineerSays(best.p)+"</div>"+(why ? "<div class='why'>"+why+"</div>" : "");
+    }
+    // the ready plans
+    {
+      const box=$("stratCards"); box.innerHTML="";
+      const name=["Sans arr\u00eat","1 arr\u00eat","2 arr\u00eats"];
+      CH.list.forEach((x,i)=>{
+        const b=document.createElement("button");
+        b.className="sCard"; b.dataset.scard=String(i);
+        b.setAttribute("aria-pressed", String(samePlan(p, x.p)));
+        const mini=planStints(x.p, laps).map(st=>"<i class='c"+st.c+"' style='flex:"+st.laps+" 1 0'></i>").join("");
+        b.innerHTML="<div class='top'><b>"+name[x.n]+"</b>"+
+          (x===best ? "<em class='best'>\u2605 conseill\u00e9e</em>" : "<em>+"+comma(x.t-best.t,1)+" s</em>")+"</div>"+
+          "<div class='mini'>"+mini+"</div><div class='txt'>"+planShort(x.p)+"</div>";
+        box.appendChild(b);
+      });
+      $("stratLegend").innerHTML="Dur\u00e9e d\u2019un train ici :"+
+        [0,1,2].map(k=>"<i class='c"+k+"'></i>"+COMP_NM[k]+" \u2248 "+comma(setLaps(k,laps),1)+" tours").join("")+
+        "<br>Le Tendre va le plus vite, le Dur tient le plus longtemps.";
     }
     const bar=$("stratBar"); bar.innerHTML="";
     const stints=planStints(p, laps);
@@ -2617,24 +2702,14 @@ uniform float shadowFar;
       bar.appendChild(el);
     }
     const ev=planEval(p, laps);
-    let html="<div><span class='big'>"+fmtMin(ev.t)+"</span> estimé · "+
-      (p.stops.length===0 ? "aucun arrêt" : p.stops.length+" arrêt"+(p.stops.length>1?"s":""))+"</div>";
-    let bad=false;
+    const card=CH.list.find(x=>samePlan(p, x.p));
+    let html="<div>Temps estim\u00e9 <span class='big'>"+fmtMin(ev.t)+"</span></div>";
+    if(!card) html += ev.t<=best.t+0.05
+      ? "<div class='ok'>Plan personnalis\u00e9, aussi rapide que le conseil.</div>"
+      : "<div>Plan personnalis\u00e9 : l\u2019ing\u00e9nieur fait mieux de <b>"+comma(ev.t-best.t,1)+" s</b>.</div>";
     for(const st of stints){
-      const life=setLaps(st.c, laps);
-      if(st.laps>life+0.05){
-        bad=true;
-        html+="<div class='bad'>⚠ "+COMP_NM[st.c]+" sur "+st.laps+" tours : "+
-          (st.laps-life).toFixed(1)+" tours de trop, la fin du relais sera sans grip.</div>";
-      }
-    }
-    if(!bad) html+="<div class='ok'>Chaque train tient son relais.</div>";
-    // and the engineer's verdict: is this the quickest way round, or not
-    {
-      const bt=planEval(planBest(laps), laps).t;
-      html += ev.t<=bt+0.05
-        ? "<div class='ok'>C’est le plan le plus rapide que je trouve.</div>"
-        : "<div>L’ingénieur trouve mieux de <b>"+(ev.t-bt).toFixed(1)+" s</b>.</div>";
+      if(st.laps>setLaps(st.c, laps)+0.05)
+        html+="<div class='bad'>\u26a0 Le "+COMP_NM[st.c]+" ne tiendra pas "+st.laps+" tours : la fin du relais sera sans grip.</div>";
     }
     $("stratSum").innerHTML=html;
     // the room has its own start button; this screen only plans
@@ -9785,7 +9860,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="3.6";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="3.7";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -11834,6 +11909,7 @@ uniform float shadowFar;
       el.setAttribute("aria-pressed", OPT[k]===el.dataset.val ? "true":"false");
     });
     const vo=$("volOut"); if(vo) vo.textContent=OPT.vol+" %";
+    stratChipsUpdate();
   }
   function applyOpt(k){
     const v=OPT[k];
@@ -11952,7 +12028,11 @@ uniform float shadowFar;
     if(t.dataset.strat==="start"){
       const k=parseInt(t.dataset.val,10)||0;
       stratEdit(p=>{ p.start=k; });
-      if(STRAT_BACK!=="multi") setOpt(seasonMode?"seasonComp":"comp", String(k));  // the two stay in step
+      return;
+    }
+    if(t.dataset.scard!==undefined){
+      const x=planChoices(planLaps()).list[parseInt(t.dataset.scard,10)];
+      if(x) stratEdit(p=>{ p.start=x.p.start; p.stops=x.p.stops.map(s=>({lap:s.lap, c:s.c})); });
       return;
     }
     if(t.dataset.sl!==undefined){
@@ -12007,23 +12087,6 @@ uniform float shadowFar;
     const at=clamp(Math.round((st.from+st.to)/2),1,laps-1);
     let k=2; for(let j=0;j<3;j++) if(setLaps(j,laps)>=laps-at){ k=j; break; }
     p.stops.push({lap:at, c:k});
-  }));
-  $("stratAuto").addEventListener("click",()=>stratEdit((p,laps)=>{
-    const b=planBest(laps); p.start=b.start; p.stops=b.stops;
-  }));
-  $("stratNone").addEventListener("click",()=>stratEdit((p,laps)=>{
-    p.stops=[];
-    let k=2; for(let j=0;j<3;j++) if(setLaps(j,laps)>=laps){ k=j; break; }
-    p.start=k;
-  }));
-  $("stratOne").addEventListener("click",()=>stratEdit((p,laps)=>{
-    const b=planBest(laps);
-    p.start=b.start; p.stops=b.stops.slice(0,1);
-    if(!p.stops.length) p.stops=[{lap:Math.max(1,Math.round(laps/2)), c:2}];
-  }));
-  $("stratTwo").addEventListener("click",()=>stratEdit((p,laps)=>{
-    p.stops=[{lap:Math.max(1,Math.round(laps/3)), c:1},
-             {lap:Math.max(2,Math.round(2*laps/3)), c:2}];
   }));
   $("freeStartBtn").addEventListener("click",()=>{ setMode(false); startRace(); });
   $("startBtn").addEventListener("click",()=>{
@@ -12262,6 +12325,7 @@ uniform float shadowFar;
   try{ weldScenery(); }catch(e){}
   csmApplyAll();
   warmUp();
+  STRAT_READY=true; stratChipsUpdate();
   LOAD.done();
   requestAnimationFrame(frame);
 })();
