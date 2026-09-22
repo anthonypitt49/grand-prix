@@ -5761,25 +5761,25 @@ uniform float shadowFar;
     const toZ=g=>{ g.rotateX(Math.PI/2); return g; };     // the lathe turns round Y; the axle is Z
     const merge=mergeGeos;
     const tyre=toZ(new THREE.LatheGeometry(V([
-      [0.248,-0.196],[0.292,-0.220],[0.352,-0.229],[0.408,-0.222],[0.432,-0.202],
-      [0.446,-0.172],[0.450,-0.130],[0.450,0.130],[0.446,0.172],[0.432,0.202],
-      [0.408,0.222],[0.352,0.229],[0.292,0.220],[0.248,0.196]]), 22));
+      [0.212,-0.188],[0.258,-0.214],[0.330,-0.228],[0.400,-0.222],[0.430,-0.202],
+      [0.446,-0.172],[0.450,-0.130],[0.450,0.130],[0.446,0.172],[0.430,0.202],
+      [0.400,0.222],[0.330,0.228],[0.258,0.214],[0.212,0.188]]), 22));
     // the rim: the barrel down inside, then the lip rolled over the bead
     const rim=toZ(new THREE.LatheGeometry(V([
-      [0.222,-0.150],[0.222,0.180],[0.234,0.198],[0.251,0.206],[0.263,0.201],[0.265,0.188]]), 22));
+      [0.188,-0.150],[0.188,0.172],[0.200,0.190],[0.216,0.198],[0.228,0.193],[0.230,0.180]]), 22));
     // the dark of the wheel, and the brake disc showing between the spokes
-    const face=new THREE.CircleGeometry(0.226, 22); face.translate(0,0,0.120);
-    const disc=new THREE.RingGeometry(0.082,0.196,22); disc.translate(0,0,0.128);
-    const back=new THREE.CircleGeometry(0.226, 22); back.rotateY(Math.PI); back.translate(0,0,-0.126);
+    const face=new THREE.CircleGeometry(0.192, 22); face.translate(0,0,0.118);
+    const disc=new THREE.RingGeometry(0.070,0.166,22); disc.translate(0,0,0.126);
+    const back=new THREE.CircleGeometry(0.192, 22); back.rotateY(Math.PI); back.translate(0,0,-0.126);
     // fourteen thin spokes, wider at the hub, dished back toward the rim
-    const spoke=new THREE.BoxGeometry(0.026,0.160,0.020);
-    spoke.translate(0,0.150,0); spoke.rotateX(-0.14); spoke.translate(0,0,0.190);
+    const spoke=new THREE.BoxGeometry(0.023,0.132,0.018);
+    spoke.translate(0,0.128,0); spoke.rotateX(-0.14); spoke.translate(0,0,0.184);
     const spokes=[];
     for(let k=0;k<14;k++){ const g=spoke.clone(); g.rotateZ(k*Math.PI*2/14); spokes.push(g); }
     const spokeGeo=merge(spokes);
     // the ring the spokes spring from, and the nut in the middle of it
-    const hub=toZ(new THREE.CylinderGeometry(0.072,0.072,0.050,14)); hub.translate(0,0,0.180);
-    const nut=toZ(new THREE.CylinderGeometry(0.040,0.050,0.058,10)); nut.translate(0,0,0.213);
+    const hub=toZ(new THREE.CylinderGeometry(0.062,0.062,0.046,14)); hub.translate(0,0,0.174);
+    const nut=toZ(new THREE.CylinderGeometry(0.035,0.045,0.054,10)); nut.translate(0,0,0.205);
     // the flank: the band and the lettering, on a sheet the size of the tyre
     const wall=new THREE.PlaneGeometry(0.92,0.92); wall.translate(0,0,0.2345);
     return {tyre, rim, face, disc, back, spokes:spokeGeo, hub, nut, wall};
@@ -10531,7 +10531,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="4.5";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="4.6";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
