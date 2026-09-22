@@ -336,6 +336,10 @@
   .dailyCard.done{border-color:var(--line); cursor:default}
   .dailyCard.done i{color:var(--green); font-family:inherit; font-size:13px}
   .rwUn{font-size:12.5px; color:var(--muted); margin:1px 0 3px 16px}
+  .rwTro{display:flex; flex-wrap:wrap; gap:5px; margin-top:7px}
+  .rwTro span{font-size:12.5px; color:var(--yellow); border:1px solid rgba(255,207,63,.35); border-radius:999px;
+    padding:3px 9px; background:rgba(255,207,63,.07); white-space:nowrap}
+  .rwTro b{font-family:var(--font-num); font-weight:500; color:var(--white)}
   .troph{display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:6px}
   .troph .tr{border:1px solid var(--line); border-radius:8px; padding:6px 8px; opacity:.5}
   .troph .tr.on{opacity:1; border-color:rgba(255,207,63,.5); background:rgba(255,207,63,.06)}
@@ -917,9 +921,23 @@
     border:1px solid var(--line); box-shadow:0 28px 70px rgba(0,0,0,.6);
   }
   .resCard h2{font-size:clamp(21px,4.2vw,40px)}
-  /* the heading and the buttons stay put; the classification scrolls */
-  .resCard .results{width:100%; overflow:auto; min-height:0; flex:1 1 auto}
-  .resCard .reel{max-height:68px; overflow:auto; flex:0 0 auto}
+  /* the whole card scrolls when it is taller than the screen, and the buttons
+     stay pinned to its foot so the way on is always in reach */
+  .resCard{overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch}
+  .resCard > *{flex:0 0 auto}
+  .resCard .results{width:100%; overflow:visible; min-height:0}
+  .resCard .reel{max-height:68px; overflow:auto}
+  .resCard .btnrow{position:sticky; bottom:-18px; z-index:2; width:calc(100% + 36px); margin:0 -18px -18px;
+    padding:12px 18px 14px; background:linear-gradient(0deg, rgba(9,12,18,.98) 72%, rgba(9,12,18,0));
+    border-radius:0 0 18px 18px}
+  .resCard .btnrow .btn{white-space:nowrap}
+  @media (max-height:560px), (max-width:560px){
+    .resCard{padding:10px 12px 12px; gap:6px}
+    .resCard h2{font-size:22px}
+    .resCard .btnrow{gap:6px; padding:8px 12px 10px; bottom:-12px; margin:0 -12px -12px; width:calc(100% + 24px); border-radius:0 0 18px 18px}
+    .resCard .btnrow .btn{font-size:13px; padding:8px 11px 6px; letter-spacing:.06em}
+    .resRewards{padding:8px 10px}
+  }
   /* the moments the director found, as a way into the replay */
   .reel{display:flex; gap:6px; flex-wrap:wrap; justify-content:center; pointer-events:auto}
   .reel[hidden]{display:none}
@@ -10248,7 +10266,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="4.1";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="4.2";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -11684,7 +11702,7 @@ uniform float shadowFar;
   }
   function netResultButtons(){
     const on=!!NET.race;
-    $("againBtn").hidden=on;
+    $("againBtn").hidden = on || !!CAREER_ON;
     $("resLobbyBtn").hidden=!on;
     if(on) $("nextBtn").hidden=true;
   }
@@ -11954,7 +11972,7 @@ uniform float shadowFar;
       const un=unlockedAt(u.lvl);
       if(un.length) h+='<div class="rwUn">D\u00e9bloqu\u00e9 au garage : '+un.join(", ")+'</div>';
     }
-    for(const T of tro) h+='<div class="rwUp">\u{1F3C6} Troph\u00e9e : '+T[1]+(T[3]?' \u00b7 +'+fmtMoney(T[3]):'')+'</div>';
+    if(tro.length) h+='<div class="rwTro">'+tro.map(T=>'<span>\u{1F3C6} '+T[1]+(T[3]?' <b>+'+fmtMoney(T[3])+'</b>':'')+'</span>').join("")+'</div>';
     h+='<div class="rwWallet">Tu as '+fmtMoney(PROF.money)+'</div>';
     el.innerHTML=h; el.hidden=false;
     // the total counts up: a reward is felt, not read
