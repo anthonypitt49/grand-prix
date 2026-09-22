@@ -222,6 +222,72 @@
   #pause .optRow{justify-content:center; margin:12px auto 2px; max-width:680px}
   .planLbl{color:var(--muted)}
   .planLbl.due{color:#0b0f16; background:var(--yellow); border-radius:5px; padding:0 6px}
+  /* the garage: a column of choices, the car on its turntable beside it */
+  #menu[data-pane="garage"]{
+    background:linear-gradient(90deg, rgba(5,7,12,.94) 0%, rgba(5,7,12,.82) 30%, rgba(5,7,12,.06) 50%, rgba(5,7,12,0) 100%);
+    backdrop-filter:none;
+  }
+  #pGarage{padding:0; cursor:grab}
+  #pGarage.drag{cursor:grabbing}
+  .garCol{width:min(460px,100%); height:100%; overflow:auto; padding:clamp(16px,2.4vw,28px);
+    display:flex; flex-direction:column; gap:12px; cursor:auto}
+  @media (max-width:760px){
+    #menu[data-pane="garage"]{background:linear-gradient(0deg, rgba(5,7,12,.96) 0%, rgba(5,7,12,.88) 54%, rgba(5,7,12,0) 60%)}
+    .garCol{position:absolute; left:0; right:0; bottom:0; height:58%; width:100%}
+  }
+  .garTabs{display:flex; gap:6px; flex-wrap:wrap}
+  .garSlots{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px}
+  .swatches{display:grid; grid-template-columns:repeat(auto-fill,minmax(58px,1fr)); gap:8px}
+  .sw{position:relative; aspect-ratio:1; border-radius:10px; border:2px solid rgba(255,255,255,.08); cursor:pointer; padding:0}
+  .sw[aria-pressed="true"]{border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,.25)}
+  .sw.eq::before{content:"\2713"; position:absolute; top:3px; right:5px; font-size:13px; color:#fff; text-shadow:0 1px 2px #000}
+  .sw .tag{position:absolute; left:3px; right:3px; bottom:3px; font-size:10px; line-height:1.4; background:rgba(0,0,0,.62);
+    border-radius:4px; text-align:center; color:#fff}
+  .sw.lock{filter:saturate(.35) brightness(.6)}
+  .gItems{display:flex; flex-direction:column; gap:8px}
+  .gItem{text-align:left; border:1px solid var(--line); border-radius:10px; padding:9px 12px; font:inherit;
+    background:rgba(255,255,255,.03); color:var(--white); cursor:pointer}
+  .gItem[aria-pressed="true"]{border-color:var(--yellow); background:rgba(255,207,63,.09)}
+  .gItem.lock{opacity:.55}
+  .gItem .top{display:flex; justify-content:space-between; gap:8px; align-items:baseline}
+  .gItem .top b{font-size:15px}
+  .gItem .top em{font-style:normal; font-size:12px; color:var(--muted); white-space:nowrap}
+  .gItem .top em.eq{color:var(--green)}
+  .gItem .desc{font-size:12.5px; color:var(--muted); margin-top:2px}
+  .garFoot{position:sticky; bottom:0; margin-top:auto; padding:12px 0 2px; display:flex; gap:10px; align-items:center;
+    justify-content:space-between; flex-wrap:wrap; background:linear-gradient(0deg, rgb(8,10,16) 70%, rgba(8,10,16,0));}
+  .garMsg{font-size:13px; color:var(--muted); flex:1; min-width:150px}
+  .garForm{display:flex; flex-direction:column; gap:10px}
+  .garForm label{font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted)}
+  .garForm input{font:inherit; font-size:18px; color:var(--white); background:rgba(255,255,255,.06);
+    border:1px solid var(--line); border-radius:8px; padding:8px 10px; width:100%}
+  .garIntro{font-size:14px; line-height:1.5; color:var(--muted)}
+  .garStats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:6px}
+  .garStats div{border:1px solid var(--line); border-radius:10px; padding:8px; text-align:center}
+  .garStats b{display:block; font-family:var(--font-num); font-size:22px}
+  .garStats span{font-size:11px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase}
+  /* rewards at the flag, and the wallet */
+  .resRewards{
+    width:min(420px,100%); margin:6px auto 0; padding:10px 14px; border-radius:12px; text-align:left;
+    border:1px solid rgba(255,207,63,.35); background:rgba(255,207,63,.06);
+  }
+  .rwTitle{font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--yellow); margin-bottom:4px}
+  .rwLine{display:flex; justify-content:space-between; gap:10px; font-size:14px; color:var(--muted); padding:1px 0}
+  .rwLine b{font-family:var(--font-num); font-size:17px; color:var(--white); font-weight:500}
+  .rwTot{border-top:1px solid var(--line); margin-top:4px; padding-top:5px; color:var(--white)}
+  .rwTot b{color:var(--yellow); font-size:22px}
+  .rwXp{display:flex; align-items:center; gap:8px; margin-top:7px; font-size:12px; color:var(--muted)}
+  .rwXp i, .walletChip i{flex:1; height:6px; border-radius:3px; background:rgba(255,255,255,.1); overflow:hidden; display:block}
+  .rwXp u, .walletChip u{display:block; height:100%; background:var(--yellow); text-decoration:none}
+  .rwUp{margin-top:6px; font-size:14px; color:var(--yellow)}
+  .rwWallet{margin-top:6px; font-size:12px; color:var(--muted)}
+  .walletChip{
+    display:flex; align-items:center; gap:10px; cursor:pointer; font:inherit; color:var(--white);
+    border:1px solid rgba(255,207,63,.35); background:rgba(12,15,22,.72); border-radius:999px;
+    padding:7px 14px 6px; min-width:210px; backdrop-filter:blur(6px);
+  }
+  .walletChip b{font-family:var(--font-num); font-size:19px; font-weight:500; color:var(--yellow); white-space:nowrap}
+  .walletChip span{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); white-space:nowrap}
   .scban{
     position:absolute; left:50%; top:82px; transform:translateX(-50%);
     font-family:var(--font-num); font-size:20px; letter-spacing:.14em;
@@ -852,7 +918,7 @@
 <body>
 <div class="frame">
   <header class="marquee">
-    <span class="badge">16</span>
+    <span class="badge" id="hdrNo">16</span>
     <h1>Grand Prix</h1>
     <div class="sub">Chargement<br><b>&nbsp;</b></div>
   </header>
@@ -945,12 +1011,14 @@
 
       <section class="pane" id="pHome" data-pane="home">
         <div class="brand">
-          <div class="kicker">Tu pilotes pour Ferrari</div>
+          <div class="kicker" id="homeTeam">Tu pilotes pour Ferrari</div>
           <h2 class="brandTitle">Grand<br><i>Prix</i></h2>
           <div class="brandSub" id="homeSub">&mdash;</div>
         </div>
+        <button class="walletChip" id="walletHome" data-go="garage" title="Ton argent et ton niveau"></button>
         <nav class="homeBtns" aria-label="Menu principal">
           <button class="bigBtn primary" data-go="play">Jouer</button>
+          <button class="bigBtn" data-go="garage">Garage</button>
           <button class="bigBtn" data-go="settings">R&eacute;glages</button>
           <button class="bigBtn" data-go="multi">Multijoueur</button>
         </nav>
@@ -970,7 +1038,7 @@
           <button class="modeCard free" data-go="free">
             <em id="playFreeInfo">Hors championnat</em>
             <b>Hors-s&eacute;rie</b>
-            <span>Une course pour le plaisir : ton circuit, ta m&eacute;t&eacute;o, ta distance.</span>
+            <span>Une course pour le plaisir : ton circuit, ta distance, tes r&egrave;gles.</span>
           </button>
         </div>
       </section>
@@ -1044,23 +1112,6 @@
               </span>
             </div>
             <div class="optRow">
-              <span class="lbl">Heure</span>
-              <span class="seg">
-                <button class="chip" data-opt="tod" data-val="auto" title="L&rsquo;heure de ce Grand Prix dans la r&eacute;alit&eacute;">D&rsquo;origine</button>
-                <button class="chip" data-opt="tod" data-val="jour">Jour</button>
-                <button class="chip" data-opt="tod" data-val="couchant">Couchant</button>
-                <button class="chip" data-opt="tod" data-val="nuit">Nuit</button>
-              </span>
-            </div>
-            <div class="optRow">
-              <span class="lbl">M&eacute;t&eacute;o</span>
-              <span class="seg">
-                <button class="chip" data-opt="wx" data-val="auto">Al&eacute;atoire</button>
-                <button class="chip" data-opt="wx" data-val="dry">Sec</button>
-                <button class="chip" data-opt="wx" data-val="wet">Pluie</button>
-              </span>
-            </div>
-            <div class="optRow">
               <span class="lbl">Tours</span>
               <span class="seg">
                 <button class="chip" data-opt="laps" data-val="5">5</button>
@@ -1128,6 +1179,28 @@
             </details>
             <button class="btn" id="stratGo">Prendre le d&eacute;part</button>
           </div>
+        </div>
+      </section>
+
+      <section class="pane" id="pGarage" data-pane="garage" hidden>
+        <div class="garCol" id="garCol">
+          <div class="paneHead">
+            <button class="backBtn" id="garBack">&lsaquo; Retour</button>
+            <div>
+              <div class="kicker" id="garKick">Ton &eacute;curie</div>
+              <h2>Garage</h2>
+            </div>
+          </div>
+          <button class="walletChip" id="walletGar" tabindex="-1"></button>
+          <div class="garTabs" id="garTabs">
+            <button class="chip" data-gtab="paint">Peinture</button>
+            <button class="chip" data-gtab="fin">Finition</button>
+            <button class="chip" data-gtab="des">Motif</button>
+            <button class="chip" data-gtab="gear">Casque &amp; jantes</button>
+            <button class="chip" data-gtab="team">&Eacute;curie</button>
+          </div>
+          <div id="garBody"></div>
+          <div class="garFoot" id="garFoot"></div>
         </div>
       </section>
 
@@ -1272,6 +1345,7 @@
         <h2 id="resTitle">Arrivée</h2>
         <div class="results" id="resTable"></div>
         <div class="resPoints" id="resPoints" hidden></div>
+        <div class="resRewards" id="resRewards" hidden></div>
         <div class="reel" id="resReel" hidden></div>
         <div class="btnrow">
           <button class="btn" id="qualiGoBtn" hidden>Prendre le d&eacute;part</button>
@@ -2429,7 +2503,7 @@ uniform float shadowFar;
     diff:"1.00", line:"0", dmg:"1", sc:"1", seasonLaps:"5", seasonComp:"1",
     units:"kmh", cam:"0", shake:"1", mini:"1", tower:"1", quali:"0",
     sound:"1", vol:"80",
-    tod:"auto", wx:"auto", laps:"5", comp:"1",
+    tod:"rand", wx:"auto", laps:"5", comp:"1",
     touch:"auto", tsteer:"pad"
   };
   const OPT=Object.assign({}, OPT_DEF);
@@ -2441,11 +2515,60 @@ uniform float shadowFar;
       const r=localStorage.getItem("trs_rez"); if(r) OPT.rez=r;     // the one setting saved before
     }
   }catch(e){}
+  // time of day was "the Grand Prix's own" by default; it is now random, and a
+  // driver who never touched it moves over once
+  try{ if(!localStorage.getItem("trs_mig_tod")){ if(OPT.tod==="auto") OPT.tod="rand"; localStorage.setItem("trs_mig_tod","1"); } }catch(e){}
   // race lengths offered are now 5, 10 and 21 laps
   for(const k of ["laps","seasonLaps"]) if(["5","10","21"].indexOf(OPT[k])<0) OPT[k]="5";
   function saveOpts(){ try{ localStorage.setItem(OPT_KEY, JSON.stringify(OPT)); }catch(e){} }
+
+  /* ============================= PROFIL =============================
+     What the player has earned and owns, on this device: money, experience,
+     the team and its car's look, what has been bought. Every race pays
+     something, whatever the mode; the career pays the most. */
+  const PROF_KEY="trs_profile_v1";
+  function profFresh(){
+    return {v:1, money:25000, xp:0, lvl:1,
+      team:null,                     // {name, no} once the player has one
+      look:null,                     // the car's look; null keeps the factory one
+      own:{},                        // item id -> true
+      stats:{races:0, wins:0, podiums:0, poles:0, earned:0, best:9},
+      ach:{}, daily:{day:"", done:false, streak:0, last:""}};
+  }
+  function profLoad(){
+    try{
+      const o=JSON.parse(localStorage.getItem(PROF_KEY)||"null");
+      if(o && o.v===1){
+        const f=profFresh();
+        for(const k in f) if(o[k]===undefined) o[k]=f[k];
+        o.stats=Object.assign(f.stats, o.stats||{});
+        return o;
+      }
+    }catch(e){}
+    return profFresh();
+  }
+  let PROF=profLoad();
+  function profSave(){ try{ localStorage.setItem(PROF_KEY, JSON.stringify(PROF)); }catch(e){} }
+  // each level asks a little more experience than the one before
+  function xpNeed(l){ return 500+150*(l-1); }
+  // adds experience; returns the levels gained, each already paid its bonus
+  function profXp(n){
+    const ups=[];
+    PROF.xp+=Math.max(0, Math.round(n));
+    while(PROF.xp>=xpNeed(PROF.lvl)){
+      PROF.xp-=xpNeed(PROF.lvl); PROF.lvl++;
+      const bonus=5000*PROF.lvl;
+      PROF.money+=bonus; PROF.stats.earned+=bonus;
+      ups.push({lvl:PROF.lvl, bonus:bonus});
+    }
+    return ups;
+  }
+  function fmtMoney(n){
+    const s=String(Math.round(Math.abs(n))).replace(/\B(?=(\d{3})+(?!\d))/g, "\u202f");
+    return (n<0?"\u2212":"")+s+"\u00a0$";
+  }
   let pane="home";
-  const PANE_BACK={play:"home", season:"play", free:"play", settings:"home", multi:"home", strat:"free"};
+  const PANE_BACK={play:"home", season:"play", free:"play", settings:"home", multi:"home", strat:"free", garage:"home"};
   // the room, known to everything from the first line so no handler can reach it early
   const NET={
     role:null, cli:null, tries:[], code:"", myId:"", name:"", welcomed:false, present:false,
@@ -4556,6 +4679,56 @@ uniform float shadowFar;
 
 
   // Real Formula 1 team colours. You are Ferrari.
+  // What the garage sells. [id, name, colour, price, level]
+  const SHOP_COL=[
+    ["rouge","Rouge course",0xE8002D,0,1], ["blanc","Blanc",0xF4F5F7,0,1], ["noir","Noir",0x15161B,0,1],
+    ["jaune","Jaune",0xFFD21F,0,1], ["bleu","Bleu roi",0x1E4FD8,0,1],
+    ["orange","Orange",0xFF8700,15000,1], ["gris","Gris acier",0x8A9099,15000,1],
+    ["ciel","Bleu ciel",0x64C4FF,20000,2], ["vert","Vert course",0x0F7B3E,20000,2],
+    ["turquoise","Turquoise",0x27F4D2,25000,2], ["violet","Violet",0x6A2BD8,25000,3],
+    ["rose","Rose",0xFF5FA2,25000,3], ["bordeaux","Bordeaux",0x7A0F2B,30000,4],
+    ["marine","Bleu nuit",0x0B1F4B,30000,4], ["olive","Olive",0x5E6B2A,30000,4],
+    ["ambre","Ambre",0xFFB000,40000,5], ["menthe","Menthe",0x7CF2B0,40000,5],
+    ["sable","Sable",0xD9C39A,40000,5], ["cuivre","Cuivre",0xB8643A,50000,6],
+    ["lime","Citron vert",0xB6FF2E,50000,6], ["argent","Argent",0xC8CCD2,70000,8],
+    ["neon","Rose n\u00e9on",0xFF2BD6,70000,8], ["cyan","Cyan n\u00e9on",0x00F0FF,70000,9],
+    ["or","Or",0xD4AF37,120000,11]
+  ];
+  const SHOP_FIN=[
+    ["gloss","Brillant","La laque d\u2019usine.",0,1],
+    ["satin","Satin\u00e9","Un \u00e9clat doux, moins de reflets.",40000,2],
+    ["matte","Mat","Aucun reflet. Tr\u00e8s \u00e0 la mode dans le paddock.",75000,3],
+    ["metal","M\u00e9tallis\u00e9","Des paillettes qui accrochent la lumi\u00e8re.",140000,5],
+    ["pearl","Nacr\u00e9","Un vernis profond qui change avec l\u2019angle.",220000,7],
+    ["carbon","Carbone apparent","La fibre brute sous le vernis. L\u2019accent garde ta couleur.",300000,9],
+    ["chrome","Chrome","Un miroir sur roues, teint\u00e9 de ta couleur.",480000,12]
+  ];
+  const SHOP_DES=[
+    ["classic","Classique","Accent sur les ailerons et les pontons.",0,1],
+    ["tip","Pointes","Le bout du nez et les d\u00e9rives en accent.",30000,2],
+    ["inverse","Invers\u00e9","L\u2019accent devient la couleur principale.",50000,3],
+    ["stripe","Bande centrale","Une bande d\u2019accent du nez au capot moteur.",60000,3],
+    ["bicolor","Bicolore","Nez et capot moteur en accent.",90000,4],
+    ["sides","Flancs","De grandes bandes d\u2019accent sur les c\u00f4t\u00e9s.",110000,6]
+  ];
+  const AI_NUMBERS=["1","4","63","14","10","23","27"];
+  // the look a new team starts with
+  function lookDefault(){ return {c:0xE8002D, ac:0xF4F5F7, finish:"gloss", design:"classic", helmet:0xFFD21F, rim:0x15161B}; }
+  function ownedItem(id){ return !!PROF.own[id]; }
+  function freeItem(kind, id){
+    const L = kind==="col" ? SHOP_COL : kind==="fin" ? SHOP_FIN : SHOP_DES;
+    const it=L.find(x=>x[0]===id); return !!it && it[kind==="col"?3:3]===0;
+  }
+  // the player's car wears the team: its name, number and look
+  function colLum(hex){ return (0.2126*((hex>>16)&255)+0.7152*((hex>>8)&255)+0.0722*(hex&255))/255; }
+  function profApplyLivery(L, look, team){
+    if(!team) return;
+    L.nm=team.name; L.no=team.no;
+    const k=look||lookDefault();
+    L.c=k.c; L.ac=k.ac; L.finish=k.finish; L.design=k.design; L.helmet=k.helmet; L.rim=k.rim;
+    const main = k.design==="inverse" ? k.ac : k.c;
+    L.dark = k.finish!=="carbon" && colLum(main)>0.62;
+  }
   const LIVERY=[
     {c:0xE8002D, ac:0xFFF200, no:"16", nm:"Ferrari",      player:true},
     {c:0x3671C6, ac:0xE8002D, no:"1",  nm:"Red Bull"},
@@ -4566,6 +4739,8 @@ uniform float shadowFar;
     {c:0x64C4FF, ac:0x0B2B5C, no:"23", nm:"Williams",     dark:true},
     {c:0xB6BABD, ac:0xE6002B, no:"27", nm:"Haas",         dark:true}
   ];
+  const LIV0_FACTORY=Object.assign({}, LIVERY[0]);
+  profApplyLivery(LIVERY[0], PROF.look, PROF.team);
   const BOX_D0=-90, BOX_GAP=20, BOX_TOL=7.5;
   function boxSFor(i){ return wrapS(BOX_D0 + i*BOX_GAP); }
 
@@ -5842,6 +6017,30 @@ uniform float shadowFar;
     return _vc.clone().convertSRGBToLinear();
   }
 
+  // How a finish looks: the clear coat, the flake, the mirror.
+  const CAR_FINISH={
+    gloss: {roughness:.34, metalness:.05, clearcoat:1.0, clearcoatRoughness:.05, envMapIntensity:.35},
+    satin: {roughness:.52, metalness:.08, clearcoat:.35, clearcoatRoughness:.35, envMapIntensity:.30},
+    matte: {roughness:.86, metalness:.0,  clearcoat:0,   clearcoatRoughness:.9,  envMapIntensity:.16},
+    metal: {roughness:.30, metalness:.60, clearcoat:1.0, clearcoatRoughness:.04, envMapIntensity:.85},
+    pearl: {roughness:.22, metalness:.35, clearcoat:1.0, clearcoatRoughness:.02, envMapIntensity:1.05},
+    chrome:{roughness:.07, metalness:1.0, clearcoat:1.0, clearcoatRoughness:.02, envMapIntensity:1.35},
+    carbon:{roughness:.30, metalness:.25, clearcoat:1.0, clearcoatRoughness:.04, envMapIntensity:.55}
+  };
+  let CARBON_TEX=null;
+  function carbonWeave(){
+    if(CARBON_TEX) return CARBON_TEX;
+    const c=cvs(64,64), g=c.getContext("2d");
+    g.fillStyle="#1a1c21"; g.fillRect(0,0,64,64);
+    for(let y=0;y<8;y++) for(let x=0;x<8;x++){
+      const on=(x+y)%2===0;
+      const gr=g.createLinearGradient(x*8,y*8, on?x*8+8:x*8, on?y*8:y*8+8);
+      gr.addColorStop(0,"#23262d"); gr.addColorStop(.5,"#3a3e47"); gr.addColorStop(1,"#1d1f25");
+      g.fillStyle=gr; g.fillRect(x*8+.5,y*8+.5,7,7);
+    }
+    CARBON_TEX=tex(c,true,true); CARBON_TEX.repeat.set(3,3);
+    return CARBON_TEX;
+  }
   function makeCarMesh(liv){
     const g=new THREE.Group();
     g.userData.onTrack=1;                    // a car on the road is not a bug
@@ -5853,10 +6052,16 @@ uniform float shadowFar;
     // Measured on screen: the sky reflected into the paint was the last thing
     // flattening the team colours, so it takes a smaller share, and the colour
     // itself is pushed a touch away from grey to land on the official value.
-    const paint=new THREE.MeshPhysicalMaterial({color:vivid(liv.c), roughness:.34, metalness:.05,
-      clearcoat:1.0, clearcoatRoughness:0.050, envMapIntensity:.35});
-    const accent=new THREE.MeshPhysicalMaterial({color:vivid(liv.ac||0xffffff), roughness:.40, metalness:.04,
-      clearcoat:0.85, clearcoatRoughness:0.085, envMapIntensity:.35});
+    // the player's car may carry its own finish, design, helmet and rims
+    const FIN=CAR_FINISH[liv.finish]||CAR_FINISH.gloss;
+    let cMain=liv.c, cAcc=liv.ac||0xffffff;
+    if(liv.design==="inverse"){ const t=cMain; cMain=cAcc; cAcc=t; }
+    const paint = liv.finish==="carbon"
+      ? new THREE.MeshPhysicalMaterial(Object.assign({map:carbonWeave(), color:0xffffff}, FIN))
+      : new THREE.MeshPhysicalMaterial(Object.assign({color:vivid(cMain)}, FIN));
+    const AFIN = liv.finish==="carbon" ? CAR_FINISH.gloss : FIN;
+    const accent=new THREE.MeshPhysicalMaterial(Object.assign({color:vivid(cAcc)}, AFIN,
+      {roughness:Math.min(.9,AFIN.roughness+.06), clearcoat:AFIN.clearcoat*.85}));
     const carbon=new THREE.MeshStandardMaterial({color:0x16181e, roughness:.42, metalness:.20, envMapIntensity:.65});
     const HL=CAR_L/2;
 
@@ -5894,9 +6099,10 @@ uniform float shadowFar;
     const fw3=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.04,CAR_W*1.10), paint);
     fw3.position.set(HL+0.28,0.35,0); detail.add(fw3);
     const dmgLight=[fw3], dmgHeavy=[fw,fw2];
+    const fEps=[], rEps=[], pods=[];
     for(const sgn of [-1,1]){
       const ep=new THREE.Mesh(new THREE.BoxGeometry(0.78,0.36,0.06), paint);
-      ep.position.set(HL+0.44,0.32,sgn*(CAR_W*0.65)); g.add(ep); dmgHeavy.push(ep);
+      ep.position.set(HL+0.44,0.32,sgn*(CAR_W*0.65)); g.add(ep); dmgHeavy.push(ep); fEps.push(ep);
       const epL=new THREE.Mesh(new THREE.BoxGeometry(0.80,0.07,0.07), accent);
       epL.position.set(HL+0.44,0.48,sgn*(CAR_W*0.65)); detail.add(epL); dmgLight.push(epL);
       const pil=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.22,0.06), carbon);
@@ -5906,7 +6112,7 @@ uniform float shadowFar;
     // ---- sidepods with an undercut, inlets and bargeboards ---------------
     for(const sgn of [-1,1]){
       const pod=new THREE.Mesh(new THREE.BoxGeometry(1.80,0.42,0.54), paint);
-      pod.position.set(-0.24,0.60,sgn*(CAR_W*0.38)); g.add(pod);
+      pod.position.set(-0.24,0.60,sgn*(CAR_W*0.38)); g.add(pod); pods.push(pod);
       const under=new THREE.Mesh(new THREE.BoxGeometry(1.60,0.20,0.40), carbon);
       under.position.set(-0.24,0.36,sgn*(CAR_W*0.36)); g.add(under);
       const inlet=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.30,0.44), carbon);
@@ -5926,7 +6132,7 @@ uniform float shadowFar;
     const cock=new THREE.Mesh(new THREE.BoxGeometry(0.95,0.26,0.54), carbon);
     cock.position.set(0.34,0.86,0); g.add(cock);
     const helmet=new THREE.Mesh(new THREE.SphereGeometry(0.21,14,10),
-      new THREE.MeshStandardMaterial({color:liv.ac||0xffffff, roughness:.3}));
+      new THREE.MeshStandardMaterial({color:liv.helmet!==undefined ? liv.helmet : (liv.ac||0xffffff), roughness:.3}));
     helmet.position.set(0.24,0.98,0); g.add(helmet);
     const visor=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.09,0.29), glassMat);
     visor.position.set(0.41,1.00,0); detail.add(visor);
@@ -5960,7 +6166,7 @@ uniform float shadowFar;
     rwFlap.position.set(-HL-0.13,1.27,0); g.add(rwFlap);
     for(const sgn of [-1,1]){
       const ep=new THREE.Mesh(new THREE.BoxGeometry(0.50,0.48,0.05), paint);
-      ep.position.set(-HL-0.07,1.18,sgn*(CAR_W*0.47)); g.add(ep);
+      ep.position.set(-HL-0.07,1.18,sgn*(CAR_W*0.47)); g.add(ep); rEps.push(ep);
       const dec=new THREE.Mesh(new THREE.PlaneGeometry(0.42,0.16),
         new THREE.MeshBasicMaterial({map:decalTex(sgn>0?3:6,false), transparent:true}));
       dec.position.set(-HL-0.07,1.22,sgn*(CAR_W*0.47+0.04));
@@ -5974,6 +6180,9 @@ uniform float shadowFar;
 
     // ---- wheels: tyre, sidewall band, rim, and a wishbone to the tub ----
     const wheels=[], mounts=[];
+    const rimMat = liv.rim!==undefined
+      ? new THREE.MeshPhysicalMaterial({color:vivid(liv.rim), roughness:.28, metalness:.55, clearcoat:.6, envMapIntensity:.8})
+      : accent;
     const band=new THREE.MeshStandardMaterial({color:COMPOUND[0], roughness:.7});
     const steerG=[];
     const wp=[[1.44,CAR_W/2+0.28,1],[1.44,-CAR_W/2-0.28,1],[-1.48,CAR_W/2+0.34,0],[-1.48,-CAR_W/2-0.34,0]];
@@ -5986,7 +6195,7 @@ uniform float shadowFar;
       const tyre=new THREE.Mesh(wheelGeo,tyreMat); hub.add(tyre);
       const side=new THREE.Mesh(new THREE.TorusGeometry(0.40,0.035,6,18), band);
       side.position.z=(w[1]>0?0.24:-0.24); hub.add(side);
-      const rim=new THREE.Mesh(new THREE.CylinderGeometry(0.27,0.27,0.46,12), accent);
+      const rim=new THREE.Mesh(new THREE.CylinderGeometry(0.27,0.27,0.46,12), rimMat);
       rim.rotation.x=Math.PI/2; hub.add(rim);
       mount.add(hub); g.add(mount); wheels.push(hub); mounts.push(mount);
       if(w[2]) steerG.push(mount);
@@ -5995,6 +6204,24 @@ uniform float shadowFar;
         const arm=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,0.62), carbon);
         arm.position.set(w[0]+(w[2]?-0.10:0.10),0.52+dy,w[1]-sgn*0.34);
         arm.rotation.y=sgn*0.22; detail.add(arm);
+      }
+    }
+    {
+      // where the accent colour goes
+      const D=liv.design||"classic";
+      const strip=(w,h,d,x,y,z,parent)=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), accent); m.position.set(x,y,z); (parent||g).add(m); return m; };
+      if(D==="tip"){ n3.material=accent; for(const e of fEps) e.material=accent; for(const e of rEps) e.material=accent; }
+      else if(D==="bicolor"){ n1.material=accent; n2.material=accent; n3.material=accent; cover.material=accent; tail.material=accent; }
+      else if(D==="stripe"){
+        strip(0.82,0.012,0.16, HL-0.86,0.686,0); strip(0.74,0.012,0.14, HL-0.26,0.596,0);
+        strip(0.48,0.012,0.12, HL+0.22,0.51,0);  strip(CAR_L*0.40,0.012,0.16, 0.50,0.776,0);
+        strip(1.44,0.012,0.16, -0.72,0.946,0);    strip(0.72,0.012,0.14, -1.56,0.846,0);
+      } else if(D==="sides"){
+        for(const sgn of [-1,1]){
+          strip(1.70,0.16,0.012, -0.24,0.56,sgn*(CAR_W*0.38+0.275));
+          strip(CAR_L*0.44,0.12,0.012, 0.34,0.50,sgn*(CAR_W*0.28+0.007));
+          strip(0.80,0.10,0.012, HL-0.86,0.50,sgn*0.285);
+        }
       }
     }
     const num=new THREE.Mesh(new THREE.PlaneGeometry(1.10,0.84),
@@ -6544,6 +6771,46 @@ uniform float shadowFar;
     const per=(c.wpl && c.wpl>1e-4) ? c.wpl : wearLap(c.comp||0, totalLaps)/(c.care||1);
     return Math.max(0, (c.tyre-TYRE_END)/per);
   }
+  // A car as the race draws it: built, shadows only on the big parts, welded
+  // into a few meshes, with its far version ready.
+  function buildCarMesh(L){
+    const mesh=shade(makeCarMesh(L),1,0);
+    if(mesh.userData.detail) mesh.userData.detail.traverse(m=>{ if(m.isMesh) m.castShadow=false; });
+    mesh.traverse(m=>{
+      if(!m.isMesh || !m.castShadow) return;
+      const g=m.geometry, pr=g&&g.parameters;
+      let big=false;
+      if(pr){
+        if(g.type==="BoxGeometry") big=Math.max(pr.width,pr.height,pr.depth)>=0.85;
+        else if(g.type==="CylinderGeometry") big=Math.max(pr.radiusTop*2,pr.height)>=0.85;
+        else if(g.type==="SphereGeometry") big=pr.radius>=0.3;
+      }
+      if(!big) m.castShadow=false;
+    });
+    weldCar(mesh);
+    carFar(mesh);
+    return mesh;
+  }
+  // Swapping a car's look: a new mesh in place of the old, the old one freed
+  // (the few materials every car shares are left alone).
+  function rebuildCarMesh(c){
+    const old=c.mesh, m=buildCarMesh(c.livery);
+    m.position.copy(old.position); m.quaternion.copy(old.quaternion); m.rotation.order=old.rotation.order;
+    m.visible=old.visible;
+    if(c.tag){ old.remove(c.tag); m.add(c.tag); }
+    scene.remove(old); scene.add(m); c.mesh=m;
+    const keep=new Set([glassMat, tyreMat, darkMat, headMat]);
+    old.traverse(o=>{
+      if(!o.isMesh) return;
+      if(o.geometry && o.geometry!==wheelGeo) o.geometry.dispose();
+      const ms=Array.isArray(o.material)?o.material:[o.material];
+      for(const mt of ms){
+        if(!mt || keep.has(mt)) continue;
+        if(mt.map && mt.map!==CARBON_TEX) mt.map.dispose();
+        mt.dispose();
+      }
+    });
+  }
   function makeCars(){
     const LV=aiLevel(diff);
     for(const c of cars){ scene.remove(c.mesh); scene.remove(c.shadow); }
@@ -6574,25 +6841,20 @@ uniform float shadowFar;
       const slot = NR ? (NR.grid[i]|0) : gridSlot[i];
       const PF = human ? TEAM_NEUTRAL : (TEAM[LIVERY[i].nm]||TEAM_NEUTRAL);
       const gm = human ? 1 : LV.grip*(1+(PF.grip*LV.mix+setF[i])/100);
-      const L=LIVERY[i], row=Math.floor(slot/2), col=slot%2;
+      let L=LIVERY[i];
+      if(NR){
+        L = i===0 ? LIV0_FACTORY : LIVERY[i];
+        if(me && PROF.team){ L=Object.assign({}, L); profApplyLivery(L, PROF.look, PROF.team); }
+        else if(hum && !me){
+          const lk=netLookClean(hum.look);
+          if(lk){ L=Object.assign({}, L); profApplyLivery(L, lk.k, lk.t); }
+        }
+      }
+      const row=Math.floor(slot/2), col=slot%2;
       const s=((TOT-(startGap+row*rowGap))%TOT+TOT)%TOT;
       const idx=idxAtS(s), p=pointAt(s), nr=norA[idx], t=tanA[idx];
       const off=col===0?-lat:lat;
-      const mesh=shade(makeCarMesh(L),1,0);
-      if(mesh.userData.detail) mesh.userData.detail.traverse(m=>{ if(m.isMesh) m.castShadow=false; });
-      mesh.traverse(m=>{
-        if(!m.isMesh || !m.castShadow) return;
-        const g=m.geometry, pr=g&&g.parameters;
-        let big=false;
-        if(pr){
-          if(g.type==="BoxGeometry") big=Math.max(pr.width,pr.height,pr.depth)>=0.85;
-          else if(g.type==="CylinderGeometry") big=Math.max(pr.radiusTop*2,pr.height)>=0.85;
-          else if(g.type==="SphereGeometry") big=pr.radius>=0.3;
-        }
-        if(!big) m.castShadow=false;
-      });
-      weldCar(mesh);
-      carFar(mesh);
+      const mesh=buildCarMesh(L);
       scene.add(mesh);
       const shadow=new THREE.Mesh(new THREE.PlaneGeometry(CAR_L*1.5,CAR_W*2.2),
         new THREE.MeshBasicMaterial({map:SHADOW, transparent:true, opacity:SHADOWS?0.16:0.5, depthWrite:false}));
@@ -8362,6 +8624,7 @@ uniform float shadowFar;
       const lt=(now-playerLapStart)/1000;
       if(lt<bestLap){ bestLap=lt; rpEvent("best", cars.indexOf(player)); }
       if(lt<record){
+        if(record<1e8 && !QU.on) RACE_RECORD=true;
         record=lt;
         try{ localStorage.setItem("trs_best_"+TRACK.id, String(lt)); }catch(e){}
         showSector("RECORD PERSONNEL " + lt.toFixed(2) + "s");
@@ -9748,7 +10011,8 @@ uniform float shadowFar;
         startLamps[i].material.emissiveIntensity = (Math.floor(i/2)<lit) ? 1.5 : 0;
       if(t<GO_AT){ cn.textContent=""; }
       else if(t<GO_AT+0.9){ cn.textContent="PARTEZ !"; cn.style.color="#24d17a"; }
-      else { $("count").hidden=true; state="racing"; raceStart=now; playerLapStart=now; }
+      else { $("count").hidden=true; state="racing"; raceStart=now; playerLapStart=now;
+             if(player) player.startRank=player.rank; }
       rpSample(dt);                       // the grid is part of the recording
       updateCamera(dt); updateSparks(dt); updateSound();
       drawFrame(dt);
@@ -9823,7 +10087,7 @@ uniform float shadowFar;
         // the race itself plays on behind the classification
         rpTick(dt);
       } else {
-        menuFlyover(dt);
+        if(state==="menu" && GAR.on) garageCam(dt); else menuFlyover(dt);
         for(const c of cars) syncMesh(c);
       }
     }
@@ -9860,7 +10124,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="3.7";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="3.8";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -10404,6 +10668,30 @@ uniform float shadowFar;
   }
   function netSendTo(P, m){ m.to=P.id; netDown(m); }
   function netBroadcast(m){ netDown(m); }
+  // my team, as it travels: nothing if I have none
+  function netLook(){
+    if(!PROF.team) return null;
+    const k=Object.assign(lookDefault(), PROF.look||{});
+    return {t:{name:PROF.team.name, no:PROF.team.no},
+            k:{c:k.c, ac:k.ac, finish:k.finish, design:k.design, helmet:k.helmet, rim:k.rim}};
+  }
+  // someone else's, checked before it is built into a car
+  function netLookClean(o){
+    try{
+      if(!o || !o.t || !o.k) return null;
+      const col=v=> (typeof v==="number" && v>=0 && v<=0xFFFFFF) ? Math.floor(v) : null;
+      const k={c:col(o.k.c), ac:col(o.k.ac), helmet:col(o.k.helmet), rim:col(o.k.rim),
+               finish: CAR_FINISH[o.k.finish] ? o.k.finish : "gloss",
+               design: SHOP_DES.some(d=>d[0]===o.k.design) ? o.k.design : "classic"};
+      if(k.c===null || k.ac===null) return null;
+      if(k.helmet===null) k.helmet=k.ac;
+      if(k.rim===null) k.rim=0x15161B;
+      const name=String(o.t.name||"").replace(/[<>&"]/g,"").replace(/\s+/g," ").trim().slice(0,20);
+      const no=String(o.t.no||"").replace(/\D/g,"").slice(0,2);
+      if(!name || !no) return null;
+      return {t:{name:name, no:no}, k:k};
+    }catch(e){ return null; }
+  }
   function netRoster(){ netBroadcast({k:"roster", roster:NET.roster}); mpRender(); }
   function netStopTimers(){
     clearInterval(NET.beatT); clearTimeout(NET.joinTimer); clearTimeout(NET.openTimer); clearInterval(NET.helloT);
@@ -10467,7 +10755,7 @@ uniform float shadowFar;
         clearTimeout(NET.openTimer);
         cli.subscribe([netTopic(cd,"u")]);
         cli.publish(pres, JSON.stringify({k:"open", v:NET_VERSION, circuit:TRACK.id, t:Date.now()}), true);
-        NET.roster=[{id:NET.myId, name:NET.name, liv:0}];
+        NET.roster=[{id:NET.myId, name:NET.name, liv:0, look:netLook()}];
         NET.lastDown=Date.now();
         // a heartbeat for the players, and a watch for the ones who went silent
         NET.beatT=setInterval(()=>{
@@ -10511,7 +10799,7 @@ uniform float shadowFar;
       if(!why && liv<0) why="full";
       if(why){ netSendTo(P, {k:"refuse", why:why}); netKick(P); return; }
       P.name=netClean(m.name)||"Pilote"; P.liv=liv;
-      NET.roster.push({id:P.id, name:P.name, liv:liv});
+      NET.roster.push({id:P.id, name:P.name, liv:liv, look:netLookClean(m.look)});
       netSendTo(P, {k:"welcome", you:P.id, code:NET.code, circuit:TRACK.id, settings:NET.settings});
       netRoster();
     } else if(m.k==="ping"){
@@ -10604,7 +10892,7 @@ uniform float shadowFar;
       if(pr.v && pr.v!==NET_VERSION){ netFail("Vous n\u2019avez pas la m\u00eame version du jeu. Rechargez tous les deux la page."); return; }
       NET.present=true;
       if(!NET.welcomed){
-        const hello=()=>{ if(NET.role==="guest" && !NET.welcomed) netUp({k:"hello", name:NET.name, v:NET_VERSION}); };
+        const hello=()=>{ if(NET.role==="guest" && !NET.welcomed) netUp({k:"hello", name:NET.name, v:NET_VERSION, look:netLook()}); };
         hello();
         clearInterval(NET.helloT); NET.helloT=setInterval(hello, 2000);   // the host may still be reconnecting
       }
@@ -10783,7 +11071,7 @@ uniform float shadowFar;
   // ---- the race ----
   function netLaunch(){
     if(NET.role!=="host" || NET.race) return;
-    const humans=NET.roster.map(r=>({id:r.id, name:r.name, liv:r.liv}));
+    const humans=NET.roster.map(r=>({id:r.id, name:r.name, liv:r.liv, look:r.look||null}));
     const grid=new Array(LIVERY.length);
     let slot=0;
     for(const h of humans) grid[h.liv]=slot++;                 // the players at the front, in the order they joined
@@ -11370,7 +11658,9 @@ uniform float shadowFar;
     } else {
       totalLaps=parseInt(OPT.laps,10)||5;
       wxMode=OPT.wx;
-      want = OPT.tod==="auto" ? (LOOK.tod||"couchant") : OPT.tod;
+      want = OPT.tod==="auto" ? (LOOK.tod||"couchant")
+           : OPT.tod==="rand" ? ["jour","couchant","nuit"][Math.floor(Math.random()*3)]
+           : OPT.tod;
     }
     // whatever the mode, the race is run to the plan made for this circuit over
     // this distance; with no plan that is simply the compound picked on screen
@@ -11382,7 +11672,9 @@ uniform float shadowFar;
     $("camtag").textContent="Cam\u00e9ra : "+CAMS[camIdx].name;
   }
   function startRace(quali){
+    if(GAR.on) garLeave();
     rpStop();
+    RACE_POLE=false; RACE_RECORD=false; RACE_EXTRA=null;
     QU.want = OPT.quali==="1";
     if(!quali && QU.want && !QU.done && !NET.race && (state==="menu" || state==="results")) quali=true;
     QU.on=!!quali;
@@ -11418,6 +11710,7 @@ uniform float shadowFar;
     camLook.set(player.x, player.groundY+1.3, player.z);
     gotInput=false; $("hint").classList.remove("on"); grabFocus();
     stage.classList.toggle("noTower", QU.on || OPT.tower==="0");
+    RACE_POLE = !QU.on && QU.done && QU.slot===0;
     if(QU.on) showSector("TOUR DE SORTIE · GOMME TENDRE");
     state="countdown"; countStart=performance.now();
     rezGrace=3;                                     // ignore the warm-up frames
@@ -11476,11 +11769,68 @@ uniform float shadowFar;
       tb.appendChild(row);
     });
     $("resPoints").hidden=true; $("nextBtn").hidden=true;
-    $("resReel").hidden=true;
+    $("resReel").hidden=true; $("resRewards").hidden=true;
     $("replayBtn").hidden=true; $("againBtn").hidden=true;
     $("qualiGoBtn").hidden=false;
     $("results").hidden=false;
     silence();
+  }
+  // What a race pays. The finishing place sets the prize, the distance and the
+  // opposition scale it, and a few things done well add to it.
+  const PRIZE=[42000,34000,28000,23000,19000,16000,13000,11000];
+  function raceReward(pos, ctx){
+    const lapsK = totalLaps>=21 ? 2.7 : totalLaps>=10 ? 1.6 : 1;
+    const d=diff||1, diffK = d>=1.1 ? 1.45 : d>=1.03 ? 1.2 : d>=0.99 ? 1.0 : 0.8;
+    const modeK = ctx.career ? 1.4 : (NET.race ? 1.2 : 1);
+    const k=lapsK*diffK*modeK, lines=[];
+    lines.push(["Arriv\u00e9e P"+pos, Math.round((PRIZE[pos-1]||PRIZE[PRIZE.length-1])*k/100)*100]);
+    const gained=(ctx.startPos||pos)-pos;
+    if(gained>0) lines.push(["Places gagn\u00e9es (+"+gained+")", Math.round(gained*2500*lapsK*diffK/100)*100]);
+    if(ctx.pole) lines.push(["Pole position", Math.round(8000*lapsK*diffK/100)*100]);
+    if(ctx.record) lines.push(["Record personnel", 5000]);
+    const total=lines.reduce((a,l)=>a+l[1],0);
+    const xp=Math.round((60+20*(9-pos)+totalLaps*8)*diffK*(ctx.career?1.25:1));
+    return {lines:lines, total:total, xp:xp};
+  }
+  // pays the race into the profile and shows it on the results screen
+  function payRace(order){
+    const el=$("resRewards"); if(!el) return;
+    const pos=order.indexOf(player)+1;
+    if(pos<1){ el.hidden=true; return; }
+    const R=raceReward(pos, {career:!!(typeof CAREER_ON!=="undefined" && CAREER_ON), startPos:player.startRank,
+                             pole:!!RACE_POLE, record:!!RACE_RECORD});
+    if(RACE_EXTRA && RACE_EXTRA.length) for(const l of RACE_EXTRA){ R.lines.push(l); R.total+=l[1]; }
+    PROF.money+=R.total; PROF.stats.earned+=R.total;
+    PROF.stats.races++; if(pos===1) PROF.stats.wins++; if(pos<=3) PROF.stats.podiums++;
+    if(RACE_POLE) PROF.stats.poles++;
+    PROF.stats.best=Math.min(PROF.stats.best||9, pos);
+    const ups=profXp(R.xp);
+    profSave();
+    let h='<div class="rwTitle">R\u00e9compenses</div>';
+    for(const l of R.lines) h+='<div class="rwLine"><span>'+l[0]+'</span><b>+'+fmtMoney(l[1])+'</b></div>';
+    h+='<div class="rwLine rwTot"><span>Total</span><b data-count="'+R.total+'">+'+fmtMoney(R.total)+'</b></div>';
+    h+='<div class="rwXp"><span>Niveau '+PROF.lvl+'</span><i><u style="width:'+
+       Math.round(100*PROF.xp/xpNeed(PROF.lvl))+'%"></u></i><span>+'+R.xp+' XP</span></div>';
+    for(const u of ups) h+='<div class="rwUp">\u2605 Niveau '+u.lvl+' atteint \u00b7 +'+fmtMoney(u.bonus)+'</div>';
+    h+='<div class="rwWallet">Tu as '+fmtMoney(PROF.money)+'</div>';
+    el.innerHTML=h; el.hidden=false;
+    // the total counts up: a reward is felt, not read
+    const b=el.querySelector("[data-count]");
+    if(b){
+      const t0=performance.now(), tot=R.total;
+      const tick=()=>{ const f=Math.min(1,(performance.now()-t0)/900); b.textContent="+"+fmtMoney(Math.round(tot*(1-Math.pow(1-f,3))));
+        if(f<1) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    }
+    walletsUpdate();
+  }
+  let RACE_POLE=false, RACE_RECORD=false, RACE_EXTRA=null;
+  function walletsUpdate(){
+    for(const id of ["walletHome","walletGar","walletCar"]){
+      const e=$(id); if(!e) continue;
+      e.innerHTML='<b>'+fmtMoney(PROF.money)+'</b><span>Niv. '+PROF.lvl+'</span><i><u style="width:'+
+        Math.round(100*PROF.xp/xpNeed(PROF.lvl))+'%"></u></i>';
+    }
   }
   function endRace(now){
     QU.done=false; QU.on=false;              // the next race qualifies afresh
@@ -11531,6 +11881,7 @@ uniform float shadowFar;
       $("resPoints").hidden=true;
       $("nextBtn").hidden=true;
     }
+    try{ payRace(order); }catch(e){ const el=$("resRewards"); if(el) el.hidden=true; }
     rpBuildReel();
     netResultButtons();
     $("results").hidden=false;
@@ -11819,6 +12170,10 @@ uniform float shadowFar;
       vals:[["1","R\u00e9alistes"],["0","D\u00e9sactiv\u00e9s"]]},
     {sec:"race", key:"sc", name:"Voiture de s\u00e9curit\u00e9", hint:"Sort quand un aileron tra\u00eene sur la piste et neutralise la course.",
       vals:[["1","Activ\u00e9e"],["0","D\u00e9sactiv\u00e9e"]]},
+    {sec:"race", key:"tod", name:"Heure de la course", hint:"Hors-s\u00e9rie : jour, couchant ou nuit. \u00ab D\u2019origine \u00bb reprend l\u2019heure du vrai Grand Prix.",
+      vals:[["rand","Al\u00e9atoire"],["auto","D\u2019origine"],["jour","Jour"],["couchant","Couchant"],["nuit","Nuit"]]},
+    {sec:"race", key:"wx", name:"M\u00e9t\u00e9o", hint:"Hors-s\u00e9rie : en al\u00e9atoire, environ une course sur trois tourne \u00e0 la pluie.",
+      vals:[["auto","Al\u00e9atoire"],["dry","Sec"],["wet","Pluie"]]},
     {sec:"race", key:"seasonLaps", name:"Tours par manche", hint:"La distance de chaque Grand Prix de la saison.",
       vals:[["5","5"],["10","10"],["21","21"]]},
 
@@ -11925,7 +12280,7 @@ uniform float shadowFar;
     else if(k==="tower") stage.classList.toggle("noTower", v==="0");
     else if(k==="sound"){ if((v==="1")!==sound) toggleSound(); }
     else if(k==="vol"){ if(master) try{ master.gain.value=0.9*clamp((+v||0)/100,0,1); }catch(e){} }
-    else if(k==="tod"){ if(pane==="free") previewTOD(v==="auto" ? (LOOK.tod||"couchant") : v); }
+    else if(k==="tod"){ if(pane==="free") previewTOD(todShown()); }
     else if(k==="laps"){ if(!seasonMode){ totalLaps=parseInt(v,10)||5; $("lapTot").textContent=totalLaps; } }
     else if(k==="touch" || k==="tsteer") applyTouch();
   }
@@ -11937,9 +12292,205 @@ uniform float shadowFar;
     TOUCH.byTap=false;
   }
   function previewTOD(k){ if(todKey!==k) applyTOD(k); }
+  function todShown(){ return ["jour","couchant","nuit"].indexOf(OPT.tod)>=0 ? OPT.tod : (LOOK.tod||"couchant"); }
+
+
+  /* ============================ GARAGE =============================
+     The team's car on a turntable. Anything can be tried on: the car shows it
+     at once, and it is only bought, or put back, when the player says so. */
+  const GAR={tab:"paint", slot:"c", pend:null, shown:"", on:false};
+  const GCAM={ang:0, drag:false, lx:0, vel:0, off:false};
+  const garCar=()=>cars.find(c=>c.player)||null;
+  function garLook(){
+    const k=Object.assign(lookDefault(), PROF.look||{});
+    if(GAR.pend) k[GAR.pend.slot]=GAR.pend.val;
+    return k;
+  }
+  function garRefreshCar(force){
+    const c=garCar(); if(!c || !PROF.team) return;
+    const k=garLook(), key=JSON.stringify(k)+"|"+PROF.team.name+"|"+PROF.team.no;
+    if(!force && GAR.shown===key) return;
+    GAR.shown=key;
+    profApplyLivery(c.livery, k, PROF.team);
+    try{ rebuildCarMesh(c); }catch(e){}
+  }
+  const LIST={col:SHOP_COL, fin:SHOP_FIN, des:SHOP_DES};
+  const itOwned=(kind,it)=> it[3]===0 || !!PROF.own[kind+":"+it[0]];
+  const itVal=(kind,it)=> kind==="col" ? it[2] : it[0];
+  function garPick(kind, id, slot){
+    const it=LIST[kind].find(x=>x[0]===id); if(!it) return;
+    if(itOwned(kind,it)){
+      PROF.look=Object.assign(lookDefault(), PROF.look||{});
+      PROF.look[slot]=itVal(kind,it); GAR.pend=null; profSave();
+    } else GAR.pend={kind:kind, it:it, slot:slot, val:itVal(kind,it)};
+    garRefreshCar(); renderGarage();
+  }
+  function garBuy(){
+    const P0=GAR.pend; if(!P0) return;
+    const price=P0.it[3], lvl=P0.it[4];
+    if(PROF.lvl<lvl || PROF.money<price) return;
+    PROF.money-=price; PROF.own[P0.kind+":"+P0.it[0]]=true;
+    PROF.look=Object.assign(lookDefault(), PROF.look||{});
+    PROF.look[P0.slot]=P0.val; GAR.pend=null; profSave();
+    GAR.msg="✔ "+P0.it[1]+" est à toi.";
+    garRefreshCar(); renderGarage(); walletsUpdate();
+  }
+  function garCancel(){ GAR.pend=null; garRefreshCar(); renderGarage(); }
+  function garCleanName(s){ return String(s||"").replace(/[<>&"]/g,"").replace(/\s+/g," ").trim().slice(0,20); }
+  function garCleanNo(s){
+    const n=String(s||"").replace(/\D/g,"").replace(/^0+/,"").slice(0,2);
+    return n && AI_NUMBERS.indexOf(n)<0 ? n : "";
+  }
+  function garSaveTeam(){
+    const nm=garCleanName($("garName").value), no=garCleanNo($("garNo").value);
+    if(!nm){ GAR.msg="Donne un nom à ton écurie."; renderGarage(); return; }
+    if(!no){ GAR.msg="Choisis un numéro de 1 à 99 qu’aucune autre écurie n’utilise ("+AI_NUMBERS.join(", ")+")."; renderGarage(); return; }
+    const first=!PROF.team;
+    PROF.team={name:nm, no:no};
+    if(!PROF.look) PROF.look=lookDefault();
+    if(first && GAR.newC!==undefined){ PROF.look.c=GAR.newC; PROF.look.ac=GAR.newAc; }
+    profSave();
+    GAR.msg = first ? "Bienvenue chez "+nm+". Ta voiture est prête." : "Écurie enregistrée.";
+    if(first) GAR.tab="paint";
+    garRefreshCar(true); renderGarage(); renderHome();
+  }
+  const kfmt=n=> n>=1000 ? Math.round(n/1000)+"k" : String(n);
+  function swatchHtml(kind, it, slot, cur){
+    const own=itOwned(kind,it), lock=PROF.lvl<it[4];
+    const pend=GAR.pend && GAR.pend.slot===slot && GAR.pend.it===it;
+    const eq=!GAR.pend && cur===it[2];
+    const tag = own ? "" : lock ? "Niv. "+it[4] : kfmt(it[3]);
+    return '<button class="sw'+(lock?' lock':'')+(eq?' eq':'')+'" data-gk="'+kind+'" data-gi="'+it[0]+'" data-gs="'+slot+
+      '" aria-pressed="'+(pend||(cur===it[2]&&!GAR.pend))+'" title="'+it[1]+'" style="background:#'+
+      it[2].toString(16).padStart(6,"0")+'">'+(tag?'<span class="tag">'+tag+'</span>':'')+'</button>';
+  }
+  function itemHtml(kind, it, slot, cur){
+    const own=itOwned(kind,it), lock=PROF.lvl<it[4];
+    const pend=GAR.pend && GAR.pend.it===it;
+    const eq=cur===it[0];
+    const right = eq ? '<em class="eq">équipé</em>' : own ? '<em>à toi</em>'
+      : lock ? '<em>Niveau '+it[4]+'</em>' : '<em>'+fmtMoney(it[3])+'</em>';
+    return '<button class="gItem'+(lock?' lock':'')+'" data-gk="'+kind+'" data-gi="'+it[0]+'" data-gs="'+slot+
+      '" aria-pressed="'+(pend||(eq&&!GAR.pend))+'"><div class="top"><b>'+it[1]+'</b>'+right+'</div><div class="desc">'+it[2]+'</div></button>';
+  }
+  function renderGarage(){
+    const body=$("garBody"), foot=$("garFoot"); if(!body) return;
+    walletsUpdate();
+    $("garKick").textContent = PROF.team ? PROF.team.name+" · #"+PROF.team.no : "Nouvelle écurie";
+    $("garTabs").hidden=!PROF.team;
+    const look=Object.assign(lookDefault(), PROF.look||{});
+    let h="", f="";
+    if(!PROF.team){
+      // the first visit: the team is made here
+      if(GAR.newC===undefined){ GAR.newC=0xE8002D; GAR.newAc=0xF4F5F7; }
+      const free=SHOP_COL.filter(x=>x[3]===0);
+      h+='<div class="garIntro">Une écurie en faillite, rachetée pour un dollar. Une usine, une voiture, une poignée de fidèles. Il lui faut un nom, un numéro et des couleurs.</div>';
+      h+='<div class="garForm"><label for="garName">Nom de l’écurie</label><input id="garName" maxlength="20" placeholder="Ex. : Aurore Racing" value="'+(GAR.nameDraft||"")+'">'+
+         '<label for="garNo">Numéro de la voiture</label><input id="garNo" inputmode="numeric" maxlength="2" placeholder="Ex. : 8" value="'+(GAR.noDraft||"")+'">'+
+         '<label>Couleur principale</label><div class="swatches">'+free.map(it=>'<button class="sw" data-newc="'+it[2]+'" aria-pressed="'+(GAR.newC===it[2])+'" title="'+it[1]+'" style="background:#'+it[2].toString(16).padStart(6,"0")+'"></button>').join("")+'</div>'+
+         '<label>Couleur d’accent</label><div class="swatches">'+free.map(it=>'<button class="sw" data-newac="'+it[2]+'" aria-pressed="'+(GAR.newAc===it[2])+'" title="'+it[1]+'" style="background:#'+it[2].toString(16).padStart(6,"0")+'"></button>').join("")+'</div></div>';
+      f='<span class="garMsg">'+(GAR.msg||"Tu pourras tout changer plus tard.")+'</span><button class="btn" id="garCreate">Créer mon écurie</button>';
+      body.innerHTML=h; foot.innerHTML=f; GAR.msg="";
+      return;
+    }
+    document.querySelectorAll("#garTabs [data-gtab]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.gtab===GAR.tab)));
+    if(GAR.tab==="paint" || GAR.tab==="gear"){
+      const slots = GAR.tab==="paint" ? [["c","Carrosserie"],["ac","Accent"]] : [["helmet","Casque"],["rim","Jantes"]];
+      if(!slots.some(s=>s[0]===GAR.slot)) GAR.slot=slots[0][0];
+      h+='<div class="garSlots">'+slots.map(s=>'<button class="chip" data-gslot="'+s[0]+'" aria-pressed="'+(GAR.slot===s[0])+'">'+s[1]+'</button>').join("")+'</div>';
+      const cur=look[GAR.slot];
+      h+='<div class="swatches">'+SHOP_COL.map(it=>swatchHtml("col", it, GAR.slot, cur)).join("")+'</div>';
+    } else if(GAR.tab==="fin"){
+      h+='<div class="gItems">'+SHOP_FIN.map(it=>itemHtml("fin", it, "finish", look.finish)).join("")+'</div>';
+    } else if(GAR.tab==="des"){
+      h+='<div class="gItems">'+SHOP_DES.map(it=>itemHtml("des", it, "design", look.design)).join("")+'</div>';
+    } else if(GAR.tab==="team"){
+      const S=PROF.stats;
+      h+='<div class="garForm"><label for="garName">Nom de l’écurie</label><input id="garName" maxlength="20" value="'+PROF.team.name.replace(/"/g,"")+'">'+
+         '<label for="garNo">Numéro de la voiture</label><input id="garNo" inputmode="numeric" maxlength="2" value="'+PROF.team.no+'"></div>';
+      h+='<div class="garStats"><div><b>'+S.races+'</b><span>Courses</span></div><div><b>'+S.wins+'</b><span>Victoires</span></div>'+
+         '<div><b>'+S.podiums+'</b><span>Podiums</span></div><div><b>'+S.poles+'</b><span>Poles</span></div>'+
+         '<div><b>'+PROF.lvl+'</b><span>Niveau</span></div><div><b>'+kfmt(S.earned)+'</b><span>Gagnés</span></div></div>';
+    }
+    body.innerHTML=h;
+    // the foot: what is being tried on, and what it would take
+    if(GAR.pend){
+      const it=GAR.pend.it, lock=PROF.lvl<it[4], short=it[3]-PROF.money;
+      const why = lock ? "Niveau "+it[4]+" requis (tu es niveau "+PROF.lvl+")."
+                : short>0 ? "Il te manque "+fmtMoney(short)+"." : "Essai : "+it[1]+".";
+      f='<span class="garMsg">'+why+'</span><button class="chip" id="garCancel">Annuler</button>'+
+        '<button class="btn" id="garBuy"'+(lock||short>0?' disabled':'')+'>Acheter · '+fmtMoney(it[3])+'</button>';
+    } else if(GAR.tab==="team"){
+      f='<span class="garMsg">'+(GAR.msg||"Nom et numéro se changent gratuitement.")+'</span><button class="btn" id="garSave">Enregistrer</button>';
+    } else {
+      f='<span class="garMsg">'+(GAR.msg||garHint())+'</span>';
+    }
+    foot.innerHTML=f; GAR.msg="";
+  }
+  // the next thing within reach, to keep a goal in front of the player
+  function garHint(){
+    let best=null;
+    for(const kind of ["col","fin","des"]) for(const it of LIST[kind]){
+      if(itOwned(kind,it) || PROF.lvl<it[4]) continue;
+      if(!best || it[3]<best[3]) best=it;
+    }
+    if(!best) return "Touche un élément pour l’essayer sur ta voiture.";
+    const short=best[3]-PROF.money;
+    return short>0 ? "Prochain objectif : "+best[1]+", plus que "+fmtMoney(short)+"."
+                   : "Tu peux t’offrir "+best[1]+". Touche pour essayer.";
+  }
+  function garEnter(){
+    GAR.on=true; GAR.pend=null;
+    const c=garCar();
+    if(c){ GCAM.ang=0.75; for(const o of cars) if(o!==c){ o.mesh.visible=false; if(o.shadow) o.shadow.visible=false; } }
+    previewTOD("jour");
+    garRefreshCar(true);
+    renderGarage();
+  }
+  function garLeave(){
+    GAR.on=false; GAR.pend=null;
+    for(const o of cars){ o.mesh.visible=true; if(o.shadow) o.shadow.visible=true; }
+    if(GCAM.off){ camera.clearViewOffset(); GCAM.off=false; }
+    const c=garCar(); if(c && PROF.team) garRefreshCar();
+    menuCam.init=false;
+  }
+  function garView(){
+    const w=stage.clientWidth||innerWidth, h=stage.clientHeight||innerHeight;
+    if(w<=760) camera.setViewOffset(w,h,0,Math.round(h*0.21),w,h);
+    else { const col=$("garCol"); const cw=col ? col.getBoundingClientRect().width : 460; camera.setViewOffset(w,h,-Math.round(cw/2),0,w,h); }
+    GCAM.off=true;
+  }
+  function garageCam(dt){
+    const c=garCar(); if(!c){ menuFlyover(dt); return; }
+    dt=Math.min(dt||0.016, 0.05);
+    if(!GCAM.drag){ GCAM.ang+=(0.16+GCAM.vel)*dt; GCAM.vel*=Math.exp(-2.4*dt); }
+    // The grid sits between two walls, so the camera cannot stand far off: it
+    // stays close and widens its lens until the whole car fits the free part of
+    // the screen (a narrow slice on a phone held upright).
+    const sw=stage.clientWidth||innerWidth, sh=stage.clientHeight||innerHeight, narrow=sw<=760;
+    const eff=(sw/Math.max(1,sh))*(narrow?1:0.55);
+    const R=narrow?7.4:8.2, tx=c.x, tz=c.z, ty=c.groundY+0.58;
+    // the orbit is long down the road and short across it, so the camera never
+    // goes through the wall or the boards at the edge of the track
+    const t=c.tan||{x:1,z:0}, nr=c.nor||{x:0,z:1}, edge=W+APRON-0.9;
+    const ca=Math.cos(GCAM.ang), sa=Math.sin(GCAM.ang);
+    const across=clamp(edge-(sa>=0?1:-1)*(c.lat||0), 2.6, R);
+    const ox=t.x*ca*R+nr.x*sa*across, oz=t.z*ca*R+nr.z*sa*across;
+    camera.position.set(tx+ox, ty+2.1, tz+oz);
+    // the lens is set from the distance the camera actually stands at
+    const dist=Math.sqrt(ox*ox+oz*oz+2.1*2.1);
+    const fov=clamp(2*Math.atan(3.4/(dist*eff))*180/Math.PI, 36, 82);
+    camera.lookAt(tx, ty, tz);
+    camPos.copy(camera.position); camLook.set(tx, ty, tz);
+    if(Math.abs(camera.fov-fov)>0.1){ camera.fov=fov; camera.updateProjectionMatrix(); }
+    garView();
+  }
 
   // ---- the screens ----
   function renderHome(){
+    walletsUpdate();
+    { const b=$("hdrNo"); if(b) b.textContent=PROF.team ? PROF.team.no : "16"; }
+    { const k=$("homeTeam"); if(k) k.textContent="Tu pilotes pour "+(PROF.team ? PROF.team.name : "Ferrari"); }
     const el=$("homeSub"); if(el) el.textContent=TRACK.event+" \u00b7 "+TRACK.name;
   }
   function renderPlay(){
@@ -11957,6 +12508,8 @@ uniform float shadowFar;
   }
   function showPane(name){
     if(!document.querySelector('#menu .pane[data-pane="'+name+'"]')) name="home";
+    if(GAR.on && name!=="garage") garLeave();
+    if(name==="garage" && pane!=="garage") GAR.from=pane;
     if(name==="strat" && (pane==="free"||pane==="season"||pane==="multi")) STRAT_BACK=pane;
     pane=name;
     document.querySelectorAll("#menu .pane").forEach(x=>{ x.hidden=(x.dataset.pane!==name); });
@@ -11966,10 +12519,11 @@ uniform float shadowFar;
     else if(name==="season"){ setMode(true); previewTOD(LOOK.tod||"couchant"); }
     else if(name==="free"){
       setMode(false);
-      previewTOD(OPT.tod==="auto" ? (LOOK.tod||"couchant") : OPT.tod);
+      previewTOD(todShown());
       refreshMenuFacts(); resize();
     }
     else if(name==="strat"){ STRAT_CUR=null; renderStrat(); }
+    else if(name==="garage"){ garEnter(); }
     else if(name==="settings") showTab(setTab);
     else if(name==="multi") mpRender();
     syncOptChips();
@@ -12078,6 +12632,32 @@ uniform float shadowFar;
     if(t.id==="pauseNoStop"){ pauseStratEdit((PP,i)=>{ if(PP[i]) PP.splice(i,1); }); return; }
   });
   $("stratBack").addEventListener("click",()=>showPane(STRAT_BACK));
+  $("garBack").addEventListener("click",()=>showPane(GAR.from||"home"));
+  $("pGarage").addEventListener("click", e=>{
+    const t=e.target.closest("button"); if(!t) return;
+    if(t.dataset.gtab){ GAR.tab=t.dataset.gtab; GAR.pend=null; garRefreshCar(); renderGarage(); return; }
+    if(t.dataset.gslot){ GAR.slot=t.dataset.gslot; GAR.pend=null; garRefreshCar(); renderGarage(); return; }
+    if(t.dataset.gk){ garPick(t.dataset.gk, t.dataset.gi, t.dataset.gs); return; }
+    if(t.dataset.newc!==undefined){ GAR.newC=+t.dataset.newc; GAR.nameDraft=$("garName").value; GAR.noDraft=$("garNo").value; renderGarage(); return; }
+    if(t.dataset.newac!==undefined){ GAR.newAc=+t.dataset.newac; GAR.nameDraft=$("garName").value; GAR.noDraft=$("garNo").value; renderGarage(); return; }
+    if(t.id==="garBuy"){ garBuy(); return; }
+    if(t.id==="garCancel"){ garCancel(); return; }
+    if(t.id==="garCreate" || t.id==="garSave"){ garSaveTeam(); return; }
+  });
+  // turning the car by hand, on the empty side of the screen
+  $("pGarage").addEventListener("pointerdown", e=>{
+    if(e.target!==$("pGarage")) return;
+    GCAM.drag=true; GCAM.lx=e.clientX; GCAM.vel=0; $("pGarage").classList.add("drag");
+    try{ $("pGarage").setPointerCapture(e.pointerId); }catch(x){}
+  });
+  $("pGarage").addEventListener("pointermove", e=>{
+    if(!GCAM.drag) return;
+    const dx=e.clientX-GCAM.lx; GCAM.lx=e.clientX;
+    GCAM.ang-=dx*0.009; GCAM.vel=clamp(-dx*0.5, -3, 3);
+  });
+  const garUp=()=>{ GCAM.drag=false; $("pGarage").classList.remove("drag"); };
+  $("pGarage").addEventListener("pointerup", garUp);
+  $("pGarage").addEventListener("pointercancel", garUp);
   $("stratGo").addEventListener("click",()=>{
     if(STRAT_BACK==="season") $("startBtn").click(); else $("freeStartBtn").click();
   });
