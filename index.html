@@ -279,7 +279,10 @@
   .carNext .cnO{font-size:14px; color:var(--muted); padding:2px 0}
   .carNext .cnO b{color:var(--yellow); font-weight:500; margin-right:6px}
   .carNext .cnO em{font-style:normal; float:right; font-family:var(--font-num); color:var(--white)}
-  .carSpon{font-size:13px; color:var(--muted); border-top:1px solid var(--line); padding-top:8px}
+  .carSpon{font-size:13px; color:var(--muted); border-top:1px solid var(--line); padding-top:8px;
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .sponLogo{width:108px; height:24px; border-radius:4px; flex:0 0 auto}
+  .sponLogo.choice{width:84px; height:19px; margin-right:9px; vertical-align:-3px}
   .carSpon b{color:var(--white)}
   .resStars{display:flex; flex-direction:column; gap:3px; margin-top:8px; font-size:14px; text-align:left}
   .resStars span{color:var(--muted)}
@@ -3816,8 +3819,45 @@ uniform float shadowFar;
     {n:"CORSA BANK",  bg:"#8a1538", fg:"#f6e9ee", mk:"chevron"},
     {n:"ELETTRA",     bg:"#1b2a6b", fg:"#ffd84d", mk:"bolt"},
     {n:"VERDE SPA",   bg:"#2f7d32", fg:"#f2f7ee", mk:"drop"},
-    {n:"TORRE ACCIAI",bg:"#4a4f57", fg:"#ffb703", mk:"square"}
+    {n:"TORRE ACCIAI",bg:"#4a4f57", fg:"#ffb703", mk:"square"},
+    {n:"SOLARA",      bg:"#161a20", fg:"#ffd76a", mk:"eye"},        // lunettes
+    {n:"VOLTARA",     bg:"#101a3a", fg:"#ffd400", mk:"bolt"},       // boisson d'énergie
+    {n:"NEXACLOUD",   bg:"#b8232c", fg:"#f7f2ea", mk:"hex"},        // informatique
+    {n:"ORYX OIL",    bg:"#0f4f8a", fg:"#f2f6fb", mk:"arrow"},      // carburants
+    {n:"TELCOR",      bg:"#1d6df0", fg:"#ffffff", mk:"dots"},       // téléphonie
+    {n:"CHRONOS VEGA",bg:"#0c0e12", fg:"#d8dee8", mk:"ring"},       // montres
+    {n:"DATAVOX",     bg:"#2b3440", fg:"#7ce0d0", mk:"hex"},        // données
+    {n:"NAFTA NOVA",  bg:"#0a4b3c", fg:"#eef7f2", mk:"shield"},     // énergie
+    {n:"CORTEX IT",   bg:"#3a2a63", fg:"#e9e2ff", mk:"dots"},       // services
+    {n:"AQUAVIVA",    bg:"#e0508f", fg:"#fff2f7", mk:"drop"},       // traitement de l'eau
+    {n:"AMPERA",      bg:"#1b1d22", fg:"#ff9d2e", mk:"bolt"},       // piles
+    {n:"MARINA OIL",  bg:"#00738f", fg:"#fff0d8", mk:"wave"},       // lubrifiants
+    {n:"RAPIDA PAY",  bg:"#c0392b", fg:"#fff6ee", mk:"arrow"}       // transferts
   ];
+  // Which marks ride on which car. Each team keeps the trades that suit it:
+  // the title sponsor on the sidepods and the nose, then the rear wing and the
+  // fin. A team of one's own carries the sponsor it signed at the top.
+  const TEAM_SPON={
+    "Ferrari":      [3,4,12],
+    "Red Bull":     [13,14,15],
+    "McLaren":      [16,5,17],
+    "Mercedes":     [10,18,2],
+    "Aston Martin": [19,20,6],
+    "Alpine":       [21,9,1],
+    "Williams":     [22,23,8],
+    "Haas":         [24,11,7]
+  };
+  // the marks with no team of their own: these are the ones a young team signs
+  const SPON_FREE=[0,1,2,5,6,7,8,9,11,12,17,20,21,24];
+  function sponSet(liv){
+    const has = liv && liv.spon!==undefined && liv.spon!==null;
+    const T=TEAM_SPON[liv&&liv.nm];
+    if(T) return has ? [liv.spon, T[1], T[2]] : T;
+    let h=2166136261>>>0;
+    for(const ch of String((liv&&liv.nm)||"")) h=Math.imul(h^ch.charCodeAt(0), 16777619)>>>0;
+    const a=SPON_FREE[h%SPON_FREE.length], b=SPON_FREE[(h>>>5)%SPON_FREE.length];
+    return [ has ? liv.spon : a, b, a===b ? SPON_FREE[(h>>>9)%SPON_FREE.length] : a ];
+  }
   function drawMark(g, kind, x, y, r, col){
     g.fillStyle=col; g.strokeStyle=col; g.lineWidth=Math.max(2,r*0.30);
     g.beginPath();
@@ -3835,6 +3875,19 @@ uniform float shadowFar;
       g.fillRect(-r*.7,-r*.7,r*1.4,r*1.4); g.restore(); }
     else if(kind==="drop"){ g.moveTo(x,y-r); g.quadraticCurveTo(x+r*.9,y+r*.25,x,y+r);
       g.quadraticCurveTo(x-r*.9,y+r*.25,x,y-r); g.closePath(); g.fill(); }
+    else if(kind==="hex"){ for(let k=0;k<6;k++){ const a=k*Math.PI/3;
+      if(k===0) g.moveTo(x+Math.cos(a)*r,y+Math.sin(a)*r); else g.lineTo(x+Math.cos(a)*r,y+Math.sin(a)*r); }
+      g.closePath(); g.fill(); }
+    else if(kind==="arrow"){ g.moveTo(x-r,y+r*.55); g.lineTo(x+r*.1,y-r*.55); g.lineTo(x+r,y-r*.55);
+      g.lineTo(x-r*.1,y+r*.55); g.closePath(); g.fill(); }
+    else if(kind==="dots"){ for(const d of [[-r*.55,0,r*.42],[r*.35,-r*.3,r*.3],[r*.4,r*.45,r*.22]]){
+      g.beginPath(); g.arc(x+d[0],y+d[1],d[2],0,7); g.fill(); } }
+    else if(kind==="shield"){ g.moveTo(x,y-r); g.lineTo(x+r*.8,y-r*.45); g.lineTo(x+r*.62,y+r*.55);
+      g.lineTo(x,y+r); g.lineTo(x-r*.62,y+r*.55); g.lineTo(x-r*.8,y-r*.45); g.closePath(); g.fill(); }
+    else if(kind==="eye"){ g.moveTo(x-r,y); g.quadraticCurveTo(x,y-r*.85,x+r,y);
+      g.quadraticCurveTo(x,y+r*.85,x-r,y); g.closePath(); g.fill();
+      g.save(); g.globalCompositeOperation="destination-out";
+      g.beginPath(); g.arc(x,y,r*0.30,0,7); g.fill(); g.restore(); }
     else { g.arc(x,y,r*0.78,0,7); g.lineWidth=Math.max(2,r*0.34); g.stroke(); }
   }
   const BFONT='700 %spx "Barlow Condensed", "Arial Narrow", Impact, sans-serif';
@@ -5660,6 +5713,81 @@ uniform float shadowFar;
   const crewGunM=new THREE.MeshStandardMaterial({color:0x2b3038, roughness:.42, metalness:.55});
   const crewHoseM=new THREE.MeshStandardMaterial({color:0xf07020, roughness:.85});
   // one copy of every limb, shared by every figure in the lane
+  // The flank of a tyre: the band and the maker's name, drawn in white so the
+  // compound's colour tints the lot (and changes with it during the race).
+  function tyreWallTex(){
+    const S=256, c=cvs(S,S), g=c.getContext("2d");
+    const R=r=>r*S/0.92;                       // a radius in metres, in pixels
+    g.clearRect(0,0,S,S);
+    g.strokeStyle="#ffffff"; g.lineWidth=R(0.020);
+    g.beginPath(); g.arc(S/2,S/2,R(0.404),0,7); g.stroke();
+    const arc=(txt, rad, a0, size, spread)=>{
+      g.save(); g.translate(S/2,S/2); g.fillStyle="#ffffff";
+      g.font='700 '+size+'px "Barlow Condensed", "Arial Narrow", Impact, sans-serif';
+      g.textAlign="center"; g.textBaseline="middle";
+      const n=txt.length, step=spread/Math.max(1,n-1);
+      for(let k=0;k<n;k++){
+        g.save(); g.rotate(a0-spread/2+k*step); g.translate(0,-rad); g.fillText(txt[k],0,0); g.restore();
+      }
+      g.restore();
+    };
+    arc(TYRE_BRAND, R(0.345), 0, Math.round(R(0.055)), 1.45);
+    arc(TYRE_MODEL, R(0.352), Math.PI, Math.round(R(0.062)), 1.15);
+    return tex(c,false,false);
+  }
+  const TYRE_BRAND="LUPO GOMME", TYRE_MODEL="CORSA";
+  const TYRE_R=0.45;                           // the tyre, from the axle out
+  // The wheel, built once and shared by every car: the tyre turned on a lathe
+  // with its rounded shoulders, the rim filling it the way a modern one does,
+  // fourteen thin spokes dished into the dark of the brake, and the nut.
+  // several pieces of geometry as one, when they share a material
+  function mergeGeos(list){
+    const parts=list.map(g=>g.index ? g.toNonIndexed() : g);
+    let n=0; for(const g of parts) n+=g.attributes.position.count;
+    const pos=new Float32Array(n*3), nrm=new Float32Array(n*3), uv=new Float32Array(n*2);
+    let o=0;
+    for(const g of parts){
+      pos.set(g.attributes.position.array, o*3); nrm.set(g.attributes.normal.array, o*3);
+      uv.set(g.attributes.uv.array, o*2); o+=g.attributes.position.count;
+    }
+    const m=new THREE.BufferGeometry();
+    m.setAttribute("position", new THREE.BufferAttribute(pos,3));
+    m.setAttribute("normal", new THREE.BufferAttribute(nrm,3));
+    m.setAttribute("uv", new THREE.BufferAttribute(uv,2));
+    return m;
+  }
+  const WHEEL=(()=>{
+    const V=a=>a.map(p=>new THREE.Vector2(p[0],p[1]));
+    const toZ=g=>{ g.rotateX(Math.PI/2); return g; };     // the lathe turns round Y; the axle is Z
+    const merge=mergeGeos;
+    const tyre=toZ(new THREE.LatheGeometry(V([
+      [0.300,-0.202],[0.330,-0.222],[0.372,-0.229],[0.412,-0.222],[0.434,-0.202],
+      [0.446,-0.172],[0.450,-0.130],[0.450,0.130],[0.446,0.172],[0.434,0.202],
+      [0.412,0.222],[0.372,0.229],[0.330,0.222],[0.300,0.202]]), 22));
+    // the rim: the barrel down inside, then the lip rolled over the bead
+    const rim=toZ(new THREE.LatheGeometry(V([
+      [0.272,-0.150],[0.272,0.186],[0.284,0.206],[0.302,0.214],[0.315,0.209],[0.317,0.194]]), 22));
+    // the dark of the wheel, and the brake disc showing between the spokes
+    const face=new THREE.CircleGeometry(0.276, 22); face.translate(0,0,0.120);
+    const disc=new THREE.RingGeometry(0.100,0.238,22); disc.translate(0,0,0.128);
+    const back=new THREE.CircleGeometry(0.276, 22); back.rotateY(Math.PI); back.translate(0,0,-0.126);
+    // fourteen thin spokes, wider at the hub, dished back toward the rim
+    const spoke=new THREE.BoxGeometry(0.030,0.200,0.022);
+    spoke.translate(0,0.180,0); spoke.rotateX(-0.14); spoke.translate(0,0,0.196);
+    const spokes=[];
+    for(let k=0;k<14;k++){ const g=spoke.clone(); g.rotateZ(k*Math.PI*2/14); spokes.push(g); }
+    const spokeGeo=merge(spokes);
+    // the ring the spokes spring from, and the nut in the middle of it
+    const hub=toZ(new THREE.CylinderGeometry(0.086,0.086,0.055,14)); hub.translate(0,0,0.186);
+    const nut=toZ(new THREE.CylinderGeometry(0.046,0.058,0.062,10)); nut.translate(0,0,0.222);
+    // the flank: the band and the lettering, on a sheet the size of the tyre
+    const wall=new THREE.PlaneGeometry(0.92,0.92); wall.translate(0,0,0.2345);
+    return {tyre, rim, face, disc, back, spokes:spokeGeo, hub, nut, wall};
+  })();
+  const discMat=new THREE.MeshStandardMaterial({color:0x3b3f47, roughness:.45, metalness:.7});
+  const nutMat=new THREE.MeshStandardMaterial({color:0xc9ccd2, roughness:.28, metalness:.85});
+  const WALL_TEX=tyreWallTex();
+  const WHEEL_GEO=new Set(Object.values(WHEEL));
   const CG={
     torso:new THREE.BoxGeometry(0.36,0.46,0.30),
     chest:new THREE.BoxGeometry(0.37,0.10,0.31),
@@ -5737,20 +5865,17 @@ uniform float shadowFar;
     return g;
   }
   // A wheel in a mechanic's hands: the prop that makes a tyre change read.
-  const CWHEEL={
-    tyre:new THREE.CylinderGeometry(0.35,0.35,0.30,16),
-    rim:new THREE.CylinderGeometry(0.21,0.21,0.32,12)
-  };
+  const spareTyreM=new THREE.MeshStandardMaterial({color:0x17181c, roughness:.9});
+  const spareRimM=new THREE.MeshStandardMaterial({color:0xb8bcc4, roughness:.32, metalness:.62});
   function makeSpareWheel(){
     const g=new THREE.Group();
-    const t=new THREE.Mesh(CWHEEL.tyre, new THREE.MeshStandardMaterial({
-      color:0x17181c, roughness:.95 }));
-    t.rotation.x=Math.PI/2; g.add(t);
-    const r=new THREE.Mesh(CWHEEL.rim, new THREE.MeshStandardMaterial({
-      color:0xb8bcc4, roughness:.35, metalness:.6 }));
-    r.rotation.x=Math.PI/2; g.add(r);
-    const band=new THREE.Mesh(new THREE.TorusGeometry(0.33,0.022,6,18),
-      new THREE.MeshStandardMaterial({color:0xd8232a, roughness:.6}));
+    g.add(new THREE.Mesh(WHEEL.tyre, spareTyreM));
+    g.add(new THREE.Mesh(WHEEL.rim, spareRimM));
+    g.add(new THREE.Mesh(WHEEL.spokes, spareRimM));
+    g.add(new THREE.Mesh(WHEEL.hub, spareRimM));
+    const band=new THREE.Mesh(WHEEL.wall, new THREE.MeshStandardMaterial({
+      color:0xd8232a, roughness:.6, map:WALL_TEX, alphaTest:0.5, side:THREE.DoubleSide,
+      polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-2}));
     g.add(band);
     g.userData.band=band.material;
     return g;
@@ -5801,6 +5926,27 @@ uniform float shadowFar;
     return g;
   }
   const pitCrews=[];
+  // The board over each box: the team on the left, its title sponsor on the
+  // right. The player's own board follows the sponsor the team signs.
+  const BANDS=[];
+  function bandDraw(i, c){
+    const L=LIVERY[i], me=(i===0 && PROF.team);
+    const g=c.getContext("2d");
+    g.clearRect(0,0,c.width,c.height);
+    g.fillStyle="#"+("000000"+((me && PROF.look ? PROF.look.c : L.c)>>>0).toString(16)).slice(-6);
+    g.fillRect(0,0,c.width,c.height);
+    g.fillStyle=L.dark?"#f2f4f8":"#ffffff";
+    g.font='700 19px "Barlow Condensed", "Arial Narrow", Impact, sans-serif';
+    g.textAlign="left"; g.textBaseline="middle";
+    g.fillText(((me ? PROF.team.name : L.nm)+"  \u00b7  "+(me ? PROF.team.no : L.no)).toUpperCase(), 10, 17);
+    brandTile(g, 140, 0, 116, 32, BRANDS[sponSet(i===0 ? Object.assign({}, L, {nm:me?PROF.team.name:L.nm, spon:PROF.spon}) : L)[0]], 1.0);
+  }
+  // the board is repainted when the team signs, or changes its name
+  function bandRefresh(i){
+    const B=BANDS[i]; if(!B) return;
+    bandDraw(i, B.c);
+    if(B.mat.map) B.mat.map.needsUpdate=true;
+  }
   {
     const garMat=new THREE.MeshStandardMaterial({color:0xe0d3b6, roughness:.94});
     const addMullion=stick(new THREE.BoxGeometry(0.18,1.8,0.42),
@@ -5852,14 +5998,10 @@ uniform float shadowFar;
             new THREE.MeshStandardMaterial({color:0x9aa0a8, roughness:.6, metalness:.3})),
             6.9, 2.05, sg*7.4);
       }
-      const bandC=cvs(256,32), bg=bandC.getContext("2d");
-      bg.fillStyle="#"+("000000"+LIVERY[i].c.toString(16)).slice(-6);
-      bg.fillRect(0,0,256,32);
-      bg.fillStyle=LIVERY[i].dark?"#f2f4f8":"#ffffff";
-      bg.font='700 21px "Barlow Condensed", "Arial Narrow", Impact, sans-serif';
-      bg.textAlign="center"; bg.textBaseline="middle";
-      bg.fillText(LIVERY[i].nm.toUpperCase()+"   \u00b7   "+LIVERY[i].no, 128, 17);
+      const bandC=cvs(256,32);
+      bandDraw(i, bandC);
       const bandMat=new THREE.MeshStandardMaterial({map:tex(bandC,false,false), roughness:.55});
+      BANDS[i]={c:bandC, mat:bandMat};
       adMats.push(bandMat);
       const band=new THREE.Mesh(new THREE.BoxGeometry(16.2,1.0,8.2), bandMat);
       band.position.set(p.x+nr.x*offG, p.y+4.9, p.z+nr.z*offG); band.rotation.y=-ang;
@@ -5925,7 +6067,7 @@ uniform float shadowFar;
         const work=spot(sg*1.9,-1.5), home=spot(sg*2.7,-3.9);
         m.position.copy(home); m.rotation.y=-ang-Math.PI/2;
         const wh=makeSpareWheel();
-        wh.position.set(0.46,0.50,0); wh.rotation.y=Math.PI/2;
+        wh.position.set(0.54,0.52,0); wh.rotation.y=Math.PI/2;
         m.userData.upper.add(wh);
         crewRoot.add(m);
         carriers.push({g:m, home:home, work:work, wheel:wh, sgn:sg});
@@ -6136,7 +6278,7 @@ uniform float shadowFar;
     const BAY=22, bays=Math.max(1, Math.round(BL/BAY));
     const bayGeo=new THREE.BoxGeometry(BAY,11,10);
     const bayGlass=new THREE.BoxGeometry(BAY-1,2.4,10.3);
-    const bayRoof=new THREE.BoxGeometry(BAY+0.6,0.8,12);
+    const bayRoof=new THREE.BoxGeometry(BAY,0.8,12);   // bay to bay, so two roofs never share a face
     let builtBays=0, midS=sMid, midRy=ry;
     for(let k=0;k<bays;k++){
       // Each bay takes its own point on the lap, so the building runs parallel
@@ -6185,63 +6327,42 @@ uniform float shadowFar;
   // the machined lip of the rim standing just proud of the bead, the recessed
   // hub with its brake behind. Every part keeps a few millimetres from the
   // next, so no two surfaces ever fight over the same pixels.
-  const WHEEL=(()=>{
-    const V=a=>a.map(p=>new THREE.Vector2(p[0],p[1]));
-    const toZ=g=>{ g.rotateX(Math.PI/2); return g; };     // the lathe turns round Y; the axle is Z
-    const merge=list=>{
-      const parts=list.map(g=>g.index ? g.toNonIndexed() : g);
-      let n=0; for(const g of parts) n+=g.attributes.position.count;
-      const pos=new Float32Array(n*3), nrm=new Float32Array(n*3), uv=new Float32Array(n*2);
-      let o=0;
-      for(const g of parts){
-        pos.set(g.attributes.position.array, o*3); nrm.set(g.attributes.normal.array, o*3);
-        uv.set(g.attributes.uv.array, o*2); o+=g.attributes.position.count;
-      }
-      const m=new THREE.BufferGeometry();
-      m.setAttribute("position", new THREE.BufferAttribute(pos,3));
-      m.setAttribute("normal", new THREE.BufferAttribute(nrm,3));
-      m.setAttribute("uv", new THREE.BufferAttribute(uv,2));
-      return m;
-    };
-    const tyre=toZ(new THREE.LatheGeometry(V([
-      [0.332,-0.202],[0.372,-0.222],[0.430,-0.229],[0.478,-0.222],[0.504,-0.202],
-      [0.517,-0.172],[0.520,-0.130],[0.520,0.130],[0.517,0.172],[0.504,0.202],
-      [0.478,0.222],[0.430,0.229],[0.372,0.222],[0.332,0.202]]), 20));
-    // the rim: barrel, then the lip rolled over the bead
-    const rim=toZ(new THREE.LatheGeometry(V([
-      [0.304,-0.150],[0.304,0.186],[0.316,0.206],[0.334,0.214],[0.347,0.209],[0.349,0.196]]), 20));
-    // the hub face, set back into the wheel, with the brake disc on it
-    const face=new THREE.CircleGeometry(0.305, 20); face.translate(0,0,0.126);
-    const disc=new THREE.RingGeometry(0.105,0.262,20); disc.translate(0,0,0.134);
-    const back=new THREE.CircleGeometry(0.305, 20); back.rotateY(Math.PI); back.translate(0,0,-0.126);
-    // five spokes dished into the wheel: proud at the nut, deep at the rim
-    const spoke=new THREE.BoxGeometry(0.052,0.215,0.026);
-    spoke.translate(0,0.19,0); spoke.rotateX(-0.16); spoke.translate(0,0,0.20);
-    const spokes=[];
-    for(let k=0;k<5;k++){ const g=spoke.clone(); g.rotateZ(k*Math.PI*2/5); spokes.push(g); }
-    const spokeGeo=merge(spokes);
-    const nut=toZ(new THREE.CylinderGeometry(0.052,0.068,0.07,10)); nut.translate(0,0,0.176);
-    // the compound's colour, a ring on the flank of the tyre
-    const band=new THREE.RingGeometry(0.432,0.458,24); band.translate(0,0,0.2345);
-    return {tyre, rim, face, disc, back, spokes:spokeGeo, nut, band};
-  })();
-  const discMat=new THREE.MeshStandardMaterial({color:0x3b3f47, roughness:.45, metalness:.7});
-  const nutMat=new THREE.MeshStandardMaterial({color:0xc9ccd2, roughness:.28, metalness:.85});
-  const WHEEL_GEO=new Set(Object.values(WHEEL));
   const headMat=new THREE.MeshStandardMaterial({color:0xfff4d0, emissive:0xffe9b0, emissiveIntensity:1.1});
 
   // a small sponsor decal, drawn from the same invented roster as the boards
-  function decalTex(i, wide){
-    const b=BRANDS[i%BRANDS.length];
-    const w=wide?128:64, h=32;
-    const c=cvs(w,h), g=c.getContext("2d");
-    g.clearRect(0,0,w,h);
-    g.fillStyle=b.bg; g.fillRect(0,0,w,h);
-    g.fillStyle=b.fg;
-    g.font='700 '+Math.round(h*0.62)+'px "Barlow Condensed", "Arial Narrow", Impact, sans-serif';
-    g.textAlign="center"; g.textBaseline="middle";
-    g.fillText(b.n, w/2, h*0.55);
+  // The three marks a car carries, on one sheet: a strip each, drawn the way
+  // the boards are, so every panel on the car comes from a single texture.
+  function decalSheet(sp){
+    const W=256, R=32, c=cvs(W, R*4), g=c.getContext("2d");
+    g.clearRect(0,0,W,R*4);
+    for(let r=0;r<3;r++){
+      const b=BRANDS[((sp[r]|0)%BRANDS.length+BRANDS.length)%BRANDS.length], y=r*R;
+      g.fillStyle=b.bg; g.fillRect(0,y,W,R);
+      g.fillStyle="rgba(0,0,0,.16)"; g.fillRect(0,y+R*0.82,W,R*0.18);
+      drawMark(g, b.mk, R*0.46, y+R*0.46, R*0.27, b.fg);
+      const x0=R*0.86, room=W-x0-R*0.20;
+      let size=Math.round(R*0.62);
+      const font=v=>'700 '+v+'px "Barlow Condensed", "Arial Narrow", Impact, sans-serif';
+      g.font=font(size);
+      while(size>9 && g.measureText(b.n).width>room){ size--; g.font=font(size); }
+      g.fillStyle=b.fg; g.textAlign="left"; g.textBaseline="middle";
+      g.fillText(b.n, x0, y+R*0.50);
+    }
     return tex(c,false,false);
+  }
+  // a panel of that sheet, as a flat sheet of geometry placed on the car
+  function decalPanel(w, h, row, x, y, z, flip){
+    const g=new THREE.PlaneGeometry(w,h), uv=g.attributes.uv;
+    for(let k=0;k<uv.count;k++) uv.setY(k, (3-row)*0.25 + uv.getY(k)*0.25);
+    g.applyMatrix4(new THREE.Matrix4().makeRotationY(flip?Math.PI:0));
+    g.translate(x,y,z);
+    return g;
+  }
+  // the same, as a picture for the menus
+  function brandChip(i, w, h){
+    const c=cvs(w||180, h||40), g=c.getContext("2d");
+    brandTile(g, 0, 0, c.width, c.height, BRANDS[((i|0)%BRANDS.length+BRANDS.length)%BRANDS.length], 1.0);
+    return c.toDataURL("image/png");
   }
   const COMPOUND=[0xd8232a, 0xf2c50f, 0xf1f1f1];   // tendre, medium, dur
   // A livery colour loses a little of itself passing through the tone curve.
@@ -6294,6 +6415,7 @@ uniform float shadowFar;
     // itself is pushed a touch away from grey to land on the official value.
     // the player's car may carry its own finish, design, helmet and rims
     const FIN=CAR_FINISH[liv.finish]||CAR_FINISH.gloss;
+    const SPON=sponSet(liv), panels=[];
     let cMain=liv.c, cAcc=liv.ac||0xffffff;
     if(liv.design==="inverse"){ const t=cMain; cMain=cAcc; cAcc=t; }
     const paint = liv.finish==="carbon"
@@ -6361,12 +6483,9 @@ uniform float shadowFar;
       flash.position.set(-0.24,0.79,sgn*(CAR_W*0.38)); detail.add(flash);
       const bb=new THREE.Mesh(new THREE.BoxGeometry(0.50,0.30,0.04), carbon);
       bb.position.set(0.92,0.44,sgn*(CAR_W*0.40)); detail.add(bb);
-      // sponsor decal on the sidepod flank
-      const dm=new THREE.Mesh(new THREE.PlaneGeometry(1.15,0.28),
-        new THREE.MeshBasicMaterial({map:decalTex(liv.spon!==undefined ? liv.spon : (sgn>0?1:5),true), transparent:true,
-          polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-4}));
-      dm.position.set(-0.24,0.60,sgn*(CAR_W*0.38+0.29));
-      dm.rotation.y=sgn>0?0:Math.PI; detail.add(dm);
+      // sponsor panels: the title on the sidepod flank, and again on the nose
+      panels.push(decalPanel(1.15,0.26, 0, -0.24,0.60,sgn*(CAR_W*0.38+0.29), sgn<0));
+      panels.push(decalPanel(0.62,0.15, 0, HL-0.86,0.55,sgn*0.291, sgn<0));
     }
 
     // ---- cockpit, helmet, halo, mirrors ---------------------------------
@@ -6399,6 +6518,7 @@ uniform float shadowFar;
     airbox.position.set(-0.30,1.06,0); detail.add(airbox);
     const fin=new THREE.Mesh(new THREE.BoxGeometry(1.20,0.26,0.04), accent);
     fin.position.set(-1.10,0.96,0); detail.add(fin);
+    for(const sgn of [-1,1]) panels.push(decalPanel(0.74,0.16, 2, -1.10,0.96,sgn*0.031, sgn<0));
 
     // ---- rear wing on swan necks ----------------------------------------
     const rwMain=new THREE.Mesh(new THREE.BoxGeometry(0.36,0.05,CAR_W*0.94), carbon);
@@ -6408,11 +6528,7 @@ uniform float shadowFar;
     for(const sgn of [-1,1]){
       const ep=new THREE.Mesh(new THREE.BoxGeometry(0.50,0.48,0.05), paint);
       ep.position.set(-HL-0.07,1.18,sgn*(CAR_W*0.47)); g.add(ep); rEps.push(ep);
-      const dec=new THREE.Mesh(new THREE.PlaneGeometry(0.42,0.16),
-        new THREE.MeshBasicMaterial({map:decalTex(liv.spon!==undefined ? liv.spon : (sgn>0?3:6),false), transparent:true,
-          polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-4}));
-      dec.position.set(-HL-0.07,1.22,sgn*(CAR_W*0.47+0.04));
-      dec.rotation.y=sgn>0?0:Math.PI; detail.add(dec);
+      panels.push(decalPanel(0.42,0.16, 1, -HL-0.07,1.22,sgn*(CAR_W*0.47+0.04), sgn<0));
       const neck=new THREE.Mesh(new THREE.BoxGeometry(0.34,0.22,0.05), carbon);
       neck.position.set(-HL+0.06,1.00,sgn*0.20); neck.rotation.z=0.5; detail.add(neck);
     }
@@ -6422,9 +6538,11 @@ uniform float shadowFar;
 
     // ---- wheels: tyre, compound ring, rim, spokes, and a wishbone to the tub ----
     const wheels=[], mounts=[];
-    const rimMat = new THREE.MeshPhysicalMaterial({color:vivid(liv.rim!==undefined ? liv.rim : cAcc),
+    // a machined rim unless the team paints its own
+    const rimMat = new THREE.MeshPhysicalMaterial({color:vivid(liv.rim!==undefined ? liv.rim : 0xB7BCC4),
       roughness:.26, metalness:.62, clearcoat:.7, clearcoatRoughness:.12, envMapIntensity:.9, side:THREE.DoubleSide});
-    const band=new THREE.MeshStandardMaterial({color:COMPOUND[0], roughness:.6,
+    const band=new THREE.MeshStandardMaterial({color:COMPOUND[0], roughness:.6, map:WALL_TEX,
+      alphaTest:0.5, side:THREE.DoubleSide,
       polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-2});
     const steerG=[];
     const wp=[[1.44,CAR_W/2+0.28,1],[1.44,-CAR_W/2-0.28,1],[-1.48,CAR_W/2+0.34,0],[-1.48,-CAR_W/2-0.34,0]];
@@ -6432,25 +6550,26 @@ uniform float shadowFar;
     for(const w of wp){
       wheelSide.push(w[1]>0?1:-1);
       const mount=new THREE.Group();
-      mount.position.set(w[0],0.52,w[1]);
+      mount.position.set(w[0],TYRE_R,w[1]);
       const hub=new THREE.Group();
       // built with its show face toward +Z; a wheel on the other side of the
       // car is the same wheel turned round, never a mirror image
       const wf=new THREE.Group(); if(w[1]<0) wf.rotation.y=Math.PI; hub.add(wf);
       const tyre=new THREE.Mesh(WHEEL.tyre,tyreMat); tyre.userData.bigCast=1; wf.add(tyre);
-      wf.add(new THREE.Mesh(WHEEL.band, band));
+      wf.add(new THREE.Mesh(WHEEL.wall, band));
       wf.add(new THREE.Mesh(WHEEL.rim, rimMat));
       wf.add(new THREE.Mesh(WHEEL.face, darkMat));
       wf.add(new THREE.Mesh(WHEEL.disc, discMat));
       wf.add(new THREE.Mesh(WHEEL.back, darkMat));
       wf.add(new THREE.Mesh(WHEEL.spokes, rimMat));
+      wf.add(new THREE.Mesh(WHEEL.hub, rimMat));
       wf.add(new THREE.Mesh(WHEEL.nut, nutMat));
       mount.add(hub); g.add(mount); wheels.push(hub); mounts.push(mount);
       if(w[2]) steerG.push(mount);
       const sgn=w[1]>0?1:-1;
       for(const dy of [-0.10,0.16]){
         const arm=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,0.62), carbon);
-        arm.position.set(w[0]+(w[2]?-0.10:0.10),0.52+dy,w[1]-sgn*0.34);
+        arm.position.set(w[0]+(w[2]?-0.10:0.10),TYRE_R+dy,w[1]-sgn*0.34);
         arm.rotation.y=sgn*0.22; detail.add(arm);
       }
     }
@@ -6472,13 +6591,20 @@ uniform float shadowFar;
         }
       }
     }
+    if(panels.length){
+      const gd=mergeGeos(panels);
+      const dm=new THREE.Mesh(gd, new THREE.MeshBasicMaterial({map:decalSheet(SPON), transparent:true,
+        polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-4}));
+      detail.add(dm);
+    }
     const num=new THREE.Mesh(new THREE.PlaneGeometry(1.10,0.84),
       new THREE.MeshBasicMaterial({map:numberTex(liv), transparent:true,
         polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-4}));
     num.rotation.x=-Math.PI/2; num.rotation.z=-Math.PI/2; num.position.set(-0.72,0.955,0); detail.add(num);
     {
       const att=new THREE.Group();
-      att.position.y=0.30;                       // roll about the suspension, not the tarmac
+      att.position.y=0.30-(0.52-TYRE_R);         // roll about the suspension, not the tarmac;
+                                                 // the whole body drops with the smaller wheels
       att.rotation.order="YXZ";
       const keep=new Set(mounts);
       for(const o of g.children.slice()) if(!keep.has(o)){ o.position.y-=0.30; att.add(o); }
@@ -7343,7 +7469,7 @@ uniform float shadowFar;
     }
     c.shadow.position.set(c.x, c.groundY+0.04, c.z);
     c.shadow.rotation.z=-c.a;
-    c.spin+=c.vf*0.42;
+    c.spin+=c.vf*(0.42*0.52/TYRE_R);
     const wh=c.mesh.userData.wheels, ws=c.mesh.userData.wheelSide, wo=c.wheelOut||0;
     for(let i=0;i<wh.length;i++){
       wh[i].rotation.z=c.spin;
@@ -8910,8 +9036,8 @@ uniform float shadowFar;
   const CAMS=[
     {name:"Poursuite", back:8.4, backSpd:1.7, h:3.35, ahead:11, lookH:1.05, lag:7.2, fov:64, fovSpd:5},
     {name:"Large",     back:16.0, backSpd:5.0, h:6.6, ahead:10, lookH:1.1, lag:5.2, fov:58},
-    {name:"Casque",    rigid:true, off:[ 0.10,1.22,0], ahead:34, drop:0.22, fov:74},
-    {name:"Pilote",    rigid:true, off:[-0.35,1.58,0], ahead:32, drop:0.38, fov:76},
+    {name:"Casque",    rigid:true, off:[ 0.10,1.15,0], ahead:34, drop:0.22, fov:74},
+    {name:"Pilote",    rigid:true, off:[-0.35,1.51,0], ahead:32, drop:0.38, fov:76},
     {name:"H\u00e9lico",   back:26.0, backSpd:6.0, h:15.0,ahead:6,  lookH:0.8, lag:3.4, fov:50}
   ];
   let camIdx=0, shake=0;
@@ -10405,7 +10531,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="4.3";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="4.4";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -12450,7 +12576,7 @@ uniform float shadowFar;
   // two offers: a steady cheque, or less of one and a bonus for results
   function sponsorOffers(){
     const tier=Math.min(4, Math.floor(season.stars/9)+season.year-1);
-    const pool=[1,2,5,9,6,3,11,0,8,4];
+    const pool=SPON_FREE;
     const k0=(season.year*3+season.stars)%pool.length;
     const b1=pool[k0], b2=pool[(k0+3)%pool.length];
     const n=clamp(Math.round(careerExpect())-1, 2, 7);
@@ -12465,10 +12591,14 @@ uniform float shadowFar;
   }
   function takeSponsor(o){
     season.sponsor=o; PROF.spon=o.brand; profSave(); saveSeason();
+    try{ bandRefresh(0); }catch(e){}
+    try{ menuCarLook(CAR_PANES.indexOf(pane)>=0); }catch(e){}
   }
   function sponsorChoice(intro){
     const offs=sponsorOffers();
-    return {who:"nadia", text:intro, choices:offs.map(o=>({t:brandName(o.brand), sub:sponsorText(o),
+    return {who:"nadia", text:intro, choices:offs.map(o=>({
+      t:'<img class="sponLogo choice" alt="" src="'+brandChip(o.brand,180,40)+'">'+brandName(o.brand),
+      sub:sponsorText(o),
       fx:()=>{ takeSponsor(o); return [{who:"nadia", text:"C’est signé. *"+brandName(o.brand)+"* sera sur nos pontons dès la prochaine course."}]; }}))};
   }
 
@@ -13045,6 +13175,7 @@ uniform float shadowFar;
     if(first && GAR.newC!==undefined){ PROF.look.c=GAR.newC; PROF.look.ac=GAR.newAc; }
     profSave();
     GAR.msg = first ? "Bienvenue chez "+nm+". Ta voiture est prête." : "Écurie enregistrée.";
+    try{ bandRefresh(0); }catch(e){}
     if(first) GAR.tab="paint";
     garRefreshCar(true); renderGarage();
   }
@@ -13223,8 +13354,10 @@ uniform float shadowFar;
       row.innerHTML='<span class="pos">'+(k+1)+'</span><span class="no">#'+d.no+'</span><span class="nm">'+d.nm+'</span><span class="gap">'+d.pts+'</span>';
       tb.appendChild(row);
     });
-    $("carSpon").innerHTML = season.sponsor ? 'Sponsor : <b>'+brandName(season.sponsor.brand)+'</b> · '+sponsorText(season.sponsor).split(" : ")[1]
-                                            : 'Pas encore de sponsor.';
+    $("carSpon").innerHTML = season.sponsor
+      ? '<img class="sponLogo" alt="" src="'+brandChip(season.sponsor.brand,180,40)+'">'+
+        sponsorText(season.sponsor).split(" : ")[1]
+      : 'Pas encore de sponsor.';
     try{ stratChipsUpdate(); }catch(e){}
   }
   // one line under each room of the team: what is worth going in for
