@@ -5720,9 +5720,10 @@ uniform float shadowFar;
     const H=S/2;                               // the sheet holds one tyre, edge to edge
     const R=f=>f*H*(1/1.02);                   // a fraction of the tyre's radius, in pixels
     g.clearRect(0,0,S,S);
-    // the band round the shoulder, as thick as the one on a real sidewall
-    g.strokeStyle="#ffffff"; g.lineWidth=R(0.085);
-    g.beginPath(); g.arc(H,H,R(0.905),0,7); g.stroke();
+    // the band of the compound: a fine line low on the flank, just clear of the
+    // rim, the way it runs on the tyre in the photograph
+    g.strokeStyle="#ffffff"; g.lineWidth=R(0.048);
+    g.beginPath(); g.arc(H,H,R(0.600),0,7); g.stroke();
     const arc=(txt, rad, a0, size, spread)=>{
       g.save(); g.translate(H,H); g.fillStyle="#ffffff";
       g.font='700 '+size+'px "Barlow Condensed", "Arial Narrow", Impact, sans-serif';
@@ -10535,7 +10536,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="4.7";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="4.8";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
