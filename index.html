@@ -5796,6 +5796,9 @@ uniform float shadowFar;
     return {tyre, rim, face, disc, back, spokes:spokeGeo, hub, nut, wall};
   })();
   const discMat=new THREE.MeshStandardMaterial({color:0x3b3f47, roughness:.45, metalness:.7});
+  // what closes the wheel at both ends: matt and almost black, so it reads as
+  // the dark inside of a wheel instead of a disc lit like the road
+  const wellMat=new THREE.MeshStandardMaterial({color:0x080a0d, roughness:1, metalness:0, envMapIntensity:.05});
   const nutMat=new THREE.MeshStandardMaterial({color:0xc9ccd2, roughness:.28, metalness:.85});
   const WALL_TEX=tyreWallTex();
   const WHEEL_GEO=new Set(Object.values(WHEEL));
@@ -5884,6 +5887,8 @@ uniform float shadowFar;
     g.add(new THREE.Mesh(WHEEL.rim, spareRimM));
     g.add(new THREE.Mesh(WHEEL.spokes, spareRimM));
     g.add(new THREE.Mesh(WHEEL.hub, spareRimM));
+    g.add(new THREE.Mesh(WHEEL.face, wellMat));
+    g.add(new THREE.Mesh(WHEEL.back, wellMat));
     const band=new THREE.Mesh(WHEEL.wall, new THREE.MeshStandardMaterial({
       color:0xd8232a, roughness:.6, map:WALL_TEX, alphaTest:0.5, side:THREE.DoubleSide,
       polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-2}));
@@ -6569,9 +6574,9 @@ uniform float shadowFar;
       const tyre=new THREE.Mesh(WHEEL.tyre,tyreMat); tyre.userData.bigCast=1; wf.add(tyre);
       wf.add(new THREE.Mesh(WHEEL.wall, band));
       wf.add(new THREE.Mesh(WHEEL.rim, rimMat));
-      wf.add(new THREE.Mesh(WHEEL.face, darkMat));
+      wf.add(new THREE.Mesh(WHEEL.face, wellMat));
       wf.add(new THREE.Mesh(WHEEL.disc, discMat));
-      wf.add(new THREE.Mesh(WHEEL.back, darkMat));
+      wf.add(new THREE.Mesh(WHEEL.back, wellMat));
       wf.add(new THREE.Mesh(WHEEL.spokes, rimMat));
       wf.add(new THREE.Mesh(WHEEL.hub, rimMat));
       wf.add(new THREE.Mesh(WHEEL.nut, nutMat));
@@ -7186,7 +7191,7 @@ uniform float shadowFar;
     m.visible=old.visible;
     if(c.tag){ old.remove(c.tag); m.add(c.tag); }
     scene.remove(old); scene.add(m); c.mesh=m;
-    const keep=new Set([glassMat, tyreMat, darkMat, headMat, discMat, nutMat]);
+    const keep=new Set([glassMat, tyreMat, darkMat, headMat, discMat, nutMat, wellMat]);
     old.traverse(o=>{
       if(!o.isMesh) return;
       if(o.geometry && !WHEEL_GEO.has(o.geometry)) o.geometry.dispose();
@@ -10574,7 +10579,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="5.2";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="5.3";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
