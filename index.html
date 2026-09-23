@@ -5770,12 +5770,12 @@ uniform float shadowFar;
     const toZ=g=>{ g.rotateX(Math.PI/2); return g; };     // the lathe turns round Y; the axle is Z
     const merge=mergeGeos;
     const tyre=toZ(new THREE.LatheGeometry(V([
-      [0.212,-0.186],[0.252,-0.210],[0.312,-0.222],[0.372,-0.216],[0.400,-0.196],
+      [0.184,-0.164],[0.212,-0.186],[0.252,-0.210],[0.312,-0.222],[0.372,-0.216],[0.400,-0.196],
       [0.414,-0.168],[0.420,-0.128],[0.420,0.128],[0.414,0.168],[0.400,0.196],
-      [0.372,0.216],[0.312,0.222],[0.252,0.210],[0.212,0.186]]), 22));
+      [0.372,0.216],[0.312,0.222],[0.252,0.210],[0.212,0.186],[0.184,0.164]]), 22));
     // the rim: the barrel down inside, then the lip rolled over the bead
     const rim=toZ(new THREE.LatheGeometry(V([
-      [0.188,-0.150],[0.188,0.172],[0.200,0.190],[0.216,0.198],[0.228,0.193],[0.230,0.180]]), 22));
+      [0.188,-0.192],[0.188,0.172],[0.202,0.190],[0.220,0.198],[0.238,0.194],[0.252,0.184]]), 22));
     // the dark of the wheel, and the brake disc showing between the spokes
     // both discs reach past the bead of the tyre: between the barrel of the rim
     // and that bead the wheel was open, and the road showed through it
@@ -5796,9 +5796,6 @@ uniform float shadowFar;
     return {tyre, rim, face, disc, back, spokes:spokeGeo, hub, nut, wall};
   })();
   const discMat=new THREE.MeshStandardMaterial({color:0x3b3f47, roughness:.45, metalness:.7});
-  // what closes the wheel at both ends: matt and almost black, so it reads as
-  // the dark inside of a wheel instead of a disc lit like the road
-  const wellMat=new THREE.MeshStandardMaterial({color:0x080a0d, roughness:1, metalness:0, envMapIntensity:.05});
   const nutMat=new THREE.MeshStandardMaterial({color:0xc9ccd2, roughness:.28, metalness:.85});
   const WALL_TEX=tyreWallTex();
   const WHEEL_GEO=new Set(Object.values(WHEEL));
@@ -5881,14 +5878,15 @@ uniform float shadowFar;
   // A wheel in a mechanic's hands: the prop that makes a tyre change read.
   const spareTyreM=new THREE.MeshStandardMaterial({color:0x17181c, roughness:.9});
   const spareRimM=new THREE.MeshStandardMaterial({color:0x555B63, roughness:.34, metalness:.62});
+  const spareDarkM=new THREE.MeshStandardMaterial({color:0x171a21, roughness:.6, metalness:.3});
   function makeSpareWheel(){
     const g=new THREE.Group();
     g.add(new THREE.Mesh(WHEEL.tyre, spareTyreM));
     g.add(new THREE.Mesh(WHEEL.rim, spareRimM));
     g.add(new THREE.Mesh(WHEEL.spokes, spareRimM));
     g.add(new THREE.Mesh(WHEEL.hub, spareRimM));
-    g.add(new THREE.Mesh(WHEEL.face, wellMat));
-    g.add(new THREE.Mesh(WHEEL.back, wellMat));
+    g.add(new THREE.Mesh(WHEEL.face, spareDarkM));
+    g.add(new THREE.Mesh(WHEEL.back, spareDarkM));
     const band=new THREE.Mesh(WHEEL.wall, new THREE.MeshStandardMaterial({
       color:0xd8232a, roughness:.6, map:WALL_TEX, alphaTest:0.5, side:THREE.DoubleSide,
       polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-2}));
@@ -6574,9 +6572,9 @@ uniform float shadowFar;
       const tyre=new THREE.Mesh(WHEEL.tyre,tyreMat); tyre.userData.bigCast=1; wf.add(tyre);
       wf.add(new THREE.Mesh(WHEEL.wall, band));
       wf.add(new THREE.Mesh(WHEEL.rim, rimMat));
-      wf.add(new THREE.Mesh(WHEEL.face, wellMat));
+      wf.add(new THREE.Mesh(WHEEL.face, darkMat));
       wf.add(new THREE.Mesh(WHEEL.disc, discMat));
-      wf.add(new THREE.Mesh(WHEEL.back, wellMat));
+      wf.add(new THREE.Mesh(WHEEL.back, darkMat));
       wf.add(new THREE.Mesh(WHEEL.spokes, rimMat));
       wf.add(new THREE.Mesh(WHEEL.hub, rimMat));
       wf.add(new THREE.Mesh(WHEEL.nut, nutMat));
@@ -7191,7 +7189,7 @@ uniform float shadowFar;
     m.visible=old.visible;
     if(c.tag){ old.remove(c.tag); m.add(c.tag); }
     scene.remove(old); scene.add(m); c.mesh=m;
-    const keep=new Set([glassMat, tyreMat, darkMat, headMat, discMat, nutMat, wellMat]);
+    const keep=new Set([glassMat, tyreMat, darkMat, headMat, discMat, nutMat]);
     old.traverse(o=>{
       if(!o.isMesh) return;
       if(o.geometry && !WHEEL_GEO.has(o.geometry)) o.geometry.dispose();
@@ -10579,7 +10577,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="5.3";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="5.4";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
