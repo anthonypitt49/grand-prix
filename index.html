@@ -5720,10 +5720,14 @@ uniform float shadowFar;
     const H=S/2;                               // the sheet holds one tyre, edge to edge
     const R=f=>f*H*(1/1.02);                   // a fraction of the tyre's radius, in pixels
     g.clearRect(0,0,S,S);
-    // the band of the compound: a fine line low on the flank, just clear of the
-    // rim, the way it runs on the tyre in the photograph
-    g.strokeStyle="#ffffff"; g.lineWidth=R(0.048);
-    g.beginPath(); g.arc(H,H,R(0.600),0,7); g.stroke();
+    // The band of the compound runs at the height of the lettering and is cut
+    // by it, as on a real tyre: one arc down each flank, between the maker's
+    // name at the top and the model at the foot.
+    const TOPA=1.55, BOTA=1.30, GAPA=0.16;
+    g.strokeStyle="#ffffff"; g.lineWidth=R(0.125);
+    const band=(a,b)=>{ g.beginPath(); g.arc(H,H,R(0.727), a-Math.PI/2, b-Math.PI/2); g.stroke(); };
+    band(TOPA/2+GAPA, Math.PI-(BOTA/2+GAPA));
+    band(Math.PI+BOTA/2+GAPA, 2*Math.PI-(TOPA/2+GAPA));
     const arc=(txt, rad, a0, size, spread)=>{
       g.save(); g.translate(H,H); g.fillStyle="#ffffff";
       g.font='700 '+size+'px "Barlow Condensed", "Arial Narrow", Impact, sans-serif';
@@ -5736,8 +5740,8 @@ uniform float shadowFar;
     };
     // the maker across the top, the model across the bottom and twice the size,
     // both sitting just inside the band
-    arc(TYRE_BRAND, R(0.735), 0, Math.round(R(0.150)), 1.55);
-    arc(TYRE_MODEL, R(0.720), Math.PI, Math.round(R(0.215)), 1.30);
+    arc(TYRE_BRAND, R(0.735), 0, Math.round(R(0.150)), TOPA);
+    arc(TYRE_MODEL, R(0.720), Math.PI, Math.round(R(0.215)), BOTA);
     return tex(c,false,false);
   }
   const TYRE_BRAND="LUPO GOMME", TYRE_MODEL="CORSA";
@@ -10536,7 +10540,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="4.8";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="4.9";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
