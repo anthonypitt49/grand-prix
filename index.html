@@ -5724,7 +5724,7 @@ uniform float shadowFar;
     // by it, as on a real tyre: one arc down each flank, between the maker's
     // name at the top and the model at the foot.
     const TOPA=1.55, BOTA=1.30, GAPA=0.16;
-    g.strokeStyle="#ffffff"; g.lineWidth=R(0.125);
+    g.strokeStyle="#ffffff"; g.lineWidth=R(0.070);
     const band=(a,b)=>{ g.beginPath(); g.arc(H,H,R(0.727), a-Math.PI/2, b-Math.PI/2); g.stroke(); };
     band(TOPA/2+GAPA, Math.PI-(BOTA/2+GAPA));
     band(Math.PI+BOTA/2+GAPA, 2*Math.PI-(TOPA/2+GAPA));
@@ -10540,7 +10540,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="4.9";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="5.0";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
