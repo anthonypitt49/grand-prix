@@ -9847,7 +9847,7 @@ uniform float shadowFar;
     return {t:t,s:s};
   }
   /* ---- touch controls: a steering pad and two pedals ---- */
-  const TOUCH={on:false, scheme:"pad", steer:0, thr:0, brk:0, padId:null, gasId:null, brkId:null,
+  const TOUCH={on:false, saw:null, scheme:"pad", steer:0, thr:0, brk:0, padId:null, gasId:null, brkId:null,
     left:0, right:0, leftId:null, rightId:null,
     tiltOn:false, tiltRaw:null, tiltZero:0, tiltAsked:false, shown:null};
   // Which way the device is being tilted, whichever way round it is being held.
@@ -9908,10 +9908,42 @@ uniform float shadowFar;
     if(on) window.addEventListener("deviceorientation", onTilt);
     else { window.removeEventListener("deviceorientation", onTilt); TOUCH.tiltRaw=null; }
   }
-  // a touch screen with no mouse on it: a phone or a tablet. A laptop with a
-  // touch screen has a mouse as its main pointer and is left alone.
+  // A phone or a tablet: a touch screen and nothing else to point with. A
+  // computer with a touch screen, or a window that merely reports a coarse
+  // pointer, is left alone -- what settles it is what has actually been used:
+  // a mouse moving says computer, a finger on the glass says tablet.
   function touchScreen(){
-    try{ return (navigator.maxTouchPoints||0)>1 && matchMedia("(pointer: coarse)").matches; }catch(e){ return false; }
+    try{
+      if(TOUCH.saw==="mouse") return false;
+      if(TOUCH.saw==="touch") return true;
+      if((navigator.maxTouchPoints||0)<2) return false;
+      // Windows tells a browser it has ten fingers and no mouse even on a
+      // tower, so the machine itself is asked first, and the media queries are
+      // only the last resort.
+      const UD=navigator.userAgentData, ua=navigator.userAgent||"";
+      if(UD && UD.mobile===true) return true;
+      if(/iPhone|iPod|iPad|Android/i.test(ua)) return true;
+      if(/Macintosh/i.test(ua) && (navigator.maxTouchPoints||0)>2) return true;   // an iPad says it is a Mac
+      if(UD && UD.mobile===false) return false;
+      if(/Windows NT|CrOS|X11|Linux x86/i.test(ua)) return false;
+      if(matchMedia("(any-pointer: fine)").matches) return false;   // a mouse or a trackpad is there
+      if(matchMedia("(any-hover: hover)").matches) return false;    // something that can hover is there
+      return matchMedia("(pointer: coarse)").matches;
+    }catch(e){ return false; }
+  }
+  // the first real mouse or finger decides, and only while the setting is auto
+  function touchWatch(){
+    const saw=k=>{
+      if(TOUCH.saw===k) return;
+      TOUCH.saw=k;
+      if(OPT.touch!=="1" && OPT.touch!=="0") applyTouch();
+    };
+    addEventListener("pointerdown", e=>{
+      if(e.pointerType==="mouse") saw("mouse");
+      else if(e.pointerType==="touch" || e.pointerType==="pen") saw("touch");
+    }, true);
+    addEventListener("pointermove", e=>{ if(e.pointerType==="mouse") saw("mouse"); }, {capture:true, passive:true});
+    addEventListener("touchstart", ()=>saw("touch"), {capture:true, passive:true});
   }
   function applyTouch(){
     TOUCH.on = OPT.touch==="1" || (OPT.touch!=="0" && touchScreen());
@@ -10540,7 +10572,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="5.0";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="5.1";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -12836,7 +12868,7 @@ uniform float shadowFar;
   // ---- what is in Reglages, and what each switch does ----
   const SET_SECS=["gfx","race","hud","snd","keys","ai","net","data"];
   const TOUCH_SET={sec:"keys", key:"touch", name:"Commandes tactiles",
-    hint:"Un joystick de direction \u00e0 gauche, l\u2019acc\u00e9l\u00e9rateur et le frein \u00e0 droite. En auto, elles apparaissent sur t\u00e9l\u00e9phone et tablette et le jeu prend tout l\u2019\u00e9cran.",
+    hint:"Un joystick de direction à gauche, l’accélérateur et le frein à droite. En auto, elles n’apparaissent que si tu joues au doigt : dès que la souris bouge, le jeu repasse au clavier.",
     vals:[["auto","Auto"],["1","Toujours"],["0","Jamais"]]};
   const TSTEER_SET={sec:"keys", key:"tsteer", name:"Direction au doigt",
     hint:"Trois fa\u00e7ons de tourner sur t\u00e9l\u00e9phone et tablette. L\u2019acc\u00e9l\u00e9rateur et le frein ne bougent pas. Avec l\u2019inclinaison, la position neutre est prise au d\u00e9part de chaque course et le bouton \u2732 la reprend en course.",
@@ -14026,7 +14058,7 @@ uniform float shadowFar;
   }
   // everything saved is applied once, before the first frame; the expensive
   // switches only when they differ from what was built
-  touchWire();
+  touchWire(); touchWatch();
   for(const k of ["rez","fps","line","diff","units","cam","mini","tower","touch","tsteer"]) applyOpt(k);
   if(OPT.qual==="low") applyOpt("qual");
   if(OPT.fx==="1") applyOpt("fx");
