@@ -324,7 +324,6 @@
   .scChoices button:hover{border-color:var(--yellow)}
   .scChoices button small{display:block; font-size:12px; color:var(--muted); margin-top:2px}
   .scNext{text-align:right; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--yellow)}
-  /* the daily challenge, and the trophy case */
   /* the career hub: the next race first, the team's rooms under it */
   .paneHead .walletChip{margin-left:auto}
   .carNext{--team:var(--yellow); border-left:4px solid var(--team); display:flex; flex-direction:column; gap:10px}
@@ -347,11 +346,27 @@
   .tile b{display:block; font-family:var(--font-display); text-transform:uppercase; font-size:16px; letter-spacing:.04em; line-height:1.1}
   .tile span{display:block; font-size:12.5px; color:var(--muted); line-height:1.35; margin-top:3px}
   .tile span em{font-style:normal; color:var(--yellow)}
-  .tile.daily{border-color:rgba(124,242,176,.45); background:linear-gradient(135deg, rgba(20,60,44,.62), rgba(12,15,22,.62))}
-  .tile.daily svg{color:#7cf2b0}
-  .tile.daily span em{color:#7cf2b0}
-  .tile.daily.done{border-color:var(--line); background:rgba(255,255,255,.04); cursor:default}
-  .tile.daily.done svg{color:var(--green)}
+  /* the sponsors' room: three places on the car, a contract or two offers each */
+  .sponHead{width:100%; max-width:1100px; margin:0 auto; font-size:14px; color:var(--muted)}
+  .sponHead b{color:var(--white); font-family:var(--font-num); font-size:18px}
+  .sponList{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; width:100%; max-width:1100px; margin:0 auto}
+  .sponSlot{border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:rgba(255,255,255,.03);
+    display:flex; flex-direction:column; gap:8px; min-width:0}
+  .sponSlot.lock{opacity:.6}
+  .sponSlot .ssK{font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--yellow)}
+  .sponSlot .ssW{font-size:12.5px; color:var(--muted); margin-top:-6px}
+  .sponSlot .ssDeal{display:flex; align-items:center; gap:10px; font-size:15px}
+  .sponSlot .ssDeal .sponLogo{width:132px; height:29px}
+  .sponSlot .ssTerms{font-size:13px; color:var(--muted); line-height:1.45}
+  .sponSlot .ssTerms b{color:var(--white); font-weight:500}
+  .sponOffer{display:flex; align-items:center; gap:10px; border-top:1px dashed var(--line); padding-top:8px}
+  .sponOffer .sponLogo{width:96px; height:21px}
+  .sponOffer > div{flex:1; min-width:0; font-size:12.5px; color:var(--muted); line-height:1.35}
+  .sponOffer > div b{display:block; color:var(--white); font-size:14px}
+  .sponOffer .btn{font-size:14px; padding:7px 12px 5px; white-space:nowrap; margin:0}
+  .sponNote{width:100%; max-width:1100px; margin:0 auto; font-size:12px; color:var(--muted)}
+  .carSpon .sponLogo{width:84px; height:19px}
+  .usineGap .rdDone{color:var(--green); margin-bottom:6px}
   @media (max-width:420px){ .carTiles{grid-template-columns:1fr} }
   .palmBody{display:flex; flex-direction:column; gap:12px; width:100%; max-width:1100px; margin:0 auto}
   .palmStats{grid-template-columns:repeat(6,1fr)}
@@ -1190,7 +1205,7 @@
             <div class="carTiles" id="carTiles">
               <button class="tile" data-go="usine"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21V11l5 3v-3l5 3V5h3V3h2v2h3v16z"/><path d="M7 17.5h2M11.5 17.5h2M16 17.5h2"/></svg><div><b>Usine</b><span id="tileUsine">Rends ta voiture plus rapide</span></div></button>
               <button class="tile" data-go="garage"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-.9 2-1.9 0-1.2-1-1.6-1-2.6S13.8 15 15 15h2a4 4 0 0 0 4-4c0-4.4-4-8-9-8z"/><circle cx="7.5" cy="11" r="1.3"/><circle cx="10.6" cy="7.1" r="1.3"/><circle cx="15.2" cy="7.9" r="1.3"/></svg><div><b>Garage</b><span id="tileGarage">Peinture, finition, motif</span></div></button>
-              <button class="tile daily" id="dailyCard"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.2"/><path d="M3.5 9.8h17M8 3v4M16 3v4"/><path d="m12 12.2 1 2 2.2.3-1.6 1.5.4 2.2-2-1-2 1 .4-2.2-1.6-1.5 2.2-.3z"/></svg><div><b>D&eacute;fi du jour</b><span id="dailyTxt"></span></div></button>
+              <button class="tile" data-go="spons"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.4 1.4 0 0 1 0 2l-6.4 6.4a1.4 1.4 0 0 1-2 0z"/><circle cx="8.3" cy="8.3" r="1.6"/></svg><div><b>Sponsors</b><span id="tileSpons">Des marques sur ta voiture</span></div></button>
               <button class="tile" data-go="palm"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3.5h8V9a4 4 0 0 1-8 0z"/><path d="M8 5.5H5a3 3 0 0 0 3.2 4.3M16 5.5h3a3 3 0 0 1-3.2 4.3M12 13v3.5M9 20.5h6M10 16.5h4v4h-4z"/></svg><div><b>Palmar&egrave;s</b><span id="tilePalm">Troph&eacute;es et statistiques</span></div></button>
             </div>
           </div>
@@ -1216,6 +1231,20 @@
         <div class="usineGap" id="usineGap"></div>
         <div class="rdList" id="rdList"></div>
         <div class="usineNote">Ces am&eacute;liorations servent en carri&egrave;re. En Hors-s&eacute;rie et en multijoueur, toutes les voitures restent &eacute;gales.</div>
+      </section>
+
+      <section class="pane" id="pSpons" data-pane="spons" hidden>
+        <div class="paneHead">
+          <button class="backBtn" data-go="season">&lsaquo; Carri&egrave;re</button>
+          <div>
+            <div class="kicker" id="sponsKick">Ton &eacute;curie</div>
+            <h2>Sponsors</h2>
+          </div>
+          <button class="walletChip" id="walletSpons" data-go="garage"></button>
+        </div>
+        <div class="sponHead" id="sponHead"></div>
+        <div class="sponList" id="sponList"></div>
+        <div class="sponNote">Chaque sponsor paie &agrave; chaque Grand Prix de la carri&egrave;re, et son logo roule sur ta voiture et sur le panneau de ton garage. Un contrat &agrave; prime paie plus quand tu atteins le r&eacute;sultat pr&eacute;vu.</div>
       </section>
 
       <section class="pane" id="pFree" data-pane="free" hidden>
@@ -2698,12 +2727,17 @@ uniform float shadowFar;
       look:null,                     // the car's look; null keeps the factory one
       own:{},                        // item id -> true
       stats:{races:0, wins:0, podiums:0, poles:0, earned:0, best:9},
-      ach:{}, daily:{day:"", done:false, streak:0, last:""}};
+      ach:{},
+      spons:[null,null,null],        // the marks on the team's car, slot by slot
+      skill:null};                   // how quick the player is, in the standard car
   }
   function profLoad(){
     try{
       const o=JSON.parse(localStorage.getItem(PROF_KEY)||"null");
       if(o && o.v===1){
+        // one sponsor before 5.5, three places since
+        if(!Array.isArray(o.spons)) o.spons=[(o.spon!==undefined && o.spon!==null) ? o.spon : null, null, null];
+        delete o.spon; delete o.daily;
         const f=profFresh();
         for(const k in f) if(o[k]===undefined) o[k]=f[k];
         o.stats=Object.assign(f.stats, o.stats||{});
@@ -2716,7 +2750,6 @@ uniform float shadowFar;
   // true while a career round is being raced: the car is the team's own, and
   // the field keeps its own pace rather than following the player's
   let CAREER_ON=false;
-  let DAILY_ON=null;                  // the day's challenge, when this race is one
   function profSave(){ try{ localStorage.setItem(PROF_KEY, JSON.stringify(PROF)); }catch(e){} }
   // each level asks a little more experience than the one before
   function xpNeed(l){ return 500+150*(l-1); }
@@ -3849,14 +3882,17 @@ uniform float shadowFar;
   };
   // the marks with no team of their own: these are the ones a young team signs
   const SPON_FREE=[0,1,2,5,6,7,8,9,11,12,17,20,21,24];
+  // A team of one's own carries what it has signed, slot by slot: an empty
+  // sidepod shows the team's own name (-1), an empty wing shows paint (-2).
   function sponSet(liv){
-    const has = liv && liv.spon!==undefined && liv.spon!==null;
+    if(liv && Array.isArray(liv.spons))
+      return [0,1,2].map(k=>{ const b=liv.spons[k]; return (b===null || b===undefined) ? (k===0 ? -1 : -2) : b; });
     const T=TEAM_SPON[liv&&liv.nm];
-    if(T) return has ? [liv.spon, T[1], T[2]] : T;
+    if(T) return T;
     let h=2166136261>>>0;
     for(const ch of String((liv&&liv.nm)||"")) h=Math.imul(h^ch.charCodeAt(0), 16777619)>>>0;
     const a=SPON_FREE[h%SPON_FREE.length], b=SPON_FREE[(h>>>5)%SPON_FREE.length];
-    return [ has ? liv.spon : a, b, a===b ? SPON_FREE[(h>>>9)%SPON_FREE.length] : a ];
+    return [a, b, a===b ? SPON_FREE[(h>>>9)%SPON_FREE.length] : a];
   }
   function drawMark(g, kind, x, y, r, col){
     g.fillStyle=col; g.strokeStyle=col; g.lineWidth=Math.max(2,r*0.30);
@@ -4952,10 +4988,10 @@ uniform float shadowFar;
   }
   // the player's car wears the team: its name, number and look
   function colLum(hex){ return (0.2126*((hex>>16)&255)+0.7152*((hex>>8)&255)+0.0722*(hex&255))/255; }
-  function profApplyLivery(L, look, team, spon){
+  function profApplyLivery(L, look, team, spons){
     if(!team) return;
     L.nm=team.name; L.no=team.no;
-    L.spon = (spon!==undefined && spon!==null) ? spon : undefined;
+    L.spons = [0,1,2].map(k=>(Array.isArray(spons) && spons[k]!==undefined) ? spons[k] : null);
     const k=look||lookDefault();
     L.c=k.c; L.ac=k.ac; L.finish=k.finish; L.design=k.design; L.helmet=k.helmet; L.rim=k.rim;
     const main = k.design==="inverse" ? k.ac : k.c;
@@ -4974,10 +5010,10 @@ uniform float shadowFar;
   const LIV0_FACTORY=Object.assign({}, LIVERY[0]);
   // The team's car exists only in the career. Everywhere else the player drives
   // the works car above, as everybody did before there was a career.
-  function teamKey(){ return PROF.team ? JSON.stringify(PROF.look||{})+"|"+PROF.team.name+"|"+PROF.team.no+"|"+PROF.spon : ""; }
+  function teamKey(){ return PROF.team ? JSON.stringify(PROF.look||{})+"|"+PROF.team.name+"|"+PROF.team.no+"|"+(PROF.spons||[]).join(",") : ""; }
   function teamLivery(){
     const L=Object.assign({}, LIV0_FACTORY);
-    profApplyLivery(L, PROF.look, PROF.team, PROF.spon);
+    profApplyLivery(L, PROF.look, PROF.team, PROF.spons);
     L.key=teamKey();
     return L;
   }
@@ -5953,7 +5989,9 @@ uniform float shadowFar;
     g.font='700 19px "Barlow Condensed", "Arial Narrow", Impact, sans-serif';
     g.textAlign="left"; g.textBaseline="middle";
     g.fillText(((me ? PROF.team.name : L.nm)+"  \u00b7  "+(me ? PROF.team.no : L.no)).toUpperCase(), 10, 17);
-    brandTile(g, 140, 0, 116, 32, BRANDS[sponSet(i===0 ? Object.assign({}, L, {nm:me?PROF.team.name:L.nm, spon:PROF.spon}) : L)[0]], 1.0);
+    // the team's own board shows its title sponsor, or its first partner
+    const sp = me ? (PROF.spons||[]).filter(b=>b!==null && b!==undefined) : sponSet(L);
+    if(sp.length) brandTile(g, 140, 0, 116, 32, BRANDS[sp[0]], 1.0);
   }
   // the board is repainted when the team signs, or changes its name
   function bandRefresh(i){
@@ -6346,10 +6384,25 @@ uniform float shadowFar;
   // a small sponsor decal, drawn from the same invented roster as the boards
   // The three marks a car carries, on one sheet: a strip each, drawn the way
   // the boards are, so every panel on the car comes from a single texture.
-  function decalSheet(sp){
+  function decalSheet(sp, liv){
     const W=256, R=32, c=cvs(W, R*4), g=c.getContext("2d");
     g.clearRect(0,0,W,R*4);
     for(let r=0;r<3;r++){
+      if(sp[r]===-2) continue;                        // an empty slot: just paint
+      if(sp[r]===-1){
+        // no title sponsor yet: the team's own name on the sidepods
+        const y=r*R, nm=String((liv && liv.nm) || "").toUpperCase();
+        g.fillStyle="#101216"; g.fillRect(0,y,W,R);
+        g.fillStyle="#"+("000000"+(((liv && liv.c)!==undefined ? liv.c : 0xffcf3f)>>>0).toString(16)).slice(-6);
+        g.fillRect(0,y,R*0.22,R);
+        let size=Math.round(R*0.62);
+        const font=v=>'700 '+v+'px "Barlow Condensed", "Arial Narrow", Impact, sans-serif';
+        g.font=font(size);
+        while(size>9 && g.measureText(nm).width>W-R*0.8){ size--; g.font=font(size); }
+        g.fillStyle="#f2f4f8"; g.textAlign="left"; g.textBaseline="middle";
+        g.fillText(nm, R*0.45, y+R*0.52);
+        continue;
+      }
       const b=BRANDS[((sp[r]|0)%BRANDS.length+BRANDS.length)%BRANDS.length], y=r*R;
       g.fillStyle=b.bg; g.fillRect(0,y,W,R);
       g.fillStyle="rgba(0,0,0,.16)"; g.fillRect(0,y+R*0.82,W,R*0.18);
@@ -6607,7 +6660,7 @@ uniform float shadowFar;
     }
     if(panels.length){
       const gd=mergeGeos(panels);
-      const dm=new THREE.Mesh(gd, new THREE.MeshBasicMaterial({map:decalSheet(SPON), transparent:true,
+      const dm=new THREE.Mesh(gd, new THREE.MeshBasicMaterial({map:decalSheet(SPON, liv), transparent:true,
         polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-4}));
       detail.add(dm);
     }
@@ -7233,7 +7286,7 @@ uniform float shadowFar;
       const gm = human ? 1 : LV.grip*(1+(PF.grip*LV.mix+setF[i])/100);
       let L=LIVERY[i];
       if(CAREER_ON && i===RIVAL_I){ L=Object.assign({}, L); L.nm=CAST.dante.short; }
-      if(!NR && me && PROF.team && (CAREER_ON || DAILY_ON || (state==="menu" && CAR_PANES.indexOf(pane)>=0))) L=teamLivery();
+      if(!NR && me && PROF.team && (CAREER_ON || (state==="menu" && CAR_PANES.indexOf(pane)>=0))) L=teamLivery();
       const row=Math.floor(slot/2), col=slot%2;
       const s=((TOT-(startGap+row*rowGap))%TOT+TOT)%TOT;
       const idx=idxAtS(s), p=pointAt(s), nr=norA[idx], t=tanA[idx];
@@ -8144,19 +8197,64 @@ uniform float shadowFar;
     if(!M || !M.best || !M.best.length) return 0;
     return M.best.length>=3 ? (M.best[0]+M.best[1]+M.best[2])/3 : M.best[0]*1.008;
   }
-  function learnAdapt(){
-    const M=LRN.mem, lvl=learnLevel(M);
-    if(!lvl) return 1;
-    const goal=lvl*0.995;
+  // the lift that brings a car's lap down to the goal, if it needs one
+  function adaptFor(car, goal, max){
+    const cal=(LRN.mem && LRN.mem.calib2)||LRN_CAL0;
+    if(aiLapEstimate(car,1)*cal<=goal) return 1;
+    let lo=1, hi=max;
+    if(aiLapEstimate(car,hi)*cal>goal) return hi;
+    for(let it=0;it<12;it++){ const mid=(lo+hi)/2; if(aiLapEstimate(car,mid)*cal<=goal) hi=mid; else lo=mid; }
+    return hi;
+  }
+  function adaptTo(goal, max){
     let top=null, tb=1e9;
     for(const c of cars){ if(c.player||c.human) continue; const e=aiLapEstimate(c,1); if(e<tb){ tb=e; top=c; } }
-    if(!top) return 1;
-    const cal=M.calib2||LRN_CAL0;
-    if(tb*cal<=goal) return 1;
-    let lo=1, hi=1.08;
-    if(aiLapEstimate(top,hi)*cal>goal) return hi;
-    for(let it=0;it<12;it++){ const mid=(lo+hi)/2; if(aiLapEstimate(top,mid)*cal<=goal) hi=mid; else lo=mid; }
-    return hi;
+    return top ? adaptFor(top, goal, max) : 1;
+  }
+  // Extreme, outside the career: the best car a whisker quicker than the humans
+  function learnAdapt(){
+    const lvl=learnLevel(LRN.mem);
+    return lvl ? adaptTo(lvl*0.99, 1.12) : 1;
+  }
+  // The player's pace as a lap in the standard car. A career lap is put back
+  // into the standard car by the gap between the two cars; the circuits not
+  // raced yet borrow the player's usual ratio to the standard car's estimate.
+  const stdCar=()=>({maxSpeed:BASE, accel:30, brake:55, roll:2.2, dragC:0.11, gripMul:1, aiPace:1, aiTop:1});
+  function careerSkillNote(){
+    if(!(bestLap<1e8) || NET.race || QU.on || weather.wet>0.05 || totalLaps<2) return;
+    const std=aiLapEstimate(stdCar(),1);
+    const lap = CAREER_ON ? bestLap*std/aiLapEstimate(careerStub(season.rd),1) : bestLap;
+    const S=PROF.skill||(PROF.skill={r:0, n:0, c:{}});
+    if(CAREER_ON){ const L=S.c[TRACK.id]||[]; L.push(+lap.toFixed(3)); L.sort((a,b)=>a-b); S.c[TRACK.id]=L.slice(0,3); }
+    const r=clamp(lap/std, 0.85, 1.4);
+    S.r = S.n ? S.r*0.75+r*0.25 : r; S.n=(S.n||0)+1;
+    profSave();
+  }
+  function careerSkillLap(){
+    const S=PROF.skill||{}, L=(S.c||{})[TRACK.id]||[];
+    const a=learnLevel(LRN.mem);
+    const b=L.length ? (L.length>=2 ? (L[0]+L[1])/2 : L[0]*1.006) : 0;
+    let v = a && b ? Math.min(a,b) : (a||b);
+    if(!v && S.r && S.n>=1) v=aiLapEstimate(stdCar(),1)*S.r;
+    return v||0;
+  }
+  // The career field on the two hardest levels: its best car a touch quicker
+  // than the player in the standard car on Extreme, a little slower on
+  // Difficult. The team's car starts behind that; the factory closes the gap.
+  function careerGoalLap(){
+    const d=parseFloat(OPT.diff)||1;
+    if(d<1.03) return 0;
+    const lvl=careerSkillLap();
+    return lvl ? lvl*(d>=1.1 ? 0.99 : 1.025) : 0;
+  }
+  function careerAdapt(){ const g=careerGoalLap(); return g ? adaptTo(g, 1.12) : 1; }
+  function careerAdaptFor(car){ const g=careerGoalLap(); return g ? adaptFor(car, g, 1.12) : 1; }
+  function adaptApply(){
+    if(LRN.adapt>1) for(const c of cars){
+      if(c.player || c.human || c.remote) continue;
+      const a=LRN.adapt;
+      c.gripMul*=a*a; c.grip=GRIP_ON*c.gripMul; c.accel*=a; c.maxSpeed*=1+0.35*(a-1);
+    }
   }
   // At the start of a race: what the Extreme AI takes from the memory.
   function learnPrepare(){
@@ -8167,7 +8265,7 @@ uniform float shadowFar;
     LRN.adapt=1; LRN.pace0=LV.pace;
     AIL=aiLineBuild(laneA);
     try{ humPrepare(); }catch(e){ HUM.on=false; AIL=aiLineBuild(laneA); }
-    if(!LRN.on) return;
+    if(!LRN.on){ if(CAREER_ON && !NET.race){ LRN.adapt=careerAdapt(); adaptApply(); } return; }
     const M=LRN.mem, B=LRN.B;
     // for every sample of the lap: the line the humans drove, the speed they
     // carried on it, and how sure the memory is of both
@@ -8210,13 +8308,9 @@ uniform float shadowFar;
         if(c.plan[0].c>=0) c.comp=c.plan[0].c;
       }
     }
-    LRN.adapt = CAREER_ON ? 1 : learnAdapt();
+    LRN.adapt = CAREER_ON ? careerAdapt() : learnAdapt();
     // the lift goes into the cars themselves
-    if(LRN.adapt>1) for(const c of cars){
-      if(c.player || c.human || c.remote) continue;
-      const a=LRN.adapt;
-      c.gripMul*=a*a; c.grip=GRIP_ON*c.gripMul; c.accel*=a; c.maxSpeed*=1+0.35*(a-1);
-    }
+    adaptApply();
   }
   // At the flag: the strategy that worked, and how far the estimate was off.
   function learnRaceEnd(now){
@@ -8775,10 +8869,11 @@ uniform float shadowFar;
     }
     // a moment gone wrong: the driver is off line and slow for about a second
     if(c.slip2>0) spd *= (1 - 0.16*Math.min(1,c.slip2));
-    // running out of grip a moment ago (the steering could not turn enough): ease off
-    c.aiUS=Math.max(0, (c.aiUS||0)-h*1.5);
-    if((c.understeer||0)>0.08) c.aiUS=Math.min(1, c.aiUS+h*6);
-    spd *= 1-0.05*c.aiUS;
+    // running out of grip (the steering cannot turn enough) for more than a
+    // moment: ease off a touch. A flicker of it on a change of line is not one.
+    c.aiUS=Math.max(0, (c.aiUS||0)-h*2.0);
+    if((c.understeer||0)>0.18) c.aiUS=Math.min(1, c.aiUS+h*2.5);
+    spd *= 1-0.03*Math.max(0, c.aiUS-0.25)/0.75;
     const scOn = safety.active && safety.phase!=="in" && !c.onPit;
 
     const pw=pitWidthAt(c.s);
@@ -8812,7 +8907,7 @@ uniform float shadowFar;
     // ---- speed: every corner ahead, and the car in front ----
     const aPlan=aiBrakePlan(c);
     const m0=1.5+av*0.05, reach=av*av/(2*aPlan)+40;
-    let aNeed=0, vNow=1e3;
+    let aNeed=0, vNow=1e3, vNear=1e3;
     {
       let i=here, guard=0;
       const s0=c.s;
@@ -8823,12 +8918,20 @@ uniform float shadowFar;
           const sh=c.aiShift*Math.max(0, 1-Math.max(0,di)/90);
           const kk=AIL.k[i]/Math.max(0.35, 1-AIL.k[i]*sh);
           let vc=Math.min(aiCornerV(kk, aLat)*spd*(HUM.on && !c.player && HUM.shape ? HUM.shape[i] : 1), aiCornerV(kk, aLim));
-          if(di<14) vNow=Math.min(vNow, vc);
+          // the fastest the car can be going now and still make this speed
+          // here, braking at the planned rate: that, not the speed of every
+          // bend as it comes into view, is what it keeps to
+          const vAl = di<=m0 ? vc : Math.sqrt(vc*vc+2*aPlan*(di-m0));
+          if(vAl<vNow) vNow=vAl;
+          if(di<14 && vc<vNear) vNear=vc;
           if(av>vc){ const need=(av*av-vc*vc)/(2*Math.max(0.5, di-m0)); if(need>aNeed) aNeed=need; }
         }
         i=(i+2)%N;
       }
     }
+    // Off the line, or wheel to wheel, the path is not quite the one planned:
+    // there the car is at each corner's speed before it reaches it.
+    if(Math.abs(c.aiShift)>1.0 || (RC && (RC.mode==="attack" || RC.mode==="defend" || RC.mode==="yield"))) vNow=Math.min(vNow, vNear);
     // the top of the straight, for the gentler levels
     let vTop = c.aiTop<1 ? c.maxSpeed*c.aiTop : 1e3;
     if(scOn) vTop=Math.min(vTop, SC_SPEED);
@@ -10577,7 +10680,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="5.4";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="5.5";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -11989,10 +12092,9 @@ uniform float shadowFar;
   }
   function netResultButtons(){
     const on=!!NET.race;
-    const dailyDone = !!DAILY_ON && PROF.daily.day===dayKey() && PROF.daily.done;
-    $("againBtn").hidden = on || !!CAREER_ON || dailyDone;
-    $("againBtn").textContent = DAILY_ON ? "Réessayer le défi" : "Rejouer";
-    $("resHomeBtn").textContent = DAILY_ON ? "Carrière" : "Accueil";
+    $("againBtn").hidden = on || !!CAREER_ON;
+    $("againBtn").textContent = "Rejouer";
+    $("resHomeBtn").textContent = "Accueil";
     $("resLobbyBtn").hidden=!on;
     if(on) $("nextBtn").hidden=true;
   }
@@ -12096,9 +12198,6 @@ uniform float shadowFar;
     }
     // whatever the mode, the race is run to the plan made for this circuit over
     // this distance; with no plan that is simply the compound picked on screen
-    if(DAILY_ON){
-      totalLaps=DAILY_ON.laps; wxMode=DAILY_ON.wx; want=DAILY_ON.tod; diff=parseFloat(DAILY_ON.diff)||1;
-    }
     RACE_PLAN=planTidy(planGet(totalLaps), totalLaps);
     compChoice=RACE_PLAN.start;
     if(todKey!==want) applyTOD(want);
@@ -12110,10 +12209,7 @@ uniform float shadowFar;
     if(GAR.on) garLeave();
     rpStop();
     RACE_POLE=false; RACE_RECORD=false; RACE_EXTRA=null;
-    // the daily challenge, if this race was launched as one
-    DAILY_ON=null;
-    try{ const d=sessionStorage.getItem("trs_daily"); if(d){ sessionStorage.removeItem("trs_daily"); if(d===dayKey() && !NET.race){ DAILY_ON=dailyDef(d); seasonMode=false; } } }catch(e){}
-    QU.want = OPT.quali==="1" && !DAILY_ON;
+    QU.want = OPT.quali==="1";
     if(!quali && QU.want && !QU.done && !NET.race && (state==="menu" || state==="results")) quali=true;
     QU.on=!!quali;
     CAREER_ON = !!seasonMode && !NET.race;
@@ -12235,8 +12331,8 @@ uniform float shadowFar;
   function payRace(order){
     const el=$("resRewards"); if(!el) return;
     const pos=order.indexOf(player)+1;
-    // money, levels and trophies belong to the career (and its daily challenge)
-    if(pos<1 || NET.race || !(CAREER_ON || DAILY_ON)){ el.hidden=true; return; }
+    // money, levels and trophies belong to the career
+    if(pos<1 || NET.race || !CAREER_ON){ el.hidden=true; return; }
     const R=raceReward(pos, {career:!!(typeof CAREER_ON!=="undefined" && CAREER_ON), startPos:player.startRank,
                              pole:!!RACE_POLE, record:!!RACE_RECORD});
     if(RACE_EXTRA && RACE_EXTRA.length) for(const l of RACE_EXTRA){ R.lines.push(l); R.total+=l[1]; }
@@ -12244,8 +12340,6 @@ uniform float shadowFar;
                wet:weather.wet>0.35, online:!!NET.race, career:!!CAREER_ON,
                beatRival:!!(CAREER_ON && season.pending && season.pending.beatRival),
                stars3:!!(CAREER_ON && season.pending && season.pending.stars && season.pending.stars.every(Boolean))};
-    const dl=dailyCheck(pos, ctx);
-    if(dl){ R.lines.push(dl); R.total+=dl[1]; }
     PROF.money+=R.total; PROF.stats.earned+=R.total;
     PROF.stats.races++; if(pos===1) PROF.stats.wins++; if(pos<=3) PROF.stats.podiums++;
     if(RACE_POLE) PROF.stats.poles++;
@@ -12279,7 +12373,7 @@ uniform float shadowFar;
   }
   let RACE_POLE=false, RACE_RECORD=false, RACE_EXTRA=null;
   function walletsUpdate(){
-    for(const id of ["walletGar","walletCar","walletUsine","walletPalm"]){
+    for(const id of ["walletGar","walletCar","walletUsine","walletPalm","walletSpons"]){
       const e=$(id); if(!e) continue;
       e.innerHTML='<b>'+fmtMoney(PROF.money)+'</b><span>Niv. '+PROF.lvl+'</span><i><u style="width:'+
         Math.round(100*PROF.xp/xpNeed(PROF.lvl))+'%"></u></i>';
@@ -12290,6 +12384,7 @@ uniform float shadowFar;
     $("qualiGoBtn").hidden=true;
     $("replayBtn").hidden=false; $("againBtn").hidden=false;
     if(!CAREER_ON) try{ learnRaceEnd(now||performance.now()); }catch(e){}
+    if(!CAREER_ON) try{ careerSkillNote(); }catch(e){}
     state="results"; $("hud").hidden=true;
     RP.rec=false;
     RP.events.sort((a,b)=>a.t-b.t);     // confirmed passes are filed late
@@ -12352,8 +12447,7 @@ uniform float shadowFar;
     state="menu";
     $("pause").hidden=true; $("results").hidden=true; $("count").hidden=true;
     $("hud").hidden=true;   $("menu").hidden=false;
-    const wasDaily=!!DAILY_ON; DAILY_ON=null;
-    showPane(wasDaily ? "season" : "home");
+    showPane("home");
     $("scban").hidden=true; $("rainban").hidden=true; $("pitTimer").hidden=true;
     pitShownT=0;
     $("hint").classList.remove("on");
@@ -12473,8 +12567,10 @@ uniform float shadowFar;
     return {v:1, started:false, year:1, round:0, pts:{}, log:[],
       rd:{eng:0, aero:0, brk:0, tyre:0, pit:0},
       rel:{lea:50, nadia:50, dante:50}, morale:60,
-      sponsor:null, flags:{}, seen:{}, obj:null, objRound:-1, wx:"",
-      stars:0, pending:null, titles:0, history:[], ended:false};
+      spons:[null,null,null], offers:null, newSpon:null, lastMain:null,
+      flags:{}, seen:{}, obj:null, objRound:-1, wx:"",
+      stars:0, pending:null, titles:0, history:[], ended:false,
+      said:{}, ev:{}, evAt:0, track:{}, rdSeen:null, cw:0, cp:0};
   }
   function loadSeason(){
     try{
@@ -12482,6 +12578,14 @@ uniform float shadowFar;
       if(!raw) return freshSeason();
       const o=JSON.parse(raw);
       if(!o || o.v!==1 || typeof o.round!=="number") return freshSeason();
+      // one sponsor before 5.5: it becomes the title sponsor
+      if(o.sponsor && !o.spons){
+        const S=Object.assign({kind:o.sponsor.bonus ? "prime" : "fixe", slot:0, paid:0, miss:0}, o.sponsor);
+        S.left=Math.max(1, CIRCUITS.length-(o.round||0));
+        o.spons=[S,null,null];
+      }
+      delete o.sponsor;
+      if(o.cw===undefined){ o.cw=PROF.stats.wins||0; o.cp=PROF.stats.podiums||0; }
       const f=freshSeason();
       for(const k in f) if(o[k]===undefined) o[k]=f[k];
       o.rd=Object.assign(f.rd, o.rd||{}); o.rel=Object.assign(f.rel, o.rel||{});
@@ -12491,6 +12595,7 @@ uniform float shadowFar;
   }
   function saveSeason(){ try{ localStorage.setItem(SEASON_KEY, JSON.stringify(season)); }catch(e){} }
   let season=loadSeason();
+  PROF.spons=[0,1,2].map(k=>season.spons[k] ? season.spons[k].brand : null);
   let seasonMode=true;
   try{ seasonMode = localStorage.getItem("trs_mode")!=="free"; }catch(e){}
   function setMode(on){
@@ -12535,7 +12640,7 @@ uniform float shadowFar;
       if(i<0) return;
       season.pts[i]=(season.pts[i]||0)+add;
       round.res.push({i:i, pos:k+1, pts:add});
-      if(c.player) round.me=k+1;
+      if(c.player){ round.me=k+1; round.start=c.startRank||0; }
     });
     season.log.push(round);
     season.round++;
@@ -12553,9 +12658,11 @@ uniform float shadowFar;
   ];
   const RD_COST=[40000,80000,140000,220000,340000];
   // what each level is worth, in one place for the race and the factory's sums
+  // (5.5: the car starts further back and every level is worth more; the
+  // tyres are as they were)
   function careerMul(r){
-    return {grip:(0.962+0.012*r.aero)*(1+0.004*r.brk), top:0.984+0.0065*r.eng, acc:0.955+0.015*r.eng,
-            brk:0.93+0.035*r.brk, care:0.93+0.035*r.tyre, pit:1.22-0.075*r.pit};
+    return {grip:(0.945+0.015*r.aero)*(1+0.005*r.brk), top:0.975+0.009*r.eng, acc:0.93+0.025*r.eng,
+            brk:0.90+0.045*r.brk, care:0.93+0.035*r.tyre, pit:1.22-0.075*r.pit};
   }
   // the team's own car: slower than the field to begin with, better with every
   // level the factory builds
@@ -12566,10 +12673,28 @@ uniform float shadowFar;
     c.care=(c.care||1)*m.care; c.pitMul=m.pit;
   }
   function rdTotal(){ let t=0; for(const k in season.rd) t+=season.rd[k]; return t; }
+  // what the next level costs: the list price, less what the team's own
+  // decisions took off it (a wind tunnel, a dyno, a weekend of overtime, a
+  // level brought in by a new hire)
+  function rdCost(k, lv){
+    if(lv>=5) return 0;
+    const F=season.flags;
+    if((k==="aero" && F.freeAero) || (k==="pit" && F.freePit)) return 0;
+    let c=RD_COST[lv];
+    if(k==="aero" && F.wind) c*=0.75;
+    if(k==="eng" && F.dyno) c*=0.75;
+    if(F.rdDisc) c*=1-F.rdDisc;
+    return Math.round(c/1000)*1000;
+  }
   function rdBuy(k){
     const lv=season.rd[k]||0; if(lv>=5) return false;
-    const cost=RD_COST[lv]; if(PROF.money<cost) return false;
-    PROF.money-=cost; season.rd[k]=lv+1; profSave(); saveSeason();
+    const cost=rdCost(k, lv); if(PROF.money<cost) return false;
+    const F=season.flags;
+    PROF.money-=cost; season.rd[k]=lv+1;
+    if(cost===0 && k==="aero" && F.freeAero) F.freeAero=false;
+    else if(cost===0 && k==="pit" && F.freePit) F.freePit=false;
+    else if(F.rdDisc) F.rdDisc=0;
+    profSave(); saveSeason();
     return true;
   }
 
@@ -12600,6 +12725,7 @@ uniform float shadowFar;
                       {k:"clean", t:"Aucun contact avec une autre voiture"},
                       {k:"gain", n:3, t:"Gagner au moins 3 places"} ][(r+season.year)%3]);
     if(list[1].k==="gain" && list[2].k==="gain") list[2]={k:"clean", t:"Aucun contact avec une autre voiture"};
+    if(list[1].k==="beat" && list[2].k==="beat" && list[1].i===list[2].i) list[1]={k:"gain", n:2, t:"Gagner au moins 2 places"};
     return list;
   }
   function objectivesNow(){
@@ -12619,130 +12745,672 @@ uniform float shadowFar;
   const STAR_PAY=[15000,20000,25000];
 
   // ---- sponsors -----------------------------------------------------------
-  // two offers: a steady cheque, or less of one and a bonus for results
-  function sponsorOffers(){
-    const tier=Math.min(4, Math.floor(season.stars/9)+season.year-1);
-    const pool=SPON_FREE;
-    const k0=(season.year*3+season.stars)%pool.length;
-    const b1=pool[k0], b2=pool[(k0+3)%pool.length];
-    const n=clamp(Math.round(careerExpect())-1, 2, 7);
-    return [
-      {brand:b1, base:14000+8000*tier, bonus:0, n:0},
-      {brand:b2, base:6000+4000*tier, bonus:34000+16000*tier, n:n}
-    ];
+  // Three places on the car, three contracts. The title sponsor takes the
+  // sidepods and the nose, a partner the rear wing, a supplier the fin. Each
+  // pays at every round of the career, in one of three ways.
+  const SLOTS=[
+    {nm:"Sponsor principal", where:"Pontons et museau", k:1.00, len:0},
+    {nm:"Partenaire", where:"Aileron arrière", k:0.55, len:5},
+    {nm:"Fournisseur", where:"Aileron de requin", k:0.35, len:4}
+  ];
+  const SLOT_DE=["les pontons","l’aileron arrière","l’aileron de requin"];
+  // a slot has to be worth something before anybody wants it
+  function slotOpen(k){
+    if(season.year>1) return true;
+    if(k===0) return season.round>=1;
+    if(k===1) return season.round>=3 || (season.pts[0]||0)>0 && season.round>=2;
+    return season.round>=5 || season.stars>=6;
+  }
+  function slotLockText(k){
+    return k===0 ? "S’ouvre après Monaco." : k===1 ? "S’ouvre après la 2e manche si on marque des points, sinon à la 4e." : "S’ouvre à la 6e manche, ou dès 6 étoiles.";
   }
   const brandName=i=>BRANDS[i%BRANDS.length].n;
-  function sponsorText(o){
-    return brandName(o.brand)+" : "+fmtMoney(o.base)+" par course"+(o.bonus ? " + "+fmtMoney(o.bonus)+" si top "+o.n : "");
+  function sponTier(){ return Math.min(5, Math.floor(season.stars/9)+season.year-1); }
+  // two offers for an empty slot, kept for a few rounds so they do not change
+  // under the player's nose, never from a brand already on the car
+  function sponOffers(k){
+    const O=season.offers||(season.offers={});
+    const now=season.year*100+season.round;
+    const cur=O[k];
+    const taken=season.spons.filter(Boolean).map(x=>x.brand);
+    if(cur && now-cur.at<3 && !cur.list.some(o=>taken.indexOf(o.brand)>=0)) return cur.list;
+    const pool=SPON_FREE.filter(b=>taken.indexOf(b)<0);
+    let h=(season.year*7919+season.round*104729+k*15485863+(season.stars|0)*31)>>>0;
+    const rnd=()=>{ h=(Math.imul(h,1664525)+1013904223)>>>0; return h/4294967296; };
+    const b1=pool[Math.floor(rnd()*pool.length)];
+    const rest=pool.filter(b=>b!==b1);
+    const b2=rest[Math.floor(rnd()*rest.length)];
+    const t=sponTier(), S=SLOTS[k], r100=v=>Math.round(v*S.k/1000)*1000;
+    const n=clamp(Math.round(careerExpect())-1, 1, 7);
+    const left=S.len || Math.max(1, CIRCUITS.length-season.round);
+    const kinds=[
+      {kind:"fixe", base:r100(14000+8000*t)},
+      {kind:"prime", base:r100(6000+4000*t), bonus:r100(34000+16000*t), n:n},
+      {kind:"pts", base:r100(4000+2400*t), per:Math.round((900+400*t)*S.k/100)*100}
+    ];
+    const i1=Math.floor(rnd()*3), i2=(i1+1+Math.floor(rnd()*2))%3;
+    const list=[Object.assign({brand:b1, slot:k, left:left}, kinds[i1]), Object.assign({brand:b2, slot:k, left:left}, kinds[i2])];
+    O[k]={at:now, list:list};
+    saveSeason();
+    return list;
   }
-  function takeSponsor(o){
-    season.sponsor=o; PROF.spon=o.brand; profSave(); saveSeason();
+  function sponsorTerms(o){
+    let t=fmtMoney(o.base)+" par course";
+    if(o.kind==="prime") t+=" + "+fmtMoney(o.bonus)+" si top "+o.n;
+    else if(o.kind==="pts") t+=" + "+fmtMoney(o.per)+" par point marqué";
+    return t;
+  }
+  function sponsorLen(o){ return o.slot===0 ? "jusqu’à la fin de la saison" : o.left+" courses"; }
+  function sponsorText(o){ return brandName(o.brand)+" : "+sponsorTerms(o)+" · "+sponsorLen(o); }
+  // the car and the board follow whatever the team has signed
+  function sponMirror(){
+    PROF.spons=[0,1,2].map(k=>season.spons[k] ? season.spons[k].brand : null);
+    profSave();
     try{ bandRefresh(0); }catch(e){}
     try{ menuCarLook(CAR_PANES.indexOf(pane)>=0); }catch(e){}
   }
-  function sponsorChoice(intro){
-    const offs=sponsorOffers();
-    return {who:"nadia", text:intro, choices:offs.map(o=>({
+  function sponSign(o){
+    const c=Object.assign({paid:0, miss:0, sig:season.year*100+season.round}, o);
+    // the title sponsor's contract runs with the season it is signed in
+    if(o.slot===0) c.left = seasonOver() ? CIRCUITS.length : Math.max(1, CIRCUITS.length-season.round);
+    season.spons[o.slot]=c;
+    if(season.offers) season.offers[o.slot]=null;
+    season.newSpon=o.brand;
+    saveSeason(); sponMirror();
+  }
+  function signReplies(o){
+    const b=brandName(o.brand), w=SLOT_DE[o.slot];
+    return [
+      {id:"sg.1", who:"ines", t:"C’est signé. *"+b+"* sera sur "+w+" dès la prochaine course."},
+      {id:"sg.2", who:"ines", t:"Contrat signé avec *"+b+"*. Leur directrice marketing m’a serré la main pendant trente secondes. Je crois qu’elle est contente."},
+      {id:"sg.3", who:"marco", t:"*"+b+"* sur "+w+" ? Je sors les pochoirs. Ce sera sec pour la course."},
+      {id:"sg.4", who:"nadia", t:"*"+b+"*. Bon choix. Et un chèque de plus à chaque Grand Prix, ça ne se refuse pas."}
+    ];
+  }
+  // offers inside a scene: the two on the table, or waiting for better
+  function sponsorChoice(intro, k, who){
+    const offs=sponOffers(k);
+    const ch=offs.map(o=>({
       t:'<img class="sponLogo choice" alt="" src="'+brandChip(o.brand,180,40)+'">'+brandName(o.brand),
-      sub:sponsorText(o),
-      fx:()=>{ takeSponsor(o); return [{who:"nadia", text:"C’est signé. *"+brandName(o.brand)+"* sera sur nos pontons dès la prochaine course."}]; }}))};
+      sub:sponsorTerms(o)+" · "+sponsorLen(o),
+      fx:()=>{ sponSign(o); return [sayPick(signReplies(o))]; }}));
+    ch.push({t:"Attendre une meilleure offre", sub:"L’emplacement reste libre. D’autres marques viendront.",
+      fx:()=>[sayPick([
+        {id:"sw.1", who:"ines", t:"Entendu. Je les fais patienter. Tu pourras signer quand tu veux depuis l’écran Sponsors."},
+        {id:"sw.2", who:"ines", t:"Tu as raison de ne pas brader la voiture. Je garde le téléphone allumé."},
+        {id:"sw.3", who:"nadia", t:"Patient. J’aime ça. Mais n’attends pas trop : un emplacement vide ne rapporte rien."}])]});
+    return {who:who||"ines", text:intro, choices:ch};
   }
 
-  // ---- the story ----------------------------------------------------------
+  // ---- what the people say --------------------------------------------------
+  // Every line comes from a pool of the ones that fit the moment; the line said
+  // the fewest times so far is the one said, so nobody repeats themselves
+  // before they have run out of things to say. The count lives in the save.
+  function sayPick(list){
+    const S=season.said||(season.said={});
+    const ok=(list||[]).filter(L=>L && !(L.once && S[L.id]));
+    if(!ok.length) return null;
+    let best=1e9, cand=[];
+    for(const L of ok){ const n=S[L.id]||0; if(n<best){ best=n; cand=[L]; } else if(n===best) cand.push(L); }
+    // among the equally fresh, somebody other than whoever just spoke
+    const other=cand.filter(L=>L.who!==sayPick.last);
+    if(other.length) cand=other;
+    const L=cand[Math.floor(Math.random()*cand.length)];
+    S[L.id]=(S[L.id]||0)+1;
+    sayPick.last=L.who;
+    return {who:L.who, text:L.t, choices:L.choices};
+  }
   const TIPS={
-    monaco:"Monaco. Des rails partout, pas un mètre pour se tromper. Ici, on ne double presque pas : la qualification et la stratégie font tout.",
-    montreal:"Montréal. De gros freinages, et le mur des Champions à la sortie de la dernière chicane. Ne l’embrasse pas.",
-    monza:"Monza. À fond presque partout. L’aspiration vaut de l’or, et le moteur fait le reste.",
-    silverstone:"Silverstone. Des courbes rapides à enchaîner sans lever le pied. Garde ton élan.",
-    spa:"Spa. Le Raidillon, puis la longue montée. Et la météo peut changer d’un virage à l’autre.",
-    zandvoort:"Zandvoort. Étroit, relevé, piégeux. Les dépassements y sont rares : chaque place compte.",
-    interlagos:"Interlagos. Ça monte, ça descend, et il pleut souvent. Les petites écuries adorent.",
-    singapour:"Singapour. De nuit, entre les murs. Une seule erreur et la course est finie.",
-    spielberg:"Spielberg. Court et rapide. Trois gros freinages pour doubler : sois prêt.",
-    hungaroring:"Le Hungaroring. Sinueux comme un karting. L’aéro est reine, et les pneus souffrent."
+    monaco:[
+      ["lea","Monaco. Des rails partout, pas un mètre pour se tromper. Ici, on ne double presque pas : la qualification et la stratégie font tout."],
+      ["marco","Monaco, c’est la direction la plus braquée de l’année. J’ai ajouté de l’angle de braquage. Ne touche pas les rails : je n’ai qu’un seul museau de rechange."],
+      ["sam","Monaco, c’est là que les réputations se font. Et se défont. Personne ne se souvient d’un dixième gagné ici ; tout le monde se souvient d’un rail."],
+      ["lea","À la piscine, sois propre plutôt que rapide. Le temps se gagne en sortie de virage lent, pas en rasant les rails."]],
+    montreal:[
+      ["lea","Montréal. De gros freinages, et le mur des Champions à la sortie de la dernière chicane. Ne l’embrasse pas."],
+      ["lea","Montréal. Chez moi. Quatre gros freinages par tour : sois doux en entrée, brutal en sortie."],
+      ["marco","Montréal use les freins comme nulle part ailleurs. J’ai ouvert les écopes. Si la pédale devient molle, tu me le dis tout de suite."],
+      ["sam","Sur l’île Notre-Dame, les marmottes traversent la piste plus souvent qu’on réussit un dépassement dans l’épingle. Enfin… presque."]],
+    monza:[
+      ["lea","Monza. À fond presque partout. L’aspiration vaut de l’or, et le moteur fait le reste."],
+      ["marco","Monza : on a enlevé de l’aileron pour la vitesse de pointe. Ça va glisser dans les Lesmo. C’est le prix à payer."],
+      ["lea","La première chicane au premier tour, c’est là que la moitié des courses se perdent. Laisse les autres s’y battre."],
+      ["sam","Monza, c’est le temple. Le public sifflera tout le monde sauf les voitures rouges. Ne le prends pas personnellement."]],
+    silverstone:[
+      ["lea","Silverstone. Des courbes rapides à enchaîner sans lever le pied. Garde ton élan."],
+      ["lea","Maggotts, Becketts, Chapel. Si tu lèves le pied à l’entrée, tu le paies jusqu’au bout de la ligne droite."],
+      ["marco","Silverstone, c’est l’aéro qui parle. Chaque heure de soufflerie, tu la sentiras dans Copse."],
+      ["sam","Le vent tourne à Silverstone. Littéralement : une rafale dans Stowe, et la trajectoire n’est plus la même."]],
+    spa:[
+      ["lea","Spa. Le Raidillon, puis la longue montée. Et la météo peut changer d’un virage à l’autre."],
+      ["marco","Spa, c’est le tour le plus long de l’année pour le moteur. Il va souffrir dans la montée. Moi aussi, en te regardant."],
+      ["lea","Au Raidillon, fais-moi confiance : ça passe à fond. Ton cerveau va te dire non. Ignore-le."],
+      ["sam","À Spa, il peut pleuvoir aux Combes et faire soleil à La Source. Les ingénieurs détestent, le public adore."]],
+    zandvoort:[
+      ["lea","Zandvoort. Étroit, relevé, piégeux. Les dépassements y sont rares : chaque place compte."],
+      ["lea","Les virages relevés de Zandvoort pardonnent plus qu’on ne le croit. Ose la vitesse dans le dernier."],
+      ["marco","Le sable des dunes vole sur la piste. Les premiers tours, l’adhérence sera piégeuse."],
+      ["sam","Toute la tribune sera orange. Si tu entends des sifflets, c’est bon signe : tu embêtes quelqu’un."]],
+    interlagos:[
+      ["lea","Interlagos. Ça monte, ça descend, et il pleut souvent. Les petites écuries adorent."],
+      ["lea","Le S de Senna, au premier virage : un bon départ ici vaut trois dépassements plus tard."],
+      ["marco","Interlagos monte et descend sans arrêt. Les freins arrière travaillent fort. Pas de blocage dans la descente."],
+      ["sam","Interlagos a vu plus de courses folles que n’importe quel circuit. Si le ciel noircit, tout peut arriver."]],
+    singapour:[
+      ["lea","Singapour. De nuit, entre les murs. Une seule erreur et la course est finie."],
+      ["lea","Singapour, c’est la chaleur. Pour toi, pour les freins, pour les pneus. Garde de la marge pour les derniers tours."],
+      ["marco","Les murs de Singapour ne pardonnent pas, mais ils ne bougent pas non plus. Sers-t’en comme repères."],
+      ["sam","Sous les projecteurs, chaque erreur se voit de très loin. La piste est éclairée comme un stade."]],
+    spielberg:[
+      ["lea","Spielberg. Court et rapide. Trois gros freinages pour doubler : sois prêt."],
+      ["lea","Un tour très court, donc des écarts minuscules. Ici, un dixième, c’est trois places."],
+      ["marco","Ça grimpe fort jusqu’au virage 3. Le moteur fait la différence dans la côte."],
+      ["sam","Au milieu des montagnes, tout va vite à Spielberg. Même les drapeaux bleus arrivent plus tôt qu’on croit."]],
+    hungaroring:[
+      ["lea","Le Hungaroring. Sinueux comme un karting. L’aéro est reine, et les pneus souffrent."],
+      ["lea","Au Hungaroring, on gagne des places avec la stratégie, rarement en piste. Écoute-moi quand je t’appelle au stand."],
+      ["marco","Il va faire chaud. Les pneus arrière vont souffrir dans le secteur du milieu. Ménage-les."],
+      ["sam","On surnomme le Hungaroring « Monaco sans les murs ». Les dépassements y sont aussi rares, mais les sorties coûtent moins cher."]]
   };
-  const FLAVOR=[
-    {who:"dante", text:"Tu progresses. C’est mignon. Mais le titre, c’est à moi."},
-    {who:"sam", text:"Une rumeur dit que ton écurie a débauché des ingénieurs d’une grosse équipe. Tu confirmes ?"},
-    {who:"marco", text:"Nouvelle pièce ce matin. Elle sort de l’usine, elle est encore tiède."},
-    {who:"nadia", text:"Les sponsors regardent chaque course. Chaque point, c’est du budget pour l’usine."},
-    {who:"lea", text:"J’ai relu tes données. Tu freines un poil trop tôt au premier virage. Fais-moi confiance."},
-    {who:"sam", text:"Les fans ont voté : {team} est l’écurie la plus sympathique du paddock."},
-    {who:"marco", text:"On a gagné trois dixièmes à l’arrêt au stand à l’entraînement. Rentre quand tu veux."},
-    {who:"dante", text:"Tu sais combien de pilotes ont voulu me battre ? Je ne me souviens d’aucun nom."}
+  function tipLine(c){
+    const T=TIPS[c.id];
+    if(!T) return {who:"lea", text:"Nouveau circuit, nouvelle chance."};
+    return sayPick(T.map((x,k)=>({id:"tip."+c.id+"."+k, who:x[0], t:x[1]})));
+  }
+  // where things stand, for the lines to choose from
+  function storyCtx(){
+    const st=standings(), me=st.findIndex(d=>d.i===0)+1, rv=st.findIndex(d=>d.i===RIVAL_I)+1;
+    const log=season.log, last=log[log.length-1]||null;
+    const c=roundCircuit(season.round);
+    const T=((season.track||{})[c.id]||[]).filter(x=>x.y<season.year);
+    const py=T.length ? T[T.length-1].pos : 0;
+    const was=season.rdSeen||season.rd;
+    const rdNew=RD.filter(r=>(season.rd[r.k]||0)>(was[r.k]||0)).map(r=>r.k);
+    const recent=log.slice(-3).map(r=>r.me||9);
+    let cheapest=1e9; for(const r of RD){ const l=season.rd[r.k]||0; if(l<5) cheapest=Math.min(cheapest, rdCost(r.k, l)); }
+    return {st:st, me:me, rv:rv, last:last, lp:last?last.me:0, lastC:last?last.name:"", lastStart:last&&last.start?last.start:0,
+      c:c, py:py, rdNew:rdNew, recent:recent, myPts:season.pts[0]||0, lead:st[0], second:st[1],
+      rivPts:season.pts[RIVAL_I]||0, left:CIRCUITS.length-season.round, cheapest:cheapest,
+      idle:PROF.money>=cheapest*2.2 && cheapest<1e9, relD:season.rel.dante, relL:season.rel.lea};
+  }
+  const place=n=>n===1 ? "1re" : n+"e";
+  // what is worth saying before a round, most pressing first; n lines at most
+  function ctxLines(X, n){
+    const out=[];
+    const add=L=>{ if(out.length>=n) return; const p=sayPick(L); if(p) out.push(p); };
+    const team="{team}";
+    // the factory: what was built since the last race
+    if(X.rdNew.length>=2) add([
+      {id:"rd.m1", who:"marco", t:X.rdNew.length+" nouvelles pièces depuis la dernière course. L’atelier n’a jamais tourné aussi vite."},
+      {id:"rd.m2", who:"marco", t:"Tu nous as fait travailler, patron : "+X.rdNew.length+" améliorations montées cette semaine. La voiture est méconnaissable."}]);
+    else if(X.rdNew.length===1){
+      const k=X.rdNew[0], lv=season.rd[k];
+      const P={
+        eng:[["marco","Le nouveau moteur est monté. Écoute-le dans la ligne droite : il chante plus aigu. Ça, c’est de la vitesse."],
+             ["lea","Niveau "+lv+" pour le moteur. En ligne droite, tu vas enfin pouvoir te servir de l’aspiration pour doubler, pas juste pour suivre."]],
+        aero:[["marco","Nouveau fond plat, nouvel aileron. Dans les virages rapides, tu vas sentir la voiture se coller au sol."],
+              ["lea","L’aéro niveau "+lv+" est sur la voiture. Tu peux entrer plus vite dans les courbes rapides. Vas-y progressivement."]],
+        brk:[["marco","Les nouveaux freins mordent plus fort. Freine quelques mètres plus tard que d’habitude, et fais-moi confiance."],
+             ["lea","Freins niveau "+lv+". Tes points de freinage de la dernière course sont périmés : décale-les."]],
+        tyre:[["marco","On a revu la suspension arrière : les pneus vont moins chauffer. Tu pourras attaquer plus longtemps."],
+              ["lea","Gestion des pneus niveau "+lv+". Tes relais vont durer plus longtemps. Je vais en tenir compte dans la stratégie."]],
+        pit:[["marco","Les gars ont répété l’arrêt au stand cinquante fois hier soir. Ils rêvent de pistolets de roue, maintenant."],
+             ["marco","Nouveau cric, nouveaux pistolets. On va gagner du temps à chaque arrêt. Rentre quand Léa te le dit."]]}[k]||[];
+      add(P.map((x,j)=>({id:"rd."+k+"."+j, who:x[0], t:x[1]})));
+    }
+    // the sponsors: a new one, a bonus to chase, a deal about to end, a free slot
+    const justSigned = season.newSpon!==undefined && season.newSpon!==null;
+    if(justSigned){
+      const b=brandName(season.newSpon);
+      add([{id:"sn.1", who:"ines", t:"*"+b+"* a livré ses autocollants ce matin. La voiture n’a jamais été aussi belle."},
+           {id:"sn.2", who:"marco", t:"Les logos de *"+b+"* sont posés. J’ai vérifié : ils ne décollent pas à 300 à l’heure."},
+           {id:"sn.3", who:"sam", t:"J’ai vu le nouveau logo *"+b+"* sur votre voiture. Il paraît qu’ils ont refusé une autre écurie pour vous."}]);
+      season.newSpon=null;
+    }
+    const S=season.spons;
+    for(let k=0;k<3 && out.length<n;k++){
+      const s=S[k]; if(!s) continue;
+      const b=brandName(s.brand);
+      if(s.left===1 && k>0) add([{id:"se."+k+".1", who:"ines", t:"Dernière course du contrat avec *"+b+"*. Un bon résultat, et ils voudront prolonger."},
+                                 {id:"se."+k+".2", who:"ines", t:"*"+b+"* regarde cette course de près : c’est la dernière de leur contrat."}]);
+      else if(s.kind==="prime" && (s.miss||0)>=2) add([{id:"sm."+k+".1", who:"ines", t:"*"+b+"* attend son top "+s.n+" depuis "+s.miss+" courses. Ils commencent à poser des questions."},
+                                                        {id:"sm."+k+".2", who:"nadia", t:"Petit rappel : le bonus de *"+b+"*, c’est un top "+s.n+". Ça fait "+s.miss+" courses qu’on le rate."}]);
+    }
+    const free=[0,1,2].filter(k=>!S[k] && slotOpen(k)), turn=season.year*100+season.round;
+    if(free.length && out.length<n && !justSigned && turn-(season.nagAt||0)>=3){ season.nagAt=turn; add([
+      {id:"sf.1", who:"ines", t:"L’emplacement « "+SLOTS[free[0]].where.toLowerCase()+" » est toujours libre. J’ai des offres sur mon bureau : passe à l’écran Sponsors."},
+      {id:"sf.2", who:"nadia", t:"Un emplacement libre sur la voiture, c’est de l’argent qu’on laisse sur la table. Inès a des offres."},
+      {id:"sf.3", who:"ines", t:"Petite question : on garde "+SLOT_DE[free[0]]+" vides par choix artistique ? Parce que j’ai deux marques qui attendent."}]); }
+    // results: a run of them, then the last one
+    const run=f=>{ let k=0; for(let i=season.log.length-1;i>=0 && f(season.log[i].me||9);i--) k++; return k; };
+    const wins=run(p=>p===1), pods=run(p=>p<=3), bad=run(p=>p>=6);
+    if(wins===2) add([
+      {id:"fw.2a", who:"lea", t:"Deux victoires de suite. Ne t’habitue pas trop : les autres vont réagir."},
+      {id:"fw.2b", who:"dante", t:"Deux victoires d’affilée. Bravo. Maintenant, tout le monde te regarde. Moi aussi."}]);
+    else if(wins===3) add([
+      {id:"fw.3a", who:"marco", t:"Trois victoires de suite. Je commence à croire que tu fais exprès."},
+      {id:"fw.3b", who:"sam", t:"Trois victoires d’affilée pour "+team+". Mes collègues parlent de domination. Moi, je parle d’un conte de fées."}]);
+    else if(wins===5 || wins===8) add([
+      {id:"fw."+wins, who:"nadia", t:wins+" victoires de suite. Je n’ose plus rien dire, de peur de porter malheur. Alors je ne dis rien. Voilà."}]);
+    else if(pods===3) add([
+      {id:"fs.g1", who:"sam", t:"Trois podiums d’affilée. Dans le paddock, on commence à prononcer le mot « titre » en parlant {deteam}."},
+      {id:"fs.g2", who:"lea", t:"Trois podiums de suite. Ne change rien. Surtout, ne change rien."}]);
+    else if(pods===5 || pods===8) add([
+      {id:"fs.g"+pods, who:"lea", t:pods+" podiums de suite. Je ne sais plus quoi dire à la radio, alors je dis juste : merci."}]);
+    else if(bad===3) add([
+      {id:"fs.b1", who:"nadia", t:"Trois courses sans résultat. Je ne vais pas te mentir : l’usine s’inquiète. Mais moi, je crois encore en nous."},
+      {id:"fs.b2", who:"marco", t:"Les gars sont fatigués. Un bon résultat ce week-end, et tout le monde se remet à siffler à l’atelier."},
+      {id:"fs.b3", who:"lea", t:"On traverse un creux. Ça arrive à toutes les équipes. Ce qui compte, c’est comment on en sort."}]);
+    else if(bad===5) add([
+      {id:"fs.b5", who:"nadia", t:"Cinq courses difficiles. On va s’en sortir, mais il va falloir changer quelque chose. L’usine, la stratégie, ou les deux."}]);
+    else if(X.lp===1 && wins===1) add([
+      {id:"fl.w1", who:"nadia", t:"On a gagné à "+X.lastC+". Le paddock nous regarde autrement. Profite, mais ne change rien."},
+      {id:"fl.w2", who:"marco", t:"Le trophée de "+X.lastC+" est à l’atelier. Les gars le touchent en passant, comme un porte-bonheur."},
+      {id:"fl.w3", who:"dante", t:"Une victoire, et tout le monde vous prend pour des génies. On verra si vous tenez la distance."}]);
+    else if(X.lp>=2 && X.lp<=3) add([
+      {id:"fl.p1", who:"lea", t:"Encore un podium comme à "+X.lastC+", et plus personne ne pourra dire que c’était de la chance."},
+      {id:"fl.p2", who:"sam", t:"Votre podium à "+X.lastC+" a fait la une. Mon rédacteur en chef veut une entrevue. Après la course, promis ?"}]);
+    else if(X.lp>=6) add([
+      {id:"fl.b1", who:"marco", t:X.lastC+", on oublie. La voiture est réparée, les gars ont dormi, on repart de zéro."},
+      {id:"fl.b2", who:"nadia", t:"Après "+X.lastC+", trois partenaires m’ont appelée. Je leur ai dit d’attendre dimanche soir. Ne me fais pas mentir."},
+      {id:"fl.b3", who:"lea", t:"J’ai passé la nuit sur les données de "+X.lastC+". On perdait du temps en sortie de virage lent. Remets les gaz plus progressivement."}]);
+    else if(X.lastStart && X.lastStart-X.lp>=3) add([
+      {id:"fl.g1", who:"lea", t:"Tu as remonté "+(X.lastStart-X.lp)+" places à "+X.lastC+". Imagine ce que tu ferais en partant devant."}]);
+    // the table
+    if(season.log.length>=2){
+      const wasLead=season.leadYr===season.year;
+      if(X.me===1 && !wasLead){ season.leadYr=season.year; season.leadAt=season.year*100+season.round; add([
+        {id:"ch.l1", who:"nadia", t:"On est en tête du championnat. Personne n’y croyait. Moi non plus, pour être honnête."},
+        {id:"ch.l2", who:"sam", t:"Le leader du championnat, c’est "+team+". Je l’écris, je le relis, et je n’y crois toujours pas."}]); }
+      else if(X.me===1 && season.year*100+season.round-(season.leadAt||0)>=3){
+        season.leadAt=season.year*100+season.round;
+        const gap=X.myPts-X.second.pts;
+        add([
+          {id:"ch.g1", who:"lea", t:gap+" points d’avance sur "+X.second.nm+". Ce n’est pas le moment de relâcher."},
+          {id:"ch.g2", who:"nadia", t:"Toujours en tête, "+gap+" points devant "+X.second.nm+". Tout le monde veut notre place, maintenant."},
+          {id:"ch.g3", who:"sam", t:X.second.nm+" est à "+gap+" points de vous. Ça ressemble à une avance. Ça peut fondre en deux courses."}]);
+      }
+      else if(X.me>1 && X.lead.pts-X.myPts<=12 && X.me<=3) add([
+        {id:"ch.c1", who:"lea", t:(X.lead.pts-X.myPts)+" points derrière "+X.lead.nm+". Une seule course peut tout renverser."}]);
+      if(X.me<X.rv && X.rv>1 && season.aheadYr!==season.year && (season.aheadYr=season.year)) add([
+        {id:"ch.r1", who:"sam", t:"Vous êtes devant Russo au championnat. Il a refusé de répondre à ma question là-dessus. Trois fois."},
+        {id:"ch.r2", who:"dante", t:"Devant moi au championnat ? Profite de la vue. Elle ne va pas durer."}]);
+    }
+    // the money asleep in the bank
+    if(X.idle) add([
+      {id:"mo.1", who:"marco", t:"On a "+fmtMoney(PROF.money)+" en caisse, patron. Chaque dollar qui dort, c’est un dixième qu’on ne gagne pas. L’usine attend."},
+      {id:"mo.2", who:"nadia", t:"Petit rappel : l’argent ne va pas plus vite dans un coffre. Passe à l’usine."},
+      {id:"mo.3", who:"lea", t:"Les autres développent leur voiture chaque semaine. Si on reste immobiles, on recule."}]);
+    return out;
+  }
+  // one line of colour: the rival, the press, the team, as things stand
+  function flavorLine(X){
+    const L=[];
+    const d=X.relD, beat=X.last && X.last.res && (()=>{ const r=X.last.res.find(x=>x.i===RIVAL_I); return r && X.lp>0 && X.lp<r.pos; })();
+    if(X.last && beat) L.push(
+      {id:"dn.b1", who:"dante", t:"La dernière fois, c’était un accident. Aujourd’hui, je remets les choses dans l’ordre."},
+      {id:"dn.b2", who:"dante", t:"Profite de ta photo devant moi à "+X.lastC+". Encadre-la."});
+    else if(X.last) L.push({id:"dn.a1", who:"dante", t:"Tu étais où, à "+X.lastC+" ? Ah oui. Derrière."});
+    if(d<35) L.push(
+      {id:"dn.l1", who:"dante", t:"Je t’ai vu dans mes rétroviseurs. Une seconde. Ensuite, plus rien."},
+      {id:"dn.l2", who:"dante", t:"Ton écurie ressemble à un projet d’école. Charmant, mais pas sérieux."},
+      {id:"dn.l3", who:"dante", t:"Quand tu seras devant moi, préviens-moi. J’aimerais voir ça une fois dans ma vie."});
+    else if(d>65) L.push(
+      {id:"dn.h1", who:"dante", t:"Je vais être honnête : tu m’as obligé à travailler plus fort. Ne le répète à personne."},
+      {id:"dn.h2", who:"dante", t:"Si on se retrouve côte à côte au premier virage, on se laisse de la place. Ce serait bête de finir tous les deux dans le mur."},
+      {id:"dn.h3", who:"dante", t:"Mon ingénieur a mis ton nom sur son tableau. Juste au-dessus du mien. Il dit que c’est pour me motiver."});
+    else L.push(
+      {id:"dn.m1", who:"dante", t:"Tu progresses. C’est mignon. Mais le titre, c’est à moi."},
+      {id:"dn.m2", who:"dante", t:"J’ai regardé tes tours embarqués. Tu freines bien. Freiner bien, ça ne suffit pas."},
+      {id:"dn.m3", who:"dante", t:"Tu sais combien de pilotes ont voulu me battre ? Je ne me souviens d’aucun nom."});
+    if(season.flags.provoked) L.push({id:"dn.pv", who:"dante", t:"Toujours à parler de mes rétroviseurs ? Ils sont très propres. Rien dedans."});
+    L.push(
+      {id:"sm.1", who:"sam", t:"Une rumeur dit que ton écurie a débauché des ingénieurs d’une grosse équipe. Tu confirmes ?"},
+      {id:"sm.2", who:"sam", t:"Les fans ont voté : {team} est l’écurie la plus sympathique du paddock. Russo est arrivé dernier du vote. Il fait semblant de s’en moquer."},
+      {id:"sm.3", who:"sam", t:"Mon pronostic pour "+X.c.short+" ? Je n’en fais plus. La dernière fois, j’avais prédit une victoire de Russo sous la pluie. Il a fini dans le gravier."},
+      {id:"sm.4", who:"sam", t:"Votre chef mécanicien, Bellini… il paraît qu’il a travaillé pour trois champions du monde. Il ne m’a jamais dit lesquels."},
+      {id:"sm.5", who:"sam", t:"On m’a demandé qui est la meilleure ingénieure du paddock. J’ai répondu Léa Tremblay. Ne lui dis pas, elle va prendre la grosse tête."},
+      {id:"sm.6", who:"sam", t:"Question de nos lecteurs : qu’est-ce qu’on mange au motorhome {deteam} ? Les gens veulent savoir ce qui vous fait avancer."});
+    if(season.morale>75) L.push({id:"mr.h1", who:"marco", t:"L’ambiance à l’atelier est incroyable. Les gars arrivent avant moi le matin. Ça ne m’était jamais arrivé."});
+    else if(season.morale<40) L.push({id:"mr.l1", who:"marco", t:"Le moral n’est pas terrible, à l’atelier. Une bonne course réglerait bien des choses."});
+    if(X.relL>75) L.push(
+      {id:"le.h1", who:"lea", t:"Tu sais ce que j’aime avec toi ? Tu écoutes à la radio. Ça a l’air simple. C’est rare."},
+      {id:"le.h2", who:"lea", t:"Ma mère m’a demandé si j’étais heureuse ici. J’ai dit oui sans réfléchir. C’est un bon signe, non ?"});
+    else if(X.relL<35) L.push({id:"le.l1", who:"lea", t:"Je vais faire mon travail. Toi, fais le tien."});
+    if(season.flags.docu) L.push({id:"dc.1", who:"sam", t:"J’ai vu le premier épisode du documentaire. On t’entend jurer quatre fois en deux minutes. Les gens adorent."});
+    if(season.flags.fans) L.push({id:"fa.1", who:"sam", t:"Ton rassemblement de fans a fait le tour des réseaux. Le chien déguisé en voiture a plus d’abonnés que moi, maintenant."});
+    if(season.flags.charity) L.push({id:"ch.1", who:"nadia", t:"L’hôpital nous a envoyé des dessins des enfants. Marco les a affichés dans le garage. Personne n’a le droit d’y toucher."});
+    return sayPick(L);
+  }
+  // how the three stars are put, a different way each time
+  function objLine(obj){
+    const list=obj.map(o=>o.t.charAt(0).toLowerCase()+o.t.slice(1)).join(" · ");
+    return sayPick([
+      {id:"ob.1", who:"lea", t:"Les objectifs de la course : "+list+"."},
+      {id:"ob.2", who:"nadia", t:"Ce que j’attends de nous aujourd’hui : "+list+"."},
+      {id:"ob.3", who:"lea", t:"Au programme : "+list+". Trois étoiles, trois raisons de pousser."},
+      {id:"ob.4", who:"marco", t:"Nadia a affiché les objectifs à l’atelier : "+list+". Les gars ont parié sur les trois."},
+      {id:"ob.5", who:"lea", t:"Trois étoiles à aller chercher : "+list+"."}]);
+  }
+  // ---- the team's decisions --------------------------------------------------
+  // Now and then, before a round, somebody brings a decision to the boss. Each
+  // comes once in a career; what was chosen colours what is said afterwards.
+  function purse(v){ PROF.money=Math.max(0, PROF.money+v); if(v>0) PROF.stats.earned+=v; profSave(); }
+  const EVENTS=[
+    {id:"wind", when:X=>(season.year>=2 || season.round>=6) && PROF.money>=150000, make:X=>({who:"marco",
+      text:"La soufflerie de l’usine date d’une autre époque. Une neuve coûte *120 000 $*, et chaque développement aéro coûterait ensuite 25 % de moins.",
+      choices:[
+        {t:"« Achète-la. »", sub:"−120 000 $ · aérodynamique −25 % pour toujours",
+         fx:()=>{ purse(-120000); season.flags.wind=true; return [{who:"marco", text:"Tu ne le regretteras pas. Enfin… on s’en reparle dans six mois."}]; }},
+        {t:"« Pas maintenant. »", sub:"On garde l’argent.",
+         fx:()=>[{who:"marco", text:"Compris. Je garde le catalogue sous mon oreiller."}]}]})},
+    {id:"dyno", when:X=>(season.year>=2 || season.round>=7) && season.round>=2 && PROF.money>=150000, make:X=>({who:"marco",
+      text:"Un banc d’essai moteur d’occasion est à vendre. *110 000 $*. Avec ça, chaque développement moteur coûterait 25 % de moins.",
+      choices:[
+        {t:"« Achète-le. »", sub:"−110 000 $ · moteur −25 % pour toujours",
+         fx:()=>{ purse(-110000); season.flags.dyno=true; return [{who:"marco", text:"Il arrive lundi. Les voisins de l’usine vont adorer le bruit."}]; }},
+        {t:"« On fera sans. »", sub:"On garde l’argent.",
+         fx:()=>[{who:"marco", text:"D’accord. On continuera à tester sur la piste, comme au bon vieux temps."}]}]})},
+    {id:"docu", when:X=>season.year>=2 || season.round>=6, make:X=>({who:"nadia",
+      text:"Une plateforme de diffusion veut tourner un documentaire sur {team}. Caméras partout, même pendant les briefings. Ils paient *60 000 $*.",
+      choices:[
+        {t:"« Ouvrez-leur les portes. »", sub:"+60 000 $ · l’atelier sera un peu dérangé",
+         fx:()=>{ purse(60000); season.flags.docu=true; season.morale-=4; return [{who:"marco", text:"Super. Maintenant, il faut que je me rase tous les matins."}]; }},
+        {t:"« Pas de caméras dans le garage. »", sub:"L’équipe apprécie.",
+         fx:()=>{ season.morale+=6; return [{who:"marco", text:"Merci. Les gars n’avaient pas envie de se faire filmer en mangeant leurs sandwichs."}]; }}]})},
+    {id:"overtime", when:X=>(season.year>=2 || season.round>=6) && PROF.money>=80000, make:X=>({who:"marco",
+      text:"Les gars proposent de travailler tout le week-end pour sortir la prochaine pièce plus vite. Les heures supplémentaires coûtent *40 000 $*, mais la prochaine amélioration coûterait 30 % de moins.",
+      choices:[
+        {t:"« Paie-les. »", sub:"−40 000 $ · prochaine amélioration −30 %",
+         fx:()=>{ purse(-40000); season.flags.rdDisc=0.3; season.morale+=3; return [{who:"marco", text:"Ils vont être contents. Et fatigués. Mais surtout contents."}]; }},
+        {t:"« Qu’ils se reposent. »", sub:"Une équipe fraîche fait moins d’erreurs.",
+         fx:()=>{ season.morale+=5; return [{who:"marco", text:"Tu es un bon patron. Ne le laisse pas trop paraître, ils vont en profiter."}]; }}]})},
+    {id:"poach", when:X=>season.year>=2 && PROF.money>=120000, make:X=>({who:"nadia",
+      text:"Un aérodynamicien de l’écurie de Russo veut nous rejoindre. Il demande *90 000 $*. Avec lui, notre prochain niveau d’aéro serait gratuit.",
+      choices:[
+        {t:"« Engage-le. »", sub:"−90 000 $ · prochain niveau d’aéro offert · Russo ne va pas aimer",
+         fx:()=>{ purse(-90000); season.flags.freeAero=true; season.rel.dante-=10;
+           return [{who:"dante", text:"Tu me voles mes ingénieurs, maintenant ? Garde-le. Il parlait trop, de toute façon."}]; }},
+        {t:"« On forme nos propres gens. »", sub:"L’équipe apprécie.",
+         fx:()=>{ season.morale+=5; season.rel.lea+=4; return [{who:"lea", text:"Bonne réponse. On a assez de talent ici."}]; }}]})},
+    {id:"truce", when:X=>season.year>=2 && season.rel.dante>=45, make:X=>({who:"dante",
+      text:"Russo vient te voir avant la course : « On pourrait éviter de se battre au premier virage. Ça arrangerait tout le monde. »",
+      choices:[
+        {t:"« D’accord. Premier virage propre. »", sub:"Russo s’en souviendra.",
+         fx:()=>{ season.rel.dante+=15; season.flags.truce=true; return [{who:"dante", text:"Bien. Mais après le premier virage, je ne te dois plus rien."}]; }},
+        {t:"« Je ne fais pas de promesses. »", sub:"L’équipe aime ton caractère.",
+         fx:()=>{ season.rel.dante-=10; season.morale+=3; return [{who:"dante", text:"Comme tu veux. Tu viens de me donner une raison de plus."}]; }}]})},
+    {id:"protest", when:X=>season.log.filter(r=>{ const d=r.res.find(x=>x.i===RIVAL_I); return r.me>0 && d && r.me<d.pos; }).length>=2, make:X=>({who:"sam",
+      text:"L’écurie de Russo demande aux commissaires d’inspecter ton fond plat. Selon eux, il serait illégal. Ta réaction ?",
+      choices:[
+        {t:"« Ouvrez le garage aux commissaires. »", sub:"Transparence totale.",
+         fx:()=>{ season.morale+=5; return [{who:"marco", text:"Ils ont tout mesuré, deux fois. Tout est conforme. Russo a l’air bête, maintenant."}]; }},
+        {t:"« Qu’ils prouvent ce qu’ils avancent. »", sub:"La polémique fait vendre : +15 000 $.",
+         fx:()=>{ purse(15000); season.rel.dante-=8; return [{who:"dante", text:"Tu ne nies pas. Intéressant."}, {who:"nadia", text:"Les journaux ne parlent que de nous. Les partenaires adorent : *+15 000 $*."}]; }}]})},
+    {id:"bold", when:X=>season.year>=2, make:X=>({who:"lea",
+      text:"J’ai une idée un peu folle pour ce week-end : ménager les pneus dans le premier relais, et tout donner à la fin. Tu me fais confiance ?",
+      choices:[
+        {t:"« Toujours. »", sub:"Léa apprécie.",
+         fx:()=>{ season.rel.lea+=8; season.flags.bold=season.year*100+season.round; return [{who:"lea", text:"Parfait. Quand je te dis « maintenant », tu attaques. Pas avant."}]; }},
+        {t:"« On reste prudents. »", sub:"Pas de surprise.",
+         fx:()=>{ season.rel.lea-=4; return [{who:"lea", text:"D’accord. On fait ça à l’ancienne."}]; }}]})},
+    {id:"fans", when:X=>season.round>=3 || season.year>=2, make:X=>({who:"sam",
+      text:"Des fans {deteam} organisent un rassemblement devant l’entrée du paddock. Ils espèrent te voir.",
+      choices:[
+        {t:"« J’y vais, évidemment. »", sub:"Le moral de l’équipe monte.",
+         fx:()=>{ season.morale+=6; season.flags.fans=true; return [{who:"sam", text:"Deux cents personnes, des casquettes à ton nom, et un chien déguisé en voiture. Magnifique."}]; }},
+        {t:"« Je dois rester concentré. »", sub:"Ils comprendront.",
+         fx:()=>[{who:"sam", text:"Ils comprendront. Enfin… la plupart."}]}]})},
+    {id:"charity", when:X=>season.round>=2 || season.year>=2, make:X=>({who:"nadia",
+      text:"L’hôpital pour enfants de la ville demande si tu peux passer jeudi. Une heure, quelques photos, beaucoup de sourires.",
+      choices:[
+        {t:"« Bien sûr. »", sub:"Une heure bien investie.",
+         fx:()=>{ season.morale+=5; season.flags.charity=true; return [{who:"nadia", text:"Merci. Sincèrement. C’est aussi pour ça qu’on fait ce métier."}]; }},
+        {t:"« Pas cette semaine. »", sub:"Tu gardes ton énergie pour la course.",
+         fx:()=>[{who:"nadia", text:"Je leur dirai que ce sera pour la prochaine fois. Ne l’oublie pas."}]}]})},
+    {id:"oldcar", when:X=>season.year>=2, make:X=>({who:"marco",
+      text:"J’ai retrouvé la voiture de notre première saison au fond de l’entrepôt. Un collectionneur en offre *50 000 $*. On la vend, ou on la garde ?",
+      choices:[
+        {t:"« Vends-la. »", sub:"+50 000 $",
+         fx:()=>{ purse(50000); return [{who:"marco", text:"Adieu, vieille fille. Tu nous as appris à perdre avec style."}]; }},
+        {t:"« Garde-la. C’est notre histoire. »", sub:"L’équipe apprécie.",
+         fx:()=>{ season.morale+=6; return [{who:"marco", text:"Je savais que tu dirais ça. Je l’ai déjà lavée."}]; }}]})},
+    {id:"rookie", when:X=>season.year>=2 && season.round>=3, make:X=>({who:"lea",
+      text:"Un jeune ingénieur de l’université m’a écrit. Il veut faire un stage chez nous, gratuitement. Il est brillant, mais il pose beaucoup de questions.",
+      choices:[
+        {t:"« Prends-le. »", sub:"Un regard neuf.",
+         fx:()=>{ season.rel.lea+=5; season.flags.intern=true; return [{who:"lea", text:"Merci. Il a déjà trouvé une erreur dans mon tableur. Je ne sais pas si je dois l’aimer ou le détester."}]; }},
+        {t:"« Pas en pleine saison. »", sub:"On reste concentrés.",
+         fx:()=>[{who:"lea", text:"Tu as sans doute raison. Je lui dirai de réessayer l’hiver prochain."}]}]})}
   ];
+  // a sponsor that has had enough of missing its bonus
+  function upsetEvent(S, k){
+    const b=brandName(S.brand);
+    return {who:"ines", text:"*"+b+"* n’est pas content : "+S.miss+" courses sans le top "+S.n+" prévu au contrat. Ils menacent de partir.",
+      choices:[
+        {t:"« Promets-leur un top "+S.n+" à la prochaine course. »", sub:"Réussi : prime de 50 % et contrat prolongé. Raté : ils partent.",
+         fx:()=>{ S.promise=S.n; saveSeason(); return [{who:"ines", text:"J’ai promis. C’est ta signature qui est en jeu maintenant, pas la mienne."}]; }},
+        {t:"« Accepte une baisse de 30 %. »", sub:fmtMoney(Math.round(S.base*0.7/1000)*1000)+" par course au lieu de "+fmtMoney(S.base),
+         fx:()=>{ S.base=Math.round(S.base*0.7/1000)*1000; S.miss=0; S.warned=false; saveSeason(); return [{who:"ines", text:"Ils acceptent. Moins d’argent, mais ils restent. On se rattrapera."}]; }},
+        {t:"« Laisse-les partir. »", sub:"L’emplacement se libère tout de suite.",
+         fx:()=>{ season.spons[k]=null; sponMirror(); saveSeason(); return [{who:"ines", text:"C’est fait. Leur logo sera parti avant la course. Je cherche déjà quelqu’un d’autre."}]; }}]};
+  }
+  // a partner happy enough to stay on
+  function extendEvent(S, k){
+    const b=brandName(S.brand), more=SLOTS[k].len;
+    return {who:"ines", text:"*"+b+"* veut prolonger : "+more+" courses de plus, et 20 % d’augmentation. On signe ?",
+      choices:[
+        {t:"« On signe. »", sub:fmtMoney(Math.round(S.base*1.2/1000)*1000)+" par course pendant "+more+" courses de plus",
+         fx:()=>{ S.left+=more; S.base=Math.round(S.base*1.2/1000)*1000; if(S.bonus) S.bonus=Math.round(S.bonus*1.2/1000)*1000; if(S.per) S.per=Math.round(S.per*1.2/100)*100; saveSeason();
+           return [sayPick([{id:"xy.1", who:"ines", t:"Prolongé. Ils ont même demandé une photo dédicacée pour leur bureau."},
+                            {id:"xy.2", who:"ines", t:"Signé. Leur patron m’a dit qu’on était « la meilleure affaire de l’année ». Je n’ai pas su si c’était un compliment."},
+                            {id:"xy.3", who:"marco", t:"On garde les mêmes autocollants ? Parfait. Je n’avais aucune envie de tout repeindre."}])]; }},
+        {t:"« On regarde ailleurs. »", sub:"Le contrat s’arrête après cette course.",
+         fx:()=>[sayPick([{id:"xn.1", who:"ines", t:"Entendu. Je commence déjà à chercher mieux."},
+                          {id:"xn.2", who:"ines", t:"D’accord. On se quitte bons amis, et l’aileron se libère pour quelqu’un d’autre."},
+                          {id:"xn.3", who:"nadia", t:"Tu as raison. On vaut plus que ça, maintenant."}])]}]};
+  }
+  function eventPick(X, scripted){
+    // a sponsor with something to say comes first
+    for(let k=0;k<3;k++){
+      const S=season.spons[k]; if(!S) continue;
+      if(S.kind==="prime" && (S.miss||0)>=3 && !S.warned && !S.promise){ S.warned=true; return upsetEvent(S,k); }
+      if(k>0 && S.left===1 && !S.ext && (S.kind!=="prime" || (S.miss||0)===0)){ S.ext=true; return extendEvent(S,k); }
+    }
+    if(scripted || (season.year===1 && season.round<6)) return null;
+    const turn=season.year*100+season.round, since=turn-(season.evAt||0);
+    if(since<2 || (since<3 && Math.random()<0.5)) return null;
+    const E=season.ev||(season.ev={});
+    const list=EVENTS.filter(e=>!E[e.id] && e.when(X));
+    if(!list.length) return null;
+    const e=list[Math.floor(Math.random()*list.length)];
+    E[e.id]=true; season.evAt=turn;
+    return e.make(X);
+  }
+  // one moment a season that belongs to that season, so no two feel the same
+  function yearArc(r, X){
+    const y=season.year;
+    if(y===2 && r===4) return [{who:"sam", text:"Un an après le rachat pour un dollar, comment tu décrirais {team} en une phrase ?",
+      choices:[
+        {t:"« Une famille. »", sub:"L’équipe se reconnaît.",
+         fx:()=>{ season.morale+=6; return [{who:"marco", text:"Une famille… Avec un patron qui ne sait pas cuisiner, mais une famille."}]; }},
+        {t:"« Une machine à gagner. »", sub:"Le titre fera réagir Russo. +10 000 $ de visibilité.",
+         fx:()=>{ purse(10000); season.rel.dante-=5; return [{who:"dante", text:season.cw>0
+           ? "Une machine à gagner ? "+season.cw+" victoire"+(season.cw>1?"s":"")+". Moi, j’ai des titres. On en reparle."
+           : "Une machine à gagner ? J’ai dû rater les victoires."}]; }},
+        {t:"« Un projet pas fini. »", sub:"Humble. Léa apprécie.",
+         fx:()=>{ season.rel.lea+=5; return [{who:"lea", text:"J’aime bien. Pas fini, mais en route."}]; }}]}];
+    if(y===2 && r===8) return [{who:"nadia", text:"Léa est nommée ingénieure de course de l’année par la presse spécialisée. La remise du prix tombe la veille de la course."},
+      {who:"lea", text:"Je n’y vais pas si tu as besoin de moi pour préparer la course. Tu décides.",
+       choices:[
+        {t:"« Vas-y. Tu l’as mérité. »", sub:"Léa n’oubliera pas.",
+         fx:()=>{ season.rel.lea+=10; season.morale+=3; return [{who:"lea", text:"Merci. Je vais faire un discours très court. Promis. Deux minutes. Peut-être trois."}]; }},
+        {t:"« Reste, on a du travail. »", sub:"La course d’abord.",
+         fx:()=>{ season.rel.lea-=6; return [{who:"lea", text:"…D’accord. Le trophée ne va pas s’envoler. Au travail."}]; }}]}];
+    if(y===3 && r===2) return [{who:"nadia", text:"Je dois te dire quelque chose. Une grande écurie m’a proposé de diriger son équipe l’an prochain. Le double de mon salaire.",
+      choices:[
+        {t:"« Reste. Je double ton salaire. »", sub:"−80 000 $ · Nadia reste",
+         fx:()=>{ purse(-80000); season.rel.nadia+=15; return [{who:"nadia", text:"…D’accord. Mais je veux aussi un vrai bureau. Avec une fenêtre."}]; }},
+        {t:"« Fais ce qui est bon pour toi. »", sub:"Tu la laisses choisir.",
+         fx:()=>{ season.rel.nadia+=8; return [{who:"nadia", text:"Tu sais quoi ? C’est pour ça que je reste. Ici, on me laisse choisir. Ailleurs, on m’aurait retenue avec un contrat."}]; }}]}];
+    if(y===3 && r===6) return [{who:"marco", text:"Patron, j’ai soixante-deux ans. Je prendrai ma retraite dans deux saisons. Avant, je veux former quelqu’un pour les arrêts au stand.",
+      choices:[
+        {t:"« Forme toute l’équipe. »", sub:"−60 000 $ · prochain niveau « Arrêts au stand » offert",
+         fx:()=>{ purse(-60000); season.flags.freePit=true; return [{who:"marco", text:"Ils vont me détester pendant un mois, et me remercier pendant dix ans."}]; }},
+        {t:"« Tu ne pars nulle part. »", sub:"Marco est touché.",
+         fx:()=>{ season.morale+=6; return [{who:"marco", text:"Ha ! On en reparlera. Mais merci. Vraiment."}]; }}]}];
+    if(y===4 && r===0){
+      season.flags.danteLast=true;
+      return [{who:"sam", text:"Grosse nouvelle ce matin : Dante Russo annonce que cette saison sera sa dernière."},
+              season.rel.dante>=50 ? {who:"dante", text:"Oui, c’est vrai. Et je veux finir en battant la seule personne qui m’a fait douter. Tu vois de qui je parle."}
+                                   : {who:"dante", text:"Oui, j’arrête à la fin de l’année. Mais avant, je vais te montrer ce qu’est un vrai champion. Une dernière fois."}];
+    }
+    if(y===4 && r===CIRCUITS.length-1 && season.flags.danteLast) return [{who:"dante", text:"Dernière course. Je n’aurais jamais cru dire ça, mais… merci pour les batailles. Maintenant, sors de mon chemin."}];
+    if(y===5 && r===0 && season.flags.danteLast) return [{who:"dante", text:"Oui, je sais. J’avais dit que j’arrêtais. La retraite, c’est ennuyeux. Et je ne pouvais pas te laisser gagner sans moi."},
+                                                       {who:"sam", text:"Russo revient. Tout le paddock fait semblant d’être surpris."}];
+    return null;
+  }
+  function lastYearLine(X){
+    const p=X.py, c=X.c.short;
+    if(p===1) return sayPick([{id:"ly.w1", who:"lea", t:"L’an dernier, on a gagné ici. Les autres s’en souviennent. Nous aussi."},
+                              {id:"ly.w2", who:"sam", t:"Vainqueurs à "+c+" l’an dernier. Tout le monde vous attend au tournant."}]);
+    if(p<=3) return sayPick([{id:"ly.p1", who:"lea", t:"L’an dernier ici : P"+p+". La voiture aime ce tracé."},
+                             {id:"ly.p2", who:"marco", t:"P"+p+" à "+c+" l’an dernier. Et la voiture est meilleure maintenant."}]);
+    if(p<=5) return sayPick([{id:"ly.m1", who:"lea", t:"P"+p+" ici l’an dernier. On a de quoi faire mieux."}]);
+    return sayPick([{id:"ly.b1", who:"marco", t:"L’an dernier à "+c+", P"+p+". J’ai encore la photo au mur de l’atelier. Pour la motivation."},
+                    {id:"ly.b2", who:"lea", t:"On avait fini P"+p+" ici l’an dernier. On a une revanche à prendre."}]);
+  }
   // the one objective a chapter of the story sets
   function storyObjective(){
     if(season.year===1 && season.round===4) return {k:"top", n:6, t:"Finir dans le top 6 (la banque regarde)", story:"bank"};
     if(season.year===1 && season.round===7) return {k:"beat", i:RIVAL_I, t:"Finir devant "+CAST.dante.nm+" à Singapour"};
+    if(season.year===4 && season.round===CIRCUITS.length-1 && season.flags.danteLast) return {k:"beat", i:RIVAL_I, t:"Battre Russo pour sa dernière course"};
     return null;
   }
   function prologue(){
     const L=[
       {who:"nadia", text:"Alors c’est toi, le nouveau propriétaire. Un dollar pour une écurie qui doit trois millions. Courageux… ou fou."},
-      {who:"nadia", text:"On a une voiture, une usine, et de quoi tenir une saison. Dix Grands Prix. Si on ne montre rien, les sponsors partent et on ferme."},
-      {who:"lea", text:"Léa Tremblay, ingénieure de course. Je serai dans ton oreille à chaque tour. La voiture est lente, mais elle est honnête : elle ne te lâchera pas."},
+      {who:"nadia", text:"On a une voiture, une usine, et de quoi tenir une saison. Dix Grands Prix. Si on ne montre rien, les sponsors ne viendront jamais et on ferme."},
+      {who:"lea", text:"Léa Tremblay, ingénieure de course. Je serai dans ton oreille à chaque tour. Je ne vais pas te mentir : la voiture est lente. Plus lente que toutes les autres. Mais elle est honnête."},
       {who:"marco", text:"Marco. Les gars de l’atelier n’ont pas vu une paie complète depuis deux mois, et ils sont tous là ce matin. Donne-leur une raison d’y croire."},
-      {who:"nadia", text:"Chaque course rapporte de l’argent. Mets-le dans l’*usine* pour rendre la voiture plus rapide, ou dans le *garage* pour la rendre plus belle. C’est toi le patron."},
+      {who:"nadia", text:"Chaque course rapporte de l’argent. Mets-le dans l’*usine* pour rendre la voiture plus rapide : sans ça, on restera en fond de grille. Le *garage*, c’est pour la rendre belle. C’est toi le patron."},
       {who:"nadia", text:"Objectif de la saison : *"+careerGoal().t+"*. Sinon, on ferme. Premier rendez-vous : Monaco."}
     ];
     if(!PROF.team) L.splice(4,0,{who:"nadia", text:"Mais d’abord, il faut un nom sur cette voiture. Passe au garage."});
     return L;
   }
   function yearIntro(){
-    return [
-      {who:"nadia", text:"Saison "+season.year+". Le paddock nous prend au sérieux, maintenant. Nouvel objectif : *"+careerGoal().t+"*."},
-      {who:"lea", text:"La voiture a progressé cet hiver. Les autres aussi. On y va."},
-      sponsorChoice("Les sponsors se bousculent. Deux offres sur la table :")
-    ];
+    const H=season.history[season.history.length-1]||{pos:8, pts:0, met:false};
+    const g=careerGoal(), L=[], champ=H.pos===1, y=season.year;
+    L.push(sayPick(champ ? [
+        {id:"yi.c1", who:"nadia", t:"Saison "+y+". On est champions du monde, et à partir d’aujourd’hui, tout le monde nous chasse. Objectif : *"+g.t+"*. Encore."},
+        {id:"yi.c2", who:"nadia", t:"Saison "+y+". L’an dernier, on a tout gagné. Cette année, il faut prouver que ce n’était pas un accident. Objectif : *"+g.t+"*."}]
+      : H.met ? [
+        {id:"yi.m1", who:"nadia", t:"Saison "+y+". L’an dernier, on a tenu parole : P"+H.pos+" au championnat. Cette année, le paddock nous attend au tournant. Objectif : *"+g.t+"*."},
+        {id:"yi.m2", who:"nadia", t:"Saison "+y+". Objectif rempli l’an dernier, et maintenant la banque nous dit bonjour. Nouvel objectif : *"+g.t+"*."}]
+      : [
+        {id:"yi.f1", who:"nadia", t:"Saison "+y+". L’an dernier ne s’est pas passé comme prévu : P"+H.pos+". On a appris. Objectif : *"+g.t+"*."},
+        {id:"yi.f2", who:"nadia", t:"Saison "+y+". On a raté l’objectif l’an dernier, et on est encore là. Ça veut dire quelque chose. Cette année : *"+g.t+"*."}]));
+    const tot=rdTotal();
+    L.push(sayPick(tot>=6 ? [
+        {id:"yi.r1", who:"marco", t:"L’atelier a tourné tout l’hiver. "+tot+" améliorations sur la voiture depuis le début. Elle ne ressemble plus à celle de Monaco."},
+        {id:"yi.r2", who:"lea", t:"J’ai comparé avec notre voiture de la première course : on a gagné une éternité. Les autres aussi ont progressé, mais moins que nous."}]
+      : [
+        {id:"yi.r3", who:"marco", t:"Honnêtement ? La voiture a peu changé. Les autres ont travaillé tout l’hiver. Il va falloir investir à l’usine."},
+        {id:"yi.r4", who:"lea", t:"Les autres équipes ont toutes des nouveautés. Nous, pas beaucoup. Il va falloir compenser au pilotage, et à l’usine."}]));
+    L.push(sayPick(champ ? [
+        {id:"yi.d1", who:"dante", t:"Profite de ton titre. Il est à moi en fin d’année."},
+        {id:"yi.d2", who:"dante", t:"J’ai revu toutes les courses de l’an dernier. Toutes. Je sais où tu freines."}]
+      : season.rel.dante>60 ? [
+        {id:"yi.d3", who:"dante", t:"Tu étais le seul à me faire peur l’an dernier. Ne t’habitue pas à ce compliment."},
+        {id:"yi.d6", who:"dante", t:"Bonne année, voisin de garage. Je t’ai gardé une place dans mes rétroviseurs."}]
+      : [
+        {id:"yi.d4", who:"dante", t:"Nouvelle saison, même histoire. Je gagne, tu regardes."},
+        {id:"yi.d5", who:"dante", t:"Encore là ? J’aurais parié que ton écurie serait vendue cet hiver."}]));
+    // the title sponsor's contract ran with the season: keep it, or look elsewhere
+    const M=season.lastMain; season.lastMain=null;
+    if(M && H.met && !season.spons[0]) L.push(renewChoice(M));
+    else if(!season.spons[0]){
+      if(M) L.push({who:"ines", text:"*"+brandName(M.brand)+"* ne renouvelle pas son contrat de sponsor principal. Ils voulaient des résultats. Il nous faut quelqu’un d’autre."});
+      L.push(sponsorChoice(sayPick([
+        {id:"yi.s1", who:"ines", t:"Les pontons sont libres pour la nouvelle saison. Deux marques sont intéressées :"},
+        {id:"yi.s2", who:"ines", t:"Nouvelle saison, nouveau sponsor principal. Voici les deux offres sérieuses :"}]).text, 0));
+    }
+    L.push(sayPick([
+      {id:"yi.l1", who:"lea", t:"Pendant l’hiver, j’ai revu chacun de tes tours. J’ai trois pages de notes. On en parle au premier briefing."},
+      {id:"yi.l2", who:"lea", t:"La voiture est prête. Moi aussi. Et toi ?"},
+      {id:"yi.l3", who:"lea", t:"Nouvelle saison, compteurs à zéro. Tout le monde repart avec le même nombre de points : aucun."}]));
+    saveSeason();
+    return L;
+  }
+  function renewChoice(M){
+    const b=brandName(M.brand), up=v=>Math.round(v*1.2/1000)*1000, n=clamp(Math.round(careerExpect())-1,1,7);
+    const o=Object.assign({}, M, {base:up(M.base), bonus:M.bonus?up(M.bonus):0, per:M.per?Math.round(M.per*1.2/100)*100:0, n:n,
+      left:CIRCUITS.length-season.round, slot:0, paid:0, miss:0, warned:false, promise:0});
+    return {who:"ines", text:"*"+b+"* veut rester notre sponsor principal, avec une hausse de 20 %. On prolonge ?",
+      choices:[
+        {t:"« On prolonge avec "+b+". »", sub:sponsorTerms(o),
+         fx:()=>{ sponSign(o); season.newSpon=null; return [{who:"ines", text:"Signé. *"+b+"* reste avec nous. La fidélité, ça paie."}]; }},
+        {t:"« Voyons ce que les autres proposent. »", sub:"Deux nouvelles offres pour les pontons.",
+         fx:()=>[sponsorChoice("Voici ce que les autres proposent :", 0)]}]};
   }
   function beatenRival(){ return season.log.some(r=>{ const d=r.res.find(x=>x.i===RIVAL_I); return r.me>0 && d && r.me<d.pos; }); }
   function briefing(){
-    const r=season.round, c=roundCircuit(r), L=[];
+    const r=season.round, c=roundCircuit(r), L=[], X=storyCtx();
+    let scripted=false;
+    const inesHello=()=>{ if(season.flags.inesMet) return null; season.flags.inesMet=true;
+      return {who:"ines", text:"Bonjour ! Inès Moreau, je m’occupe des partenaires. Mon travail : remplir cette voiture de logos, et nos comptes avec."}; };
     if(season.year===1){
       if(r===0){
-        L.push({who:"lea", text:TIPS.monaco+" Ce week-end, on ne cherche pas la gloire : on cherche l’arrivée."});
+        L.push({who:"lea", text:TIPS.monaco[0][1]+" Ce week-end, on ne cherche pas la gloire : on cherche l’arrivée."});
         L.push({who:"sam", text:"Dante Russo, à propos {deteam} : « Ils vont découvrir que Monaco n’a pas d’échappatoires. » Il a ri. Tout le paddock a ri."});
+        L.push({who:"lea", text:"Et ne regarde pas trop le classement aujourd’hui. Notre voiture est la plus lente du plateau. Chaque place gagnée, ce sera à toi qu’on la devra."});
       } else if(r===1){
         L.push({who:"lea", text:"Montréal. Chez nous. Ma famille est dans les estrades de l’épingle, je te préviens : ils crient fort."});
-        if(!season.sponsor) L.push(sponsorChoice("Deux marques veulent nos pontons. Il faut choisir :"));
+        if(!season.spons[0]){ L.push(sponsorChoice("Deux marques veulent nos pontons. Il faut choisir :", 0, "nadia")); scripted=true; }
       } else if(r===2){
-        L.push({who:"marco", text:"Monza, le temple de la vitesse. Ici le moteur fait tout. Si tu as mis de l’argent dans l’usine, tu vas le sentir."});
-        L.push({who:"lea", text:"Reste dans l’aspiration dans les lignes droites. Et au freinage de la première chicane… patience."});
+        L.push({who:"marco", text:"Monza, le temple de la vitesse. Ici, le moteur fait tout. Si tu as mis de l’argent dans l’usine, tu vas le sentir."});
+        L.push(inesHello());
+        if(!season.spons[1] && slotOpen(1)){ L.push(sponsorChoice("Avec nos premiers points, d’autres marques frappent à la porte. L’aileron arrière est à prendre :", 1)); scripted=true; }
+        else if(!season.spons[1]) L.push({who:"ines", text:"L’aileron arrière sera à vendre dès qu’on aura marqué des points. Aucune marque ne veut s’afficher sur une voiture qui n’en marque pas."});
       } else if(r===3){
         L.push({who:"sam", text:"Conférence de presse. Russo affirme que ton écurie ne finira pas la saison. Ta réponse ?",
           choices:[
             {t:"« On répondra sur la piste. »", sub:"Calme. L’équipe apprécie.",
              fx:()=>{ season.morale+=8; season.rel.lea+=5; return [{who:"lea", text:"Belle réponse. On travaille, on se tait, on avance."}]; }},
             {t:"« Qu’il surveille ses rétroviseurs. »", sub:"Provocation : les médias adorent, Russo beaucoup moins.",
-             fx:()=>{ season.rel.dante-=15; season.flags.provoked=true; PROF.money+=20000; PROF.stats.earned+=20000; profSave();
+             fx:()=>{ season.rel.dante-=15; season.flags.provoked=true; purse(20000);
                return [{who:"dante", text:"Mes rétroviseurs ? Il faudrait déjà que je le voie derrière moi."},
-                       {who:"nadia", text:"Les téléphones sonnent. Les sponsors adorent qu’on parle de nous : *+20 000 $*."}]; }},
+                       {who:"nadia", text:"Les téléphones sonnent. Les partenaires adorent qu’on parle de nous : *+20 000 $*."}]; }},
             {t:"« Pas de commentaire. »", sub:"Prudent.",
              fx:()=>[{who:"nadia", text:"Sage. On garde notre énergie pour dimanche."}]}
           ]});
+        scripted=true;
+        L.push(inesHello());
       } else if(r===4){
         L.push({who:"nadia", text:"Mauvaise nouvelle. La banque veut voir des résultats avant de prolonger notre prêt : *top 6* ici, à Spa. Sinon, on serre la ceinture."});
-        L.push({who:"lea", text:TIPS.spa+" On peut le faire."});
+        L.push({who:"lea", text:TIPS.spa[0][1]+" On peut le faire."});
       } else if(r===5){
         L.push({who:"lea", text:"Je… je dois te dire quelque chose. Une grosse écurie m’a appelée. Ils m’offrent le double.",
           choices:[
             {t:"« Reste. On te paiera ce que tu vaux. »", sub:"−50 000 $ : Léa reste, et elle y croit encore plus.",
-             fx:()=>{ PROF.money=Math.max(0,PROF.money-50000); season.rel.lea+=20; season.morale+=5; profSave();
+             fx:()=>{ purse(-50000); season.rel.lea+=20; season.morale+=5;
                return [{who:"lea", text:"T’es fou. Mais d’accord, je reste. On a un travail à finir."}]; }},
             {t:"« C’est ta carrière. Je ne te retiendrai pas. »", sub:"Tu la laisses choisir.",
              fx:()=>{ season.rel.lea+=8;
                return [{who:"lea", text:"…Tu sais quoi ? Je reste. Parce que tu m’as laissée choisir. On va les surprendre."}]; }}
           ]});
-        L.push({who:"lea", text:TIPS.zandvoort});
+        scripted=true;
+        L.push({who:"lea", text:TIPS.zandvoort[0][1]});
       } else if(r===6){
         season.wx="wet";
         L.push({who:"lea", text:"Le radar est rouge partout. Il va pleuvoir. Et quand il pleut, les petites écuries marquent des points."});
         L.push({who:"marco", text:"Les pneus pluie sont prêts. Écoute Léa : quand elle dit « rentre », tu rentres."});
+        if(!season.spons[2] && slotOpen(2)){ L.push(inesHello()); L.push(sponsorChoice("Un fournisseur veut son logo sur l’aileron de requin. Petit emplacement, petit chèque, mais chaque dollar compte :", 2)); scripted=true; }
       } else if(r===7){
         if(beatenRival()) L.push({who:"dante", text:"Tu m’as coûté des points cette saison. Ce soir, reste loin de moi."});
         else L.push({who:"sam", text:"Russo dit qu’il ne connaît même pas le nom de ton écurie. On le lui apprend ce soir ?"});
-        L.push({who:"lea", text:TIPS.singapour});
+        L.push({who:"lea", text:TIPS.singapour[0][1]});
       } else if(r===8){
         L.push(goalMet()
           ? {who:"nadia", text:"Pour l’instant, on tient l’objectif : *"+careerGoal().t+"*. Il reste deux courses. Il faut tenir jusqu’au drapeau."}
@@ -12752,70 +13420,242 @@ uniform float shadowFar;
         L.push({who:"lea", text:"Dernière course de la saison. Tout ce qu’on a construit tient dans ces tours. Profite de chaque virage."});
         L.push({who:"nadia", text:"Quoi qu’il arrive aujourd’hui : merci. Personne ne croyait en nous."});
       }
+      if(r>0) for(const l of ctxLines(X, r===1 || r===4 || r===9 ? 1 : 2)) L.push(l);
+      if(r>=7 && L.length<5){ const f=flavorLine(X); if(f) L.push(f); }
     } else {
-      L.push({who:"lea", text:TIPS[c.id]||"Nouveau circuit, nouvelle chance."});
-      L.push(FLAVOR[(r*3+season.year*5)%FLAVOR.length]);
-      if(r===9) L.push({who:"nadia", text:goalMet() ? "Objectif de la saison atteint. Va chercher le reste." : "Dernière course. Il faut *"+careerGoal().t+"*. Tout se joue aujourd’hui."});
+      const arc=yearArc(r, X);
+      if(arc){ for(const l of arc) L.push(l); if(arc.some(l=>l && l.choices)) scripted=true; }
+      if(X.py) L.push(lastYearLine(X));
+      L.push(tipLine(c));
+      for(const l of ctxLines(X, 2)) L.push(l);
+      if(r===CIRCUITS.length-1) L.push(sayPick(goalMet() ? [
+          {id:"lr.m1", who:"nadia", t:"Dernière course. L’objectif est atteint. Va chercher le reste, sans rien regretter."},
+          {id:"lr.m2", who:"nadia", t:"Dernière course, objectif déjà en poche. Aujourd’hui, c’est pour le plaisir. Et pour la prime."}]
+        : [
+          {id:"lr.f1", who:"nadia", t:"Dernière course. Il faut *"+careerGoal().t+"*. Tout se joue aujourd’hui."},
+          {id:"lr.f2", who:"nadia", t:"On y est : la dernière course, et l’objectif n’est pas encore là. *"+capF(careerGoal().t)+"*. Rien d’autre ne compte."}]));
+      else if(r===CIRCUITS.length-2) L.push(sayPick([
+          {id:"lr.p1", who:"lea", t:"Plus que deux courses. On a "+X.myPts+" points et la P"+X.me+" au championnat. Chaque point compte, maintenant."}]));
+      if(L.length<5){ const f=flavorLine(X); if(f) L.push(f); }
     }
-    const obj=objectivesNow();
-    L.push({who:"lea", text:"Les objectifs de la course : "+obj.map(o=>o.t.charAt(0).toLowerCase()+o.t.slice(1)).join(" · ")+"."});
-    return L;
+    const ev=eventPick(X, scripted);
+    if(ev) L.push(ev);
+    L.push(objLine(objectivesNow()));
+    season.rdSeen=Object.assign({}, season.rd);
+    saveSeason();
+    return L.filter(Boolean);
   }
   function debrief(P){
-    const L=[], pos=P.pos;
-    if(pos===1) L.push({who:"lea", text:"VICTOIRE ! Tu as gagné ! *{team}* a gagné un Grand Prix !"},
-                        {who:"marco", text:"Les gars pleurent dans le garage. Moi aussi, un peu. Ne le dis à personne."});
-    else if(pos<=3) L.push({who:"lea", text:"PODIUM ! P"+pos+". Tu entends le garage ? Ils hurlent !"});
-    else if(P.stars[0]) L.push({who:"lea", text:"P"+pos+". Objectif atteint, course propre, intelligente. C’est comme ça qu’on construit."});
-    else L.push({who:"lea", text:"P"+pos+". Pas notre journée. On analyse, et on revient plus forts."},
-                {who:"marco", text:"La voiture a besoin de l’usine, patron. Donne-moi du budget et je te donne des dixièmes."});
-    if(P.beatRival) L.push(pos===1 ? {who:"dante", text:"…Profite. Ça n’arrivera pas deux fois."}
-                                   : {who:"sam", text:"Tout le paddock en parle : {team} a fini devant le champion en titre."});
+    const L=[], pos=P.pos, add=l=>{ if(l) L.push(l); };
+    const gain=(P.start||pos)-pos;
+    if(pos===1){
+      if(P.firstWin) L.push({who:"lea", text:"VICTOIRE ! Tu as gagné ! *{team}* a gagné un Grand Prix !"},
+                            {who:"marco", text:"Les gars pleurent dans le garage. Moi aussi, un peu. Ne le dis à personne."});
+      else if(gain>=4) add(sayPick([{id:"db.wg", who:"lea", t:"Parti P"+P.start+", arrivé P1. Je n’ai pas de mots. Enfin si : magnifique."}]));
+      else if(season.cw===2) add({who:"lea", text:"Deuxième victoire ! La première, c’était peut-être de la chance. La deuxième, c’est un message."});
+      else add(sayPick([
+        {id:"db.w1", who:"lea", t:"P1 à "+P.cn+" ! Et ça devient une habitude. Une très bonne habitude."},
+        {id:"db.w2", who:"nadia", t:"Encore une victoire. Je vais devoir agrandir la vitrine de l’usine."},
+        {id:"db.w3", who:"marco", t:"Les gars peignent déjà une nouvelle étoile sur le mur de l’atelier. On va manquer de mur."},
+        {id:"db.w4", who:"lea", t:"Victoire ! Pas une erreur, pas un tour perdu dans le trafic. C’était une leçon de pilotage."},
+        {id:"db.w5", who:"lea", t:"Victoire numéro "+season.cw+" pour {team}. Je les compte encore. Je ne veux jamais arrêter de les compter."},
+        {id:"db.w6", who:"marco", t:"Victoire ! J’ai promis une pizza aux gars pour chaque victoire. Ça commence à me coûter cher."},
+        {id:"db.w7", who:"sam", t:"Victoire {deteam} à "+P.cn+". Mon titre est déjà prêt : « Ils ne s’arrêtent plus »."},
+        {id:"db.w8", who:"nadia", t:"P1. Je ne vais pas faire de discours. Je vais juste sourire toute la semaine."},
+        {id:"db.w9", who:"lea", t:"Drapeau à damier, P1. Le reste, c’est du bruit. Bravo."},
+        {id:"db.w10", who:"ines", t:"Nos partenaires voient leurs logos sur la plus haute marche. Tu n’imagines pas ce que ça vaut pour moi."}]));
+    } else if(pos>=2 && pos<=3){
+      if(P.firstPodium) L.push({who:"lea", text:"PODIUM ! P"+pos+". Tu entends le garage ? Ils hurlent !"});
+      else add(sayPick([
+        {id:"db.p1", who:"lea", t:"P"+pos+", sur le podium. Encore un peu de rythme, et la plus haute marche est pour nous."},
+        {id:"db.p2", who:"marco", t:"Un podium ! Je vais devoir sortir ma chemise propre pour la photo."},
+        {id:"db.p3", who:"nadia", t:"P"+pos+". Les partenaires vont m’appeler ce soir. Pour une fois, j’ai hâte de répondre."},
+        {id:"db.p4", who:"lea", t:"P"+pos+" à "+P.cn+". Le champagne est pour toi, les données sont pour moi."},
+        {id:"db.p5", who:"sam", t:"{team} encore sur le podium. Je vais finir par connaître votre hymne par cœur."},
+        {id:"db.p6", who:"lea", t:"P"+pos+". On a fait mieux que la voiture ne le permettait, et je sais de quoi je parle."}]));
+    } else if(pos>0 && (P.stars[0] || pos<=4)){
+      add(sayPick([
+        {id:"db.s1", who:"lea", t:"P"+pos+". Course propre, intelligente. C’est comme ça qu’on construit."},
+        {id:"db.s2", who:"lea", t:"P"+pos+". Rien de spectaculaire, mais ce sont des points qui comptent en fin de saison."},
+        {id:"db.s3", who:"nadia", t:"P"+pos+". Solide. Le genre de résultat que personne ne remarque, sauf le classement."},
+        {id:"db.s4", who:"marco", t:"P"+pos+", et la voiture revient entière. Pour moi, c’est une belle journée."},
+        {id:"db.s5", who:"lea", t:"P"+pos+". Tu as tiré le maximum de ce qu’on avait. Le reste viendra de l’usine."}]));
+    } else {
+      add(sayPick([
+        {id:"db.b1", who:"lea", t:"P"+pos+". Pas notre journée. On analyse, et on revient plus forts."},
+        {id:"db.b2", who:"lea", t:"P"+pos+". On a manqué de rythme au milieu de la course. J’ai déjà une idée de ce qui cloche."},
+        {id:"db.b3", who:"nadia", t:"On ne peut pas briller à chaque course. Mais on peut apprendre à chaque course."},
+        {id:"db.b4", who:"marco", t:"Je ne veux pas entendre de reproches. Ni envers toi, ni envers les gars. On s’est battus, point."},
+        {id:"db.b5", who:"lea", t:"P"+pos+". Je crois que je t’ai mal conseillé sur la stratégie. On en parle demain, à tête reposée."},
+        {id:"db.b6", who:"nadia", t:"P"+pos+". Ça fait mal, mais personne ne quitte le navire. On repart."}]));
+      let cheap=1e9; for(const r of RD){ const l=season.rd[r.k]||0; if(l<5) cheap=Math.min(cheap, rdCost(r.k,l)); }
+      if(PROF.money>=cheap) add(sayPick([
+        {id:"db.u1", who:"marco", t:"La voiture a besoin de l’usine, patron. Donne-moi du budget et je te donne des dixièmes."},
+        {id:"db.u2", who:"lea", t:"Tu n’y es pour rien : la voiture manque de rythme. L’usine, c’est maintenant."}]));
+    }
+    if(season.flags.bold===P.turn) add(pos<=3
+      ? {who:"lea", text:"Tu vois ? Ménager au début, attaquer à la fin. Je te l’avais dit. Bon, d’accord, je ne te l’avais pas vraiment promis."}
+      : {who:"lea", text:"Ma stratégie folle n’a pas marché. Je l’assume. La prochaine fois, je serai folle autrement."});
+    if(gain>=3 && pos>1) add(sayPick([
+      {id:"db.g1", who:"lea", t:gain+" places gagnées en course. Tu doubles de mieux en mieux."},
+      {id:"db.g2", who:"marco", t:"Parti P"+P.start+", arrivé P"+pos+". Ça, c’est une remontée."}]));
+    else if(gain<=-3) add(sayPick([
+      {id:"db.l1", who:"lea", t:"On a perdu "+(-gain)+" places depuis le départ. Il faudra comprendre pourquoi."},
+      {id:"db.l2", who:"lea", t:"Parti P"+P.start+", arrivé P"+pos+". On en reparle à tête reposée, d’accord ?"}]));
+    if(P.hits>0 && Math.random()<0.6) add(sayPick([
+      {id:"db.h1", who:"marco", t:"Il y a de la peinture d’une autre voiture sur notre aileron. Je la garde en souvenir ?"},
+      {id:"db.h2", who:"marco", t:"J’ai vu le contact. La voiture a encaissé, mais évite de recommencer : les pièces coûtent cher."},
+      {id:"db.h3", who:"lea", t:"Ce petit contact nous a coûté un peu d’appui. Tu l’as senti dans les virages rapides ?"},
+      {id:"db.h4", who:"sam", t:"Les commissaires ont regardé ton accrochage. Pas de sanction. Cette fois."}]));
+    // the rival: the first time is news; after that, not every time
+    const bR=season.bR||0;
+    if(P.beatRival && bR===1) add(pos===1 ? {who:"dante", text:"…Profite. Ça n’arrivera pas deux fois."}
+                                          : {who:"sam", text:"Tout le paddock en parle : {team} a fini devant le champion en titre."});
+    else if(P.beatRival && (!P.beatBefore || Math.random()<0.3)) add(pos===1 ? sayPick([
+        {id:"db.r2", who:"dante", t:"Belle course. Ne le prends pas pour un compliment."},
+        {id:"db.r3", who:"sam", t:"Russo a quitté le circuit sans parler aux journalistes. D’habitude, il adore les micros."},
+        {id:"db.r7", who:"dante", t:"Je n’ai rien à dire. Note-le : c’est la première fois de ma carrière.", once:true},
+        {id:"db.r8", who:"sam", t:"Russo a passé la conférence de presse à regarder ses chaussures. Elles sont très belles, remarque."},
+        {id:"db.r12", who:"sam", t:"Russo, battu une fois de plus, a répondu à une seule question. La réponse était « non »."},
+        {id:"db.r13", who:"marco", t:"J’ai croisé l’équipe de Russo au parc fermé. Personne ne m’a dit bonjour. J’adore."},
+        season.rel.dante>50 ? {id:"db.r9", who:"dante", t:"Encore toi devant. Mon ingénieur dit que c’est la voiture. Je commence à croire que c’est toi."} : null])
+      : sayPick([
+        {id:"db.r5", who:"sam", t:"Devant Russo, encore. Mes collègues commencent à parler d’une vraie rivalité."},
+        {id:"db.r10", who:"sam", t:"Russo a fini derrière vous et accuse ses pneus. Ses pneus n’ont pas encore répondu."},
+        season.rel.dante<50 ? {id:"db.r11", who:"dante", t:"Tu as eu de la chance aujourd’hui. Beaucoup de chance."} : null,
+        season.rel.dante>60 ? {id:"db.r6", who:"dante", t:"Bien joué. Sérieusement. La prochaine fois, je ne te ferai pas de cadeau."} : null]));
+    else if(P.rivalWin && Math.random()<0.65) add(sayPick([
+      {id:"db.rw1", who:"dante", t:"Tu as vu le podium ? Moi, en haut. L’ordre naturel des choses."},
+      {id:"db.rw2", who:"sam", t:"Russo gagne à "+P.cn+". Il a dédié sa victoire « à ceux qui pensaient que c’était fini ». Je crois que ça te vise."},
+      {id:"db.rw3", who:"lea", t:"Russo a gagné. Il n’était pas plus rapide que nous en fin de course : on a perdu la course au départ."},
+      {id:"db.rw4", who:"dante", t:"Victoire. Tu sais ce qui me fait le plus plaisir ? Ta tête dans mes rétroviseurs au dernier tour."}]));
     const n=P.stars.filter(Boolean).length;
-    if(n===3) L.push({who:"nadia", text:"Trois étoiles sur trois. Les sponsors ont vu ça."});
+    if(n===3 && Math.random()<0.7) add(sayPick([
+      {id:"db.3a", who:"nadia", t:"Trois étoiles sur trois. Les partenaires ont vu ça."},
+      {id:"db.3b", who:"nadia", t:"Trois objectifs sur trois. Je vais encadrer le rapport de course."},
+      {id:"db.3c", who:"lea", t:"Trois étoiles. Je n’ai rien à redire. C’est très frustrant."},
+      {id:"db.3d", who:"marco", t:"Trois étoiles ! Les gars ont gagné leur pari. Maintenant, c’est moi qui paie la tournée."},
+      {id:"db.3e", who:"ines", t:"Trois objectifs sur trois : je viens d’envoyer le résumé à tous nos partenaires. En gras."}]));
     if(P.bank!==undefined) L.push(P.bank ? {who:"nadia", text:"Top 6 à Spa : la banque prolonge le prêt, et nous verse *60 000 $*. On respire."}
                                          : {who:"nadia", text:"Pas de top 6. La banque réduit notre ligne de crédit. Il va falloir être malins."});
-    if(P.sponsorBonus) L.push({who:"nadia", text:"Le bonus de *"+brandName(season.sponsor.brand)+"* est tombé."});
-    if(!seasonOver()) L.push({who:"lea", text:"Prochaine manche : "+roundCircuit(season.round).short+"."});
+    for(const s of (P.spon||[])){
+      const b=brandName(s.brand);
+      // a sponsor's bonus is news the first time, then every third one
+      const top = s.n===1 ? "Victoire" : "Top "+s.n;
+      if(s.bonus && s.bonusN===1) add(sayPick([
+        {id:"db.sb1", who:"ines", t:"Le premier bonus de *"+b+"* est tombé. Ils disent déjà « notre » écurie en parlant de nous."},
+        {id:"db.sb2", who:"ines", t:top+" : le bonus de *"+b+"* est versé. Tout le monde est content, surtout le comptable."}]));
+      else if(s.bonus && s.bonusN%3===0) add({who:"ines", text:"Déjà "+s.bonusN+" bonus de *"+b+"* depuis la signature. Ils parlent de nous comme de leur meilleur investissement."});
+      if(s.kept) L.push({who:"ines", text:"Promesse tenue : *"+b+"* reste, avec une prime de fidélité. Bien joué."});
+      if(s.ended) L.push(s.broke ? {who:"ines", text:"Promesse non tenue. *"+b+"* retire son logo de "+SLOT_DE[s.k]+". L’emplacement est libre."}
+                                 : {who:"ines", text:"Le contrat avec *"+b+"* est terminé. "+capF(SLOT_DE[s.k])+" "+(s.k===0?"sont":"est")+" libre"+(s.k===0?"s":"")+" : de nouvelles offres arriveront."});
+    }
+    if(P.rank0 && P.rank1 && P.rank1!==P.rank0 && season.log.length>1)
+      L.push(P.rank1===1 ? {who:"lea", text:"On prend la tête du championnat !"}
+           : P.rank1<P.rank0 ? {who:"lea", text:"On passe "+place(P.rank1)+" au championnat."}
+           : {who:"lea", text:"On recule au "+place(P.rank1)+" rang du championnat."});
+    if(!seasonOver()){
+      const nx=roundCircuit(season.round).short;
+      if(Math.random()<0.75) add(sayPick([
+        {id:"db.n1", who:"lea", t:"Prochaine manche : "+nx+"."},
+        {id:"db.n2", who:"marco", t:"On démonte tout et on part pour "+nx+"."},
+        {id:"db.n3", who:"lea", t:"Cap sur "+nx+". Repose-toi, tu l’as mérité."},
+        {id:"db.n4", who:"nadia", t:"Prochain rendez-vous : "+nx+". D’ici là, passe voir l’usine."},
+        {id:"db.n5", who:"marco", t:"Les camions partent ce soir pour "+nx+". Moi, je dors dedans."},
+        {id:"db.n6", who:"lea", t:nx+" dans quelques jours. Je t’envoie mes notes demain matin."}]));
+    }
+    saveSeason();
     return L;
   }
   function seasonEnd(){
     const st=standings(), me=st.findIndex(d=>d.i===0)+1, met=goalMet(), prize=SEASON_PRIZE[me-1]||SEASON_PRIZE[7];
-    const L=[];
-    if(me===1) L.push({who:"lea", text:"CHAMPION DU MONDE ! {team} est championne du monde !"},
-                     {who:"dante", text:"…Bien joué. Vraiment. Mais je reviendrai."});
+    const rv=st.findIndex(d=>d.i===RIVAL_I)+1, L=[];
+    if(me===1){
+      L.push(sayPick([{id:"se.c1", who:"lea", t:"CHAMPION DU MONDE ! {team} est championne du monde !"},
+                      {id:"se.c2", who:"lea", t:"CHAMPIONS ! On l’a fait ! Je pleure dans mon casque, ne regarde pas."}]));
+      L.push(sayPick(season.flags.danteLast && season.year===4 ? [{id:"se.dl", who:"dante", t:"Battu à ma dernière saison, et par toi. Il y a pire, comme fin. Bravo."}]
+        : [{id:"se.d1", who:"dante", t:"…Bien joué. Vraiment. Mais je reviendrai."},
+           {id:"se.d2", who:"dante", t:"Champion. Profite de chaque jour : l’an prochain, je te reprends tout."}]));
+    } else if(rv===1) L.push(sayPick([
+      {id:"se.r1", who:"dante", t:"Champion, encore. Tu te rapproches, je l’avoue. Mais pas assez."},
+      {id:"se.r2", who:"sam", t:"Russo champion du monde. Il a remercié son équipe, sa famille… et toi, « pour la motivation ». C’était presque gentil."}]));
     L.push(met ? {who:"nadia", text:"Saison "+season.year+" terminée : P"+me+" au championnat, et l’objectif est atteint. Prix de fin de saison : *"+fmtMoney(prize)+"*."}
-               : {who:"nadia", text:"Saison "+season.year+" terminée : P"+me+". L’objectif n’est pas atteint… Mais un investisseur a vu quelque chose en nous. On continue. Prix de fin de saison : *"+fmtMoney(prize)+"*."});
+               : sayPick([
+                 {id:"se.f1", who:"nadia", t:"Saison "+season.year+" terminée : P"+me+". L’objectif n’est pas atteint… Mais un investisseur a vu quelque chose en nous. On continue. Prix de fin de saison : *"+fmtMoney(prize)+"*."},
+                 {id:"se.f2", who:"nadia", t:"Saison "+season.year+" terminée : P"+me+". On voulait mieux. La banque grince des dents, mais elle nous suit. Prix de fin de saison : *"+fmtMoney(prize)+"*."}]));
+    if(met && me>1) L.push(sayPick([
+      {id:"se.m1", who:"marco", t:"Objectif atteint. Les gars organisent une fête à l’atelier. Tu es obligé de venir, c’est dans ton contrat."},
+      {id:"se.m2", who:"lea", t:"On l’a fait. Un an de travail, et on l’a fait."}]));
     const next=GOALS[Math.min(GOALS.length-1, season.year)];
-    L.push({who:"lea", text:"La saison prochaine, on vise plus haut : "+next.t+"."});
-    return {lines:L, prize:prize, me:me, met:met};
+    L.push(sayPick(me===1 && season.year>=4 ? [{id:"se.n0", who:"lea", t:"La saison prochaine : garder le titre. Il paraît que c’est plus dur que de le gagner."}]
+      : [{id:"se.n1", who:"lea", t:"La saison prochaine, on vise plus haut : "+next.t+"."},
+         {id:"se.n2", who:"nadia", t:"L’an prochain : "+next.t+". Je l’ai déjà écrit sur le tableau de l’usine."}]));
+    saveSeason();
+    return {lines:L.filter(Boolean), prize:prize, me:me, met:met};
   }
-  // the end of a round, raced: points, stars, the sponsor's cheque, the story
+  // the end of a round, raced: points, stars, the sponsors' cheques, the story
   function careerRaceEnd(order){
     const pos=order.indexOf(player)+1;
     const posOf=i=>{ const c=cars[i]; const k=order.indexOf(c); return k<0 ? 99 : k+1; };
     const obj=objectivesNow();
     const ctx={pos:pos, start:player.startRank, hits:player.hits||0, posOf:posOf};
     const stars=obj.map(o=>objDone(o, ctx));
+    const rank0=standings().findIndex(d=>d.i===0)+1, rivalPos=posOf(RIVAL_I);
+    const turn=season.year*100+season.round;
     awardPoints(order);
+    const rank1=standings().findIndex(d=>d.i===0)+1;
     const lapsK = totalLaps>=21 ? 2.7 : totalLaps>=10 ? 1.6 : 1;
+    const r100=v=>Math.round(v*lapsK/100)*100;
     const extra=[];
-    stars.forEach((s,k)=>{ if(s) extra.push(["★ "+obj[k].t, Math.round(STAR_PAY[k]*lapsK/100)*100]); });
+    stars.forEach((s,k)=>{ if(s) extra.push(["★ "+obj[k].t, r100(STAR_PAY[k])]); });
     const nStars=stars.filter(Boolean).length;
-    if(nStars===3) extra.push(["Trois étoiles", Math.round(20000*lapsK/100)*100]);
+    if(nStars===3) extra.push(["Trois étoiles", r100(20000)]);
     season.stars+=nStars;
-    let sponsorBonus=false;
-    if(season.sponsor){
-      const S=season.sponsor;
-      extra.push(["Sponsor "+brandName(S.brand), Math.round(S.base*lapsK/100)*100]);
-      if(S.bonus && pos>0 && pos<=S.n){ sponsorBonus=true; extra.push(["Bonus "+brandName(S.brand)+" (top "+S.n+")", Math.round(S.bonus*lapsK/100)*100]); }
+    // every sponsor on the car pays, each the way its contract says
+    const SP=[]; let gone=false;
+    for(let k=0;k<3;k++){
+      const S=season.spons[k]; if(!S) continue;
+      const b=brandName(S.brand), rec={k:k, brand:S.brand, n:S.n};
+      let got=r100(S.base);
+      extra.push(["Sponsor "+b, got]);
+      if(S.kind==="prime"){
+        if(pos>0 && pos<=S.n){ const x=r100(S.bonus); extra.push(["Bonus "+b+(S.n===1?" (victoire)":" (top "+S.n+")"), x]); got+=x; S.miss=0; S.warned=false; rec.bonus=true; rec.bonusN=S.bonusN=(S.bonusN||0)+1; }
+        else S.miss=(S.miss||0)+1;
+      } else if(S.kind==="pts"){
+        const p=PTS[pos-1]||0;
+        if(p>0){ const x=r100(S.per*p); extra.push([b+" · "+p+" pts × "+fmtMoney(S.per), x]); got+=x; }
+      }
+      if(S.promise){
+        if(pos>0 && pos<=S.promise){ const x=r100(S.base*0.5); extra.push(["Promesse tenue · "+b, x]); got+=x; S.left+=2; S.miss=0; S.warned=false; rec.kept=true; }
+        else { S.left=1; rec.broke=true; }
+        S.promise=0;
+      }
+      S.paid=(S.paid||0)+got;
+      S.left--;
+      if(S.left<=0){ rec.ended=true; if(k===0 && !rec.broke) season.lastMain=Object.assign({}, S); season.spons[k]=null; gone=true; }
+      if(rec.bonus || rec.kept || rec.ended) SP.push(rec);
     }
-    const P0={pos:pos, stars:stars, sponsorBonus:sponsorBonus,
-              beatRival: pos>0 && posOf(RIVAL_I)>pos};
+    if(gone) sponMirror();
+    // what the team remembers of this circuit, for next year
+    const T=season.track||(season.track={});
+    const TL=T[TRACK.id]||(T[TRACK.id]=[]); TL.push({y:season.year, pos:pos}); if(TL.length>4) TL.shift();
+    const P0={pos:pos, stars:stars, spon:SP, turn:turn, cn:TRACK.short,
+              beatRival: pos>0 && rivalPos>pos, rivalWin: rivalPos===1,
+              start:player.startRank||0, hits:player.hits||0, rank0:rank0, rank1:rank1,
+              firstWin: pos===1 && !(season.cw>0), firstPodium: pos>=1 && pos<=3 && !(season.cp>0)};
+    if(pos===1) season.cw=(season.cw||0)+1;
+    // beating the champion: counted over the career, and whether it happened last time too
+    if(P0.beatRival){
+      const pr=season.log[season.log.length-2], d=pr && pr.res ? pr.res.find(x=>x.i===RIVAL_I) : null;
+      P0.beatBefore=!!(pr && d && pr.me>0 && pr.me<d.pos);
+      season.bR=(season.bR||0)+1;
+    }
+    if(pos>=1 && pos<=3) season.cp=(season.cp||0)+1;
     const so=obj[2] && obj[2].story;
     if(so==="bank"){ P0.bank=stars[2]; if(stars[2]) extra.push(["Prêt prolongé", 60000]); }
-    season.wx="";
-    season.pending=P0; season.obj=null;
+    season.morale=clamp(season.morale+(pos===1?6:pos<=3?4:pos<=5?1:-3), 0, 100);
+    season.wx=""; season.pending=P0; season.obj=null;
+    try{ careerSkillNote(); }catch(e){}
     saveSeason();
     RACE_EXTRA=extra;
     return {pos:pos, stars:stars, obj:obj};
@@ -12832,14 +13672,14 @@ uniform float shadowFar;
   }
   // a new year: the table starts again, the team and its factory do not
   function newYear(){
-    season.history.push({year:season.year, pos:standings().findIndex(d=>d.i===0)+1, pts:season.pts[0]||0});
-    season.year++; season.round=0; season.pts={}; season.log=[]; season.obj=null; season.pending=null;
+    season.history.push({year:season.year, pos:standings().findIndex(d=>d.i===0)+1, pts:season.pts[0]||0, met:goalMet()});
+    season.year++; season.round=0; season.pts={}; season.log=[]; season.obj=null; season.pending=null; season.offers=null;
     season.seen={}; season.ended=false;
     saveSeason(); renderSeason();
   }
   // the reset in Reglages: the career starts over, what was bought stays
   function newSeason(){
-    season=freshSeason(); PROF.spon=null; profSave(); saveSeason();
+    season=freshSeason(); PROF.spons=[null,null,null]; profSave(); saveSeason();
     renderSeason();
   }
 
@@ -13027,71 +13867,6 @@ uniform float shadowFar;
 
 
 
-  /* ======================== DÉFI DU JOUR ========================
-     One challenge a day, drawn from the date: every player gets the same
-     one, which is what makes it something to talk about. */
-  function dayKey(d){ d=d||new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
-  function dailyDef(day){
-    let h=2166136261>>>0; for(const ch of day) h=Math.imul(h^ch.charCodeAt(0), 16777619)>>>0;
-    const rnd=()=>{ h=(Math.imul(h,1664525)+1013904223)>>>0; return h/4294967296; };
-    const c=CIRCUITS[Math.floor(rnd()*CIRCUITS.length)];
-    const wx = rnd()<0.3 ? "wet" : "dry";
-    const tod = ["jour","couchant","nuit"][Math.floor(rnd()*3)];
-    const kinds=[
-      {k:"podium", t:"Finir sur le podium", pay:40000},
-      {k:"win", t:"Gagner la course", pay:60000},
-      {k:"gain", n:4, t:"Gagner au moins 4 places", pay:35000},
-      {k:"cleantop", n:5, t:"Finir dans le top 5 sans aucun contact", pay:45000},
-      {k:"top", n:3, t:"Finir dans le top 3", pay:70000, diff:"1.16"}
-    ];
-    const g=kinds[Math.floor(rnd()*kinds.length)];
-    const diff = g.diff || ["1.00","1.045","1.045","1.16"][Math.floor(rnd()*4)];
-    return {day:day, c:c.id, name:c.short, wx:wx, tod:tod, goal:g, diff:diff, laps:5};
-  }
-  const TOD_NM={jour:"de jour", couchant:"au couchant", nuit:"de nuit"};
-  const DIFF_NM={"1.00":"Normal","1.045":"Difficile","1.16":"Extrême"};
-  function dailyStreakMul(){ return 1+Math.min(0.5, 0.1*Math.max(0,(PROF.daily.streak||0))); }
-  function dailyGo(){
-    const D=dailyDef(dayKey());
-    try{ sessionStorage.setItem("trs_daily", D.day); }catch(e){}
-    if(D.c!==TRACK.id){ try{ sessionStorage.setItem("trs_autostart","1"); }catch(e){} chooseCircuit(D.c); return; }
-    setMode(false); startRace();
-  }
-  // at the flag: was it done, and what does it pay
-  function dailyCheck(pos, ctx){
-    if(!DAILY_ON) return null;
-    const D=DAILY_ON, g=D.goal, today=dayKey();
-    if(D.day!==today || (PROF.daily.day===today && PROF.daily.done)) return null;
-    let ok=false;
-    if(g.k==="podium") ok=pos>=1 && pos<=3;
-    else if(g.k==="win") ok=pos===1;
-    else if(g.k==="gain") ok=(ctx.start||pos)-pos>=g.n;
-    else if(g.k==="cleantop") ok=pos>=1 && pos<=g.n && (ctx.hits||0)===0;
-    else if(g.k==="top") ok=pos>=1 && pos<=g.n;
-    if(!ok) return null;
-    // the streak: yesterday done means one more day, otherwise it starts again
-    const y=new Date(); y.setDate(y.getDate()-1);
-    PROF.daily.streak = PROF.daily.last===dayKey(y) ? (PROF.daily.streak||0)+1 : 1;
-    PROF.daily.day=today; PROF.daily.done=true; PROF.daily.last=today;
-    const pay=Math.round(g.pay*dailyStreakMul()/100)*100;
-    return ["Défi du jour"+(PROF.daily.streak>1?" (série de "+PROF.daily.streak+")":""), pay];
-  }
-  function renderDaily(){
-    const el=$("dailyCard"), tx=$("dailyTxt"); if(!el || !tx) return;
-    const D=dailyDef(dayKey()), today=dayKey();
-    const done=PROF.daily.day===today && PROF.daily.done;
-    const y=new Date(); y.setDate(y.getDate()-1);
-    const alive = PROF.daily.last===today || PROF.daily.last===dayKey(y);
-    const streak = alive ? (PROF.daily.streak||0) : 0;
-    el.classList.toggle("done", done);
-    el.title = done ? "" : "5 tours, voitures égales. Réussis-le chaque jour pour allonger ta série.";
-    const where=D.name+(D.wx==="wet"?" sous la pluie":"")+", "+TOD_NM[D.tod];
-    tx.innerHTML = done
-      ? '✔ Réussi'+(streak>1?' · série de '+streak:'')+'. Reviens demain.'
-      : where+'. '+D.goal.t+' ('+DIFF_NM[D.diff]+'). <em>+'+
-        fmtMoney(Math.round(D.goal.pay*(1+Math.min(0.5,0.1*streak))/100)*100)+'</em>'+(streak>0?' · série de '+streak:'');
-  }
-
   /* ========================== TROPHÉES ========================== */
   const TROPHIES=[
     ["first","Premier départ","Termine ta première course.",5000],
@@ -13112,7 +13887,7 @@ uniform float shadowFar;
     ["russo","Tueur de géant","Finis devant Dante Russo en carrière.",30000],
     ["stars3","Parfait","Réussis les trois étoiles d’une manche.",25000],
     ["champ","Champion du monde","Gagne le championnat en carrière.",500000],
-    ["streak7","Assidu","Réussis 7 défis du jour d’affilée.",100000]
+    ["spons3","Carnet d’adresses","Aie trois sponsors sur ta voiture en même temps.",60000]
   ];
   // unlocks what is earned; returns the lines to show, already paid
   function trophyCheck(ctx){
@@ -13143,7 +13918,7 @@ uniform float shadowFar;
     if(SHOP_COL.filter(c=>c[3]===0 || PROF.own["col:"+c[0]]).length>=10) give("colors");
     if(PROF.own["fin:chrome"]) give("chrome");
     if(ctx.champ) give("champ");
-    if((PROF.daily.streak||0)>=7) give("streak7");
+    if(typeof season!=="undefined" && season.spons && season.spons.every(Boolean)) give("spons3");
     if(got.length) profSave();
     return got;
   }
@@ -13175,11 +13950,11 @@ uniform float shadowFar;
   }
   function garRefreshCar(force){
     const c=garCar(); if(!c || !PROF.team) return;
-    const k=garLook(), key=JSON.stringify(k)+"|"+PROF.team.name+"|"+PROF.team.no;
+    const k=garLook(), key=JSON.stringify(k)+"|"+PROF.team.name+"|"+PROF.team.no+"|"+(PROF.spons||[]).join(",");
     if(!force && GAR.shown===key) return;
     GAR.shown=key;
     c.livery=Object.assign({}, LIV0_FACTORY);
-    profApplyLivery(c.livery, k, PROF.team, PROF.spon);
+    profApplyLivery(c.livery, k, PROF.team, PROF.spons);
     c.livery.key = GAR.pend ? "essai" : teamKey();
     try{ rebuildCarMesh(c); }catch(e){}
   }
@@ -13364,7 +14139,6 @@ uniform float shadowFar;
     { const nb=$("carNextBox"); if(nb) nb.style.setProperty("--team", PROF.team && PROF.look ? hex6(PROF.look.c) : "var(--yellow)"); }
     $("carSet").hidden=seasonOver() || !PROF.team;
     $("carTiles").hidden=!PROF.team;
-    try{ renderDaily(); }catch(e){}
     try{ tilesUpdate(); }catch(e){}
     title.textContent="Saison "+season.year;
     const g=careerGoal(), met=goalMet();
@@ -13400,21 +14174,24 @@ uniform float shadowFar;
       row.innerHTML='<span class="pos">'+(k+1)+'</span><span class="no">#'+d.no+'</span><span class="nm">'+d.nm+'</span><span class="gap">'+d.pts+'</span>';
       tb.appendChild(row);
     });
-    $("carSpon").innerHTML = season.sponsor
-      ? '<img class="sponLogo" alt="" src="'+brandChip(season.sponsor.brand,180,40)+'">'+
-        sponsorText(season.sponsor).split(" : ")[1]
+    const sg=season.spons.filter(Boolean);
+    $("carSpon").innerHTML = sg.length
+      ? sg.map(x=>'<img class="sponLogo" alt="'+brandName(x.brand)+'" title="'+brandName(x.brand)+'" src="'+brandChip(x.brand,180,40)+'">').join("")+
+        '<span>'+sg.length+' sponsor'+(sg.length>1?'s':'')+' · <b>'+fmtMoney(sg.reduce((a,x)=>a+x.base,0))+'</b> garantis par course</span>'
       : 'Pas encore de sponsor.';
     try{ stratChipsUpdate(); }catch(e){}
   }
   // one line under each room of the team: what is worth going in for
   function tilesUpdate(){
     const lv=RD.reduce((a,r)=>a+(season.rd[r.k]||0),0);
-    const can=RD.filter(r=>{ const l=season.rd[r.k]||0; return l<5 && PROF.money>=RD_COST[l]; }).length;
+    const can=RD.filter(r=>{ const l=season.rd[r.k]||0; return l<5 && PROF.money>=rdCost(r.k, l); }).length;
     $("tileUsine").innerHTML = can ? '<em>'+can+' amélioration'+(can>1?'s':'')+' à ta portée</em>'
       : lv ? 'Voiture améliorée '+lv+' fois sur '+RD.length*5 : 'Rends ta voiture plus rapide';
     let buy=0;
     for(const kind of ["col","fin","des"]) for(const it of LIST[kind]) if(!itOwned(kind,it) && PROF.lvl>=it[4] && PROF.money>=it[3]) buy++;
     $("tileGarage").innerHTML = buy ? '<em>'+buy+' nouveauté'+(buy>1?'s':'')+' à ta portée</em>' : 'Peinture, finition, motif';
+    const nS=season.spons.filter(Boolean).length, open=[0,1,2].filter(k=>!season.spons[k] && slotOpen(k)).length;
+    $("tileSpons").innerHTML = open ? '<em>'+open+' emplacement'+(open>1?'s':'')+' à signer</em>' : nS ? nS+' sponsor'+(nS>1?'s':'')+' sur 3' : 'Des marques sur ta voiture';
     const n=TROPHIES.filter(t=>PROF.ach[t[0]]).length;
     $("tilePalm").textContent = n+" trophée"+(n>1?"s":"")+" sur "+TROPHIES.length+(season.titles ? " · "+season.titles+" titre"+(season.titles>1?"s":"") : "");
   }
@@ -13484,13 +14261,24 @@ uniform float shadowFar;
       const LV=aiLevel(parseFloat(OPT.diff)||1), PF=TEAM[LIVERY[RIVAL_I].nm]||TEAM_NEUTRAL;
       const riv={maxSpeed:BASE*(1+PF.top*Math.min(LV.mix,1.6)/100), accel:30*(1+PF.top*Math.min(LV.mix,1.6)/100),
                  brake:55, roll:2.2, dragC:0.11, gripMul:1+PF.grip*LV.mix/100, aiPace:1, aiTop:1};
-      const gap=now-aiLapEstimate(riv,1);
+      // Once the player's own pace is known, the gap is the one the race will
+      // have: their driving in this car, against the champion's car as the
+      // level sets it. Before that, the two cars with the same driver.
+      let gap=now-aiLapEstimate(riv,1), how="à pilote égal";
+      const lvl=careerSkillLap();
+      if(lvl){
+        const rc={maxSpeed:riv.maxSpeed, accel:30*LV.accel*(1+PF.top*Math.min(LV.mix,1.6)/100), brake:55, roll:2.2, dragC:0.11,
+                  gripMul:LV.grip*(1+PF.grip*LV.mix/100), aiPace:Math.min(0.995, LV.pace*(1+PF.pace*LV.mix/100)), aiTop:LV.top};
+        const cal=(LRN.mem && LRN.mem.calib2)||LRN_CAL0;
+        gap=lvl*now/aiLapEstimate(stdCar(),1) - aiLapEstimate(rc, careerAdaptFor(rc))*cal;
+        how="à ton rythme";
+      }
       $("usineGap").innerHTML = gap>0.02
-        ? 'Ta voiture contre celle de '+CAST.dante.nm+', à pilote égal : <b>+'+comma(gap,2)+' s</b> au tour.'
-        : 'Ta voiture vaut désormais celle du champion. <b>'+(gap<0?'−'+comma(-gap,2)+' s':'à égalité')+'</b> au tour.';
+        ? 'Ta voiture contre celle de '+CAST.dante.nm+', '+how+' : <b>+'+comma(gap,2)+' s</b> au tour.'
+        : 'Ta voiture vaut désormais celle du champion, '+how+'. <b>'+(gap<0?'−'+comma(-gap,2)+' s':'à égalité')+'</b> au tour.';
     }catch(e){ $("usineGap").textContent=""; }
     box.innerHTML=RD.map(r=>{
-      const lv=season.rd[r.k]||0, cost=lv<5?RD_COST[lv]:0;
+      const lv=season.rd[r.k]||0, cost=lv<5?rdCost(r.k, lv):0, list=lv<5?RD_COST[lv]:0;
       let gain="";
       if(lv<5){
         if(r.k==="tyre") gain="Niveau suivant : pneus ≈ +"+comma(3.5/(0.93+0.035*lv),1)+" % plus durables";
@@ -13503,7 +14291,37 @@ uniform float shadowFar;
       return '<div class="rdRow"><div class="rdTop"><b>'+r.nm+'</b><span class="pips">'+pips+'</span></div>'+
         '<div class="rdDesc">'+r.d+'</div>'+(gain?'<div class="rdGain">'+gain+'</div>':'')+
         (lv>=5 ? '<div class="rdMax">Niveau maximum</div>'
-               : '<button class="btn'+(short?' ghost':'')+'" data-rd="'+r.k+'"'+(short?' disabled':'')+'>Développer · '+fmtMoney(cost)+'</button>')+'</div>';
+               : '<button class="btn'+(short?' ghost':'')+'" data-rd="'+r.k+'"'+(short?' disabled':'')+'>Développer · '+
+                 (cost===0 ? 'offert' : fmtMoney(cost)+(cost<list ? ' (−'+Math.round(100*(1-cost/list))+' %)' : ''))+'</button>')+'</div>';
+    }).join("");
+  }
+
+  /* ------------------------ the sponsors ------------------------ */
+  function renderSpons(){
+    walletsUpdate();
+    const box=$("sponList"); if(!box) return;
+    $("sponsKick").textContent=(PROF.team ? PROF.team.name : "Ton écurie")+" · Saison "+season.year;
+    const lapsK=(()=>{ const L=parseInt(OPT.seasonLaps,10)||5; return L>=21?2.7:L>=10?1.6:1; })();
+    const sg=season.spons.filter(Boolean);
+    const per=sg.reduce((a,x)=>a+x.base,0);
+    $("sponHead").innerHTML = sg.length
+      ? 'Garanti à chaque Grand Prix : <b>'+fmtMoney(Math.round(per*lapsK/100)*100)+'</b>, primes en plus.'
+      : 'Aucun sponsor pour l’instant. Chaque emplacement signé, c’est de l’argent à chaque course.';
+    box.innerHTML=SLOTS.map((S,k)=>{
+      const c=season.spons[k], open=slotOpen(k);
+      let h='<div class="sponSlot'+(!c && !open?' lock':'')+'"><div class="ssK">'+S.nm+'</div><div class="ssW">'+S.where+'</div>';
+      if(c){
+        h+='<div class="ssDeal"><img class="sponLogo" alt="" src="'+brandChip(c.brand,180,40)+'"><b>'+brandName(c.brand)+'</b></div>'+
+           '<div class="ssTerms">'+sponsorTerms(c)+'<br>'+(k===0 ? 'Jusqu’à la fin de la saison' : 'Encore <b>'+c.left+'</b> course'+(c.left>1?'s':''))+
+           ' · déjà versé <b>'+fmtMoney(c.paid||0)+'</b>'+(c.promise ? '<br>Promesse en cours : top '+c.promise+' à la prochaine course' : '')+'</div>';
+      } else if(!open){
+        h+='<div class="ssTerms">'+slotLockText(k)+'</div>';
+      } else {
+        h+='<div class="ssTerms">Libre. Deux marques sont intéressées :</div>'+sponOffers(k).map((o,j)=>
+          '<div class="sponOffer"><img class="sponLogo" alt="" src="'+brandChip(o.brand,180,40)+'"><div><b>'+brandName(o.brand)+'</b>'+
+          sponsorTerms(o)+' · '+sponsorLen(o)+'</div><button class="btn" data-sign="'+k+':'+j+'">Signer</button></div>').join("");
+      }
+      return h+'</div>';
     }).join("");
   }
 
@@ -13516,6 +14334,7 @@ uniform float shadowFar;
     marco:{nm:"Marco Bellini", role:"Chef mécanicien", col:"#7cf2b0", ini:"MB"},
     dante:{nm:"Dante Russo", short:"Russo", role:"Champion en titre · voiture #1", col:"#ff5a5f", ini:"DR"},
     sam:{nm:"Sam Ortega", role:"Journaliste", col:"#c9b3ff", ini:"SO"},
+    ines:{nm:"Inès Moreau", role:"Responsable des partenariats", col:"#ff9f5a", ini:"IM"},
     radio:{nm:"Radio de l’équipe", role:"En direct", col:"#e6e9ef", ini:"◉"}
   };
   const RIVAL_I=1;                      // the champion's car on the grid
@@ -13584,7 +14403,7 @@ uniform float shadowFar;
   }
 
   // ---- the screens ----
-  const CAR_PANES=["season","usine","garage","palm"];
+  const CAR_PANES=["season","usine","garage","palm","spons"];
   function menuCarLook(team){
     if(state!=="menu") return;
     const c=cars.find(x=>x.player); if(!c) return;
@@ -13622,6 +14441,7 @@ uniform float shadowFar;
     else if(name==="play") renderPlay();
     else if(name==="season"){ setMode(true); previewTOD(LOOK.tod||"couchant"); careerOpen(); }
     else if(name==="usine"){ renderUsine(); }
+    else if(name==="spons"){ renderSpons(); }
     else if(name==="palm"){ renderPalm(); }
     else if(name==="free"){
       setMode(false);
@@ -13789,11 +14609,6 @@ uniform float shadowFar;
     if(t.id==="pauseNoStop"){ pauseStratEdit((PP,i)=>{ if(PP[i]) PP.splice(i,1); }); return; }
   });
   $("stratBack").addEventListener("click",()=>showPane(STRAT_BACK));
-  $("dailyCard").addEventListener("click",()=>{
-    const today=dayKey();
-    if(PROF.daily.day===today && PROF.daily.done) return;
-    dailyGo();
-  });
   $("scBox").addEventListener("click", e=>{
     const b=e.target.closest("button");
     if(b && b.dataset.sc!==undefined){ e.stopPropagation(); scChoose(parseInt(b.dataset.sc,10)); return; }
@@ -13850,14 +14665,28 @@ uniform float shadowFar;
   });
   $("pUsine").addEventListener("click", e=>{
     const t=e.target.closest("button"); if(!t || !t.dataset.rd) return;
-    if(rdBuy(t.dataset.rd)) renderUsine();
+    const k=t.dataset.rd;
+    let t0=0; try{ t0=aiLapEstimate(careerStub(season.rd),1); }catch(er){}
+    if(!rdBuy(k)) return;
+    renderUsine();
+    // what the new part is worth, said right away
+    let msg="";
+    try{
+      if(k==="tyre") msg="Nouvelle suspension montée : les pneus s’useront environ "+comma(3.5/(0.93+0.035*(season.rd.tyre-1)),1)+" % moins vite.";
+      else if(k==="pit") msg="Nouvel équipement au stand : environ "+comma(0.075*2.9,1)+" s de moins à chaque arrêt.";
+      else { const d=t0-aiLapEstimate(careerStub(season.rd),1); msg=(RD.find(r=>r.k===k)||{nm:""}).nm+" niveau "+season.rd[k]+" monté : environ −"+comma(Math.max(0,d),2)+" s au tour."; }
+    }catch(er){}
+    if(msg) $("usineGap").insertAdjacentHTML("afterbegin", '<div class="rdDone">✔ '+msg+'</div>');
+  });
+  $("pSpons").addEventListener("click", e=>{
+    const t=e.target.closest("button"); if(!t || !t.dataset.sign) return;
+    const [k,j]=t.dataset.sign.split(":").map(Number);
+    if(season.spons[k] || !slotOpen(k)) return;
+    const o=sponOffers(k)[j]; if(!o) return;
+    sponSign(o); renderSpons();
   });
   $("qualiGoBtn").addEventListener("click",()=>{ $("results").hidden=true; startRace(); });
-  $("againBtn").addEventListener("click",()=>{
-    // another go at the daily challenge is still the daily challenge
-    if(DAILY_ON){ try{ sessionStorage.setItem("trs_daily", DAILY_ON.day); }catch(e){} }
-    startRace();
-  });
+  $("againBtn").addEventListener("click",()=>{ startRace(); });
   $("resumeBtn").addEventListener("click",togglePause);
   $("restartBtn").addEventListener("click",()=>{ if(state!=="menu" && !NET.race) startRace(); });
   $("homeBtn").addEventListener("click",()=>{ if(NET.race) netLeave(); toMenu(); });
