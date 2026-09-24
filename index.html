@@ -3275,7 +3275,7 @@ uniform float shadowFar;
   }
 
   let pts=[], seg=[], cum=[], TOT=0, N=0;
-  let tanA=[], norA=[], radA=[], vmaxA=[], laneA=[], aiVA=[], aiBrk=null, aiIn=null;
+  let tanA=[], norA=[], radA=[], vmaxA=[], laneA=[], laneX=[], aiVA=[], aiBrk=null, aiIn=null;
   // the AI's line for the race, with its curvature and direction (see aiLineBuild)
   let AIL=null;
   const AI_LIM=W-FOOT_W/2-0.25;   // the whole car, wheels too, a little in from the kerb: room for one that arrives there a touch fast
@@ -3369,31 +3369,45 @@ uniform float shadowFar;
       for(let k=-win;k<=win;k++){ s+=rawLane[((i+k)%N+N)%N]; c++; }
       laneA[i]=s/c;
     }
-    // Then the real thing: pull that line as straight as the track allows. Every
-    // point moves along its normal toward the middle of its neighbours (first far
-    // ones, then near ones), never past the edge of the tarmac. What is left is
-    // the least-curved way round: in wide, clip the apex, out wide again.
-    {
+    // Then the real thing, two ways. Every point moves along its normal toward
+    // a point set by its neighbours (first far ones, then near ones), never past
+    // the edge of the tarmac.
+    //  - laneA, the gentler levels' line: toward the plain middle of the two
+    //    neighbours. That pulls the line taut like a string: the shortest way
+    //    round, hugging the inside, tightest at the apex.
+    //  - laneX, Extreme's line (5.6): toward where a smooth curve through four
+    //    neighbours would pass. That bends the line as little as the road
+    //    allows: in wide, clip the apex, out wide, and an S taken nearly
+    //    straight. Up to 8 % a lap quicker on the estimate.
+    const relaxLine=(start, smooth)=>{
       const e=new Float32Array(N), nx=new Float32Array(N), nz=new Float32Array(N), px=new Float32Array(N), pz=new Float32Array(N);
       for(let i=0;i<N;i++){
         const p=norA[(i-1+N)%N], q=norA[i]; let x=p.x+q.x, z=p.z+q.z; const m=Math.hypot(x,z)||1;
-        nx[i]=x/m; nz[i]=z/m; e[i]=clamp(laneA[i], -AI_LIM, AI_LIM);
+        nx[i]=x/m; nz[i]=z/m; e[i]=clamp(start[i], -AI_LIM, AI_LIM);
         px[i]=pts[i].x+nx[i]*e[i]; pz[i]=pts[i].z+nz[i]*e[i];
       }
+      const iters=smooth ? 160 : 70, w=smooth ? 0.5 : 0.6;
       for(const k of [24,12,6,3,2]){
-        for(let it=0; it<70; it++){
+        for(let it=0; it<iters; it++){
           for(let i=0;i<N;i++){
             const a=(i-k+N)%N, b=(i+k)%N;
-            const mx=(px[a]+px[b])*0.5, mz=(pz[a]+pz[b])*0.5;
+            let mx, mz;
+            if(smooth){ const a2=(i-2*k+N)%N, b2=(i+2*k)%N;
+              mx=(4*(px[a]+px[b])-(px[a2]+px[b2]))/6; mz=(4*(pz[a]+pz[b])-(pz[a2]+pz[b2]))/6; }
+            else { mx=(px[a]+px[b])*0.5; mz=(pz[a]+pz[b])*0.5; }
             const want=clamp((mx-pts[i].x)*nx[i]+(mz-pts[i].z)*nz[i], -AI_LIM, AI_LIM);
-            e[i]+=(want-e[i])*0.6;
+            e[i]+=(want-e[i])*w;
             px[i]=pts[i].x+nx[i]*e[i]; pz[i]=pts[i].z+nz[i]*e[i];
           }
         }
       }
       // round off the places where the line meets the edge and turns back
-      for(let i=0;i<N;i++){ let a=0; for(let k=-3;k<=3;k++) a+=e[(i+k+N)%N]; laneA[i]=clamp(a/7, -AI_LIM, AI_LIM); }
-    }
+      const out=new Array(N);
+      for(let i=0;i<N;i++){ let a=0; for(let k=-3;k<=3;k++) a+=e[(i+k+N)%N]; out[i]=clamp(a/7, -AI_LIM, AI_LIM); }
+      return out;
+    };
+    laneX=relaxLine(laneA, true);
+    laneA=relaxLine(laneA, false);
     // speed profile with braking anticipation baked in
     vmaxA=radA.map(R=>Math.min(BASE,Math.sqrt(GRIP_ON*Math.min(R,5000))));
     for(let pass=0;pass<4;pass++){
@@ -8263,8 +8277,9 @@ uniform float shadowFar;
     const LV=aiLevel(diff);
     LRN.on = !!LV.extreme && !!LRN.mem && (!NET.race || NET.role==="host");
     LRN.adapt=1; LRN.pace0=LV.pace;
-    AIL=aiLineBuild(laneA);
-    try{ humPrepare(); }catch(e){ HUM.on=false; AIL=aiLineBuild(laneA); }
+    const base = LV.extreme ? laneX : laneA;
+    AIL=aiLineBuild(base);
+    try{ humPrepare(); }catch(e){ HUM.on=false; AIL=aiLineBuild(base); }
     if(!LRN.on){ if(CAREER_ON && !NET.race){ LRN.adapt=careerAdapt(); adaptApply(); } return; }
     const M=LRN.mem, B=LRN.B;
     // for every sample of the lap: the line the humans drove, the speed they
@@ -8280,7 +8295,7 @@ uniform float shadowFar;
       }
       const conf=clamp((lw/5-0.3)/1.5,0,1)*clamp((nMin-1)/3,0,1);
       LRN.conf[i]=conf;
-      LRN.line[i]= lw>0 ? clamp(la/lw,-AI_LIM,AI_LIM) : laneA[i];
+      LRN.line[i]= lw>0 ? clamp(la/lw,-AI_LIM,AI_LIM) : laneX[i];
       LRN.spd[i]= (nMin>=2 && sp<1e9) ? sp : 0;
     }
     // The humans' line is copied wherever the memory is sure of it (it is already
@@ -8293,7 +8308,7 @@ uniform float shadowFar;
       const cf=new Float32Array(N);
       for(let i=0;i<N;i++){ let a=0; for(let k=-6;k<=6;k++) a+=LRN.conf[(i+k+N)%N]; cf[i]=a/13; }
       for(let i=0;i<N;i++){
-        LRN.line[i]=clamp(laneA[i]+(LRN.line[i]-laneA[i])*cf[i]*0.9, -AI_LIM, AI_LIM);
+        LRN.line[i]=clamp(laneX[i]+(LRN.line[i]-laneX[i])*cf[i]*0.9, -AI_LIM, AI_LIM);
       }
     }
     AIL=aiLineBuild(LRN.line);
@@ -10680,7 +10695,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="5.5";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="5.6";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -12586,6 +12601,14 @@ uniform float shadowFar;
       }
       delete o.sponsor;
       if(o.cw===undefined){ o.cw=PROF.stats.wins||0; o.cp=PROF.stats.podiums||0; }
+      // the head-to-head with Russo (car 1) before 5.6 kept it: this season's
+      // rounds, and at least as many as the wins, which all came in front of him
+      if(!o.h2h){
+        let me=0, him=0; const rec=[];
+        for(const r of (o.log||[])){ const d=(r.res||[]).find(x=>x.i===1); if(!(r.me>0) || !d) continue; const a=r.me<d.pos; if(a) me++; else him++; rec.push(a?1:0); }
+        o.h2h={me:Math.max(me, o.bR||0, PROF.stats.wins||0), him:him, recent:rec.slice(-8)};
+      }
+      if(o.champ===undefined && Array.isArray(o.history) && o.history.length && o.history[o.history.length-1].pos===1) o.champ=0;
       const f=freshSeason();
       for(const k in f) if(o[k]===undefined) o[k]=f[k];
       o.rd=Object.assign(f.rd, o.rd||{}); o.rel=Object.assign(f.rel, o.rel||{});
@@ -12934,6 +12957,23 @@ uniform float shadowFar;
       idle:PROF.money>=cheapest*2.2 && cheapest<1e9, relD:season.rel.dante, relL:season.rel.lea};
   }
   const place=n=>n===1 ? "1re" : n+"e";
+  // Who has the upper hand between the player and Russo, so that what he says
+  // follows what happens on the track: the recent head-to-head, the whole
+  // career's, and who holds the title.
+  function reigning(){
+    if(season.year===1) return RIVAL_I;
+    if(season.champ!==undefined && season.champ!==null) return season.champ;
+    const h=season.history[season.history.length-1];
+    return h && h.pos===1 ? 0 : null;
+  }
+  function rivalMood(){
+    const H=season.h2h||{me:0, him:0, recent:[]}, R=H.recent||[];
+    const n=R.length, share=n ? R.reduce((a,b)=>a+b,0)/n : 0;
+    if(reigning()===0 || (n>=4 && share>=0.65) || (H.me>=6 && H.me>=2*H.him)) return "down";
+    if(H.me===0 || (n>=4 && share<=0.35)) return "top";
+    return "duel";
+  }
+  function danteRole(){ return reigning()===RIVAL_I ? "Champion en titre · voiture #1" : "Ancien champion du monde · voiture #1"; }
   // what is worth saying before a round, most pressing first; n lines at most
   function ctxLines(X, n){
     const out=[];
@@ -12986,10 +13026,10 @@ uniform float shadowFar;
     const wins=run(p=>p===1), pods=run(p=>p<=3), bad=run(p=>p>=6);
     if(wins===2) add([
       {id:"fw.2a", who:"lea", t:"Deux victoires de suite. Ne t’habitue pas trop : les autres vont réagir."},
-      {id:"fw.2b", who:"dante", t:"Deux victoires d’affilée. Bravo. Maintenant, tout le monde te regarde. Moi aussi."}]);
+      (season.cw||0)<=4 ? {id:"fw.2b", who:"dante", t:"Deux victoires d’affilée. Bravo. Maintenant, tout le monde te regarde. Moi aussi."} : null]);
     else if(wins===3) add([
       {id:"fw.3a", who:"marco", t:"Trois victoires de suite. Je commence à croire que tu fais exprès."},
-      {id:"fw.3b", who:"sam", t:"Trois victoires d’affilée pour "+team+". Mes collègues parlent de domination. Moi, je parle d’un conte de fées."}]);
+      (season.cw||0)<=6 ? {id:"fw.3b", who:"sam", t:"Trois victoires d’affilée pour "+team+". Mes collègues parlent de domination. Moi, je parle d’un conte de fées."} : null]);
     else if(wins===5 || wins===8) add([
       {id:"fw."+wins, who:"nadia", t:wins+" victoires de suite. Je n’ose plus rien dire, de peur de porter malheur. Alors je ne dis rien. Voilà."}]);
     else if(pods===3) add([
@@ -13006,7 +13046,7 @@ uniform float shadowFar;
     else if(X.lp===1 && wins===1) add([
       {id:"fl.w1", who:"nadia", t:"On a gagné à "+X.lastC+". Le paddock nous regarde autrement. Profite, mais ne change rien."},
       {id:"fl.w2", who:"marco", t:"Le trophée de "+X.lastC+" est à l’atelier. Les gars le touchent en passant, comme un porte-bonheur."},
-      {id:"fl.w3", who:"dante", t:"Une victoire, et tout le monde vous prend pour des génies. On verra si vous tenez la distance."}]);
+      (season.cw||0)<=1 ? {id:"fl.w3", who:"dante", t:"Une victoire, et tout le monde vous prend pour des génies. On verra si vous tenez la distance."} : null]);
     else if(X.lp>=2 && X.lp<=3) add([
       {id:"fl.p1", who:"lea", t:"Encore un podium comme à "+X.lastC+", et plus personne ne pourra dire que c’était de la chance."},
       {id:"fl.p2", who:"sam", t:"Votre podium à "+X.lastC+" a fait la une. Mon rédacteur en chef veut une entrevue. Après la course, promis ?"}]);
@@ -13032,7 +13072,9 @@ uniform float shadowFar;
       }
       else if(X.me>1 && X.lead.pts-X.myPts<=12 && X.me<=3) add([
         {id:"ch.c1", who:"lea", t:(X.lead.pts-X.myPts)+" points derrière "+X.lead.nm+". Une seule course peut tout renverser."}]);
-      if(X.me<X.rv && X.rv>1 && season.aheadYr!==season.year && (season.aheadYr=season.year)) add([
+      if(X.me<X.rv && X.rv>1 && season.aheadYr!==season.year && (season.aheadYr=season.year)) add(rivalMood()==="down" ? [
+        {id:"ch.r3", who:"sam", t:"Russo est "+place(X.rv)+" au championnat, derrière vous. Il répète que « la saison est longue ». Il le répète souvent, ces temps-ci."},
+        {id:"ch.r4", who:"dante", t:"Encore devant moi au championnat. Je commence à trouver le temps long."}] : [
         {id:"ch.r1", who:"sam", t:"Vous êtes devant Russo au championnat. Il a refusé de répondre à ma question là-dessus. Trois fois."},
         {id:"ch.r2", who:"dante", t:"Devant moi au championnat ? Profite de la vue. Elle ne va pas durer."}]);
     }
@@ -13046,24 +13088,49 @@ uniform float shadowFar;
   // one line of colour: the rival, the press, the team, as things stand
   function flavorLine(X){
     const L=[];
-    const d=X.relD, beat=X.last && X.last.res && (()=>{ const r=X.last.res.find(x=>x.i===RIVAL_I); return r && X.lp>0 && X.lp<r.pos; })();
-    if(X.last && beat) L.push(
-      {id:"dn.b1", who:"dante", t:"La dernière fois, c’était un accident. Aujourd’hui, je remets les choses dans l’ordre."},
-      {id:"dn.b2", who:"dante", t:"Profite de ta photo devant moi à "+X.lastC+". Encadre-la."});
-    else if(X.last) L.push({id:"dn.a1", who:"dante", t:"Tu étais où, à "+X.lastC+" ? Ah oui. Derrière."});
-    if(d<35) L.push(
-      {id:"dn.l1", who:"dante", t:"Je t’ai vu dans mes rétroviseurs. Une seconde. Ensuite, plus rien."},
-      {id:"dn.l2", who:"dante", t:"Ton écurie ressemble à un projet d’école. Charmant, mais pas sérieux."},
-      {id:"dn.l3", who:"dante", t:"Quand tu seras devant moi, préviens-moi. J’aimerais voir ça une fois dans ma vie."});
-    else if(d>65) L.push(
+    // Russo: arrogant while he has the upper hand, edgy when it is even, and
+    // stung, then bitter, then grudgingly fair once the player beats him
+    const d=X.relD, mood=rivalMood(), H=season.h2h||{me:0, him:0};
+    const beat=X.last && X.last.res && (()=>{ const r=X.last.res.find(x=>x.i===RIVAL_I); return r && X.lp>0 && X.lp<r.pos; })();
+    if(X.last && beat){
+      if(mood==="down") L.push(
+        {id:"dn.bd1", who:"dante", t:"Encore toi devant à "+X.lastC+". Je commence à connaître ton aileron arrière par cœur."},
+        {id:"dn.bd2", who:"dante", t:H.me+" fois devant moi. Je sais compter, tu sais. Je sais aussi attendre."});
+      else if(mood==="duel") L.push(
+        {id:"dn.bu1", who:"dante", t:"Tu m’as eu à "+X.lastC+". Pas deux fois de suite."},
+        {id:"dn.b2", who:"dante", t:"Profite de ta photo devant moi à "+X.lastC+". Encadre-la."});
+      else L.push({id:"dn.b1", who:"dante", t:"La dernière fois, c’était un accident. Aujourd’hui, je remets les choses dans l’ordre."});
+    } else if(X.last){
+      if(mood==="down") L.push({id:"dn.ad1", who:"dante", t:"Tu as vu "+X.lastC+" ? Ça fait du bien de te voir dans mes rétroviseurs, pour une fois."});
+      else if(mood==="duel") L.push({id:"dn.au1", who:"dante", t:"Un partout, toi et moi. On fera les comptes au dernier virage de la saison."});
+      else L.push({id:"dn.a1", who:"dante", t:"Tu étais où, à "+X.lastC+" ? Ah oui. Derrière."});
+    }
+    if(mood==="top"){
+      if(d<35) L.push(
+        {id:"dn.l1", who:"dante", t:"Je t’ai vu dans mes rétroviseurs. Une seconde. Ensuite, plus rien."},
+        {id:"dn.l2", who:"dante", t:"Ton écurie ressemble à un projet d’école. Charmant, mais pas sérieux."},
+        {id:"dn.l3", who:"dante", t:"Quand tu seras devant moi, préviens-moi. J’aimerais voir ça une fois dans ma vie."});
+      else L.push(
+        {id:"dn.m1", who:"dante", t:"Tu progresses. C’est mignon. Mais le titre, c’est à moi."},
+        {id:"dn.m2", who:"dante", t:"J’ai regardé tes tours embarqués. Tu freines bien. Freiner bien, ça ne suffit pas."},
+        {id:"dn.m3", who:"dante", t:"Tu sais combien de pilotes ont voulu me battre ? Je ne me souviens d’aucun nom."});
+      if(season.flags.provoked) L.push({id:"dn.pv", who:"dante", t:"Toujours à parler de mes rétroviseurs ? Ils sont très propres. Rien dedans."});
+    } else if(mood==="duel") L.push(
+      {id:"dn.u1", who:"dante", t:"On est à égalité, toi et moi. Ça ne va pas durer. Reste à savoir dans quel sens."},
+      {id:"dn.u2", who:"dante", t:"Mes ingénieurs parlent de toi en réunion. Je leur ai demandé d’arrêter. Ils continuent."},
+      {id:"dn.u3", who:"dante", t:"Pas de discours aujourd’hui. On se voit au premier virage."},
       {id:"dn.h1", who:"dante", t:"Je vais être honnête : tu m’as obligé à travailler plus fort. Ne le répète à personne."},
-      {id:"dn.h2", who:"dante", t:"Si on se retrouve côte à côte au premier virage, on se laisse de la place. Ce serait bête de finir tous les deux dans le mur."},
+      d>55 ? {id:"dn.h2", who:"dante", t:"Si on se retrouve côte à côte au premier virage, on se laisse de la place. Ce serait bête de finir tous les deux dans le mur."} : null,
       {id:"dn.h3", who:"dante", t:"Mon ingénieur a mis ton nom sur son tableau. Juste au-dessus du mien. Il dit que c’est pour me motiver."});
     else L.push(
-      {id:"dn.m1", who:"dante", t:"Tu progresses. C’est mignon. Mais le titre, c’est à moi."},
-      {id:"dn.m2", who:"dante", t:"J’ai regardé tes tours embarqués. Tu freines bien. Freiner bien, ça ne suffit pas."},
-      {id:"dn.m3", who:"dante", t:"Tu sais combien de pilotes ont voulu me battre ? Je ne me souviens d’aucun nom."});
-    if(season.flags.provoked) L.push({id:"dn.pv", who:"dante", t:"Toujours à parler de mes rétroviseurs ? Ils sont très propres. Rien dedans."});
+      {id:"dn.d1", who:"dante", t:"Oui, oui, tu gagnes. Je lis les journaux, moi aussi. Ça ne durera pas éternellement."},
+      {id:"dn.d2", who:"dante", t:"Mon équipe me demande ce qui ne va pas. Je leur réponds : toi."},
+      {id:"dn.d3", who:"dante", t:"Je n’ai plus rien à raconter à la presse. D’habitude, c’est moi qui parle. Tu m’as pris ça aussi."},
+      {id:"dn.d4", who:"dante", t:"Je ne suis plus le favori. Tant mieux : un chasseur court plus vite que celui qu’il chasse."},
+      {id:"dn.d5", who:"dante", t:"J’ai demandé à revoir tous tes tours embarqués. Je ne dormirai pas tant que je n’aurai pas compris."},
+      d>60 ? {id:"dn.d6", who:"dante", t:"Honnêtement ? Tu es le meilleur pilote que j’aie affronté. Voilà, c’est dit. Maintenant, je vais te battre."} : null,
+      d<45 ? {id:"dn.d7", who:"dante", t:"Donne-moi ta voiture et je te montre ce qu’est un vrai tour. Ah, c’est vrai : tu ne la prêtes pas."} : null,
+      {id:"dn.d8", who:"sam", t:"Russo s’est enfermé dans son camion toute la matinée. Son équipe dit qu’il « regarde des vidéos ». Les tiennes, je parie."});
     L.push(
       {id:"sm.1", who:"sam", t:"Une rumeur dit que ton écurie a débauché des ingénieurs d’une grosse équipe. Tu confirmes ?"},
       {id:"sm.2", who:"sam", t:"Les fans ont voté : {team} est l’écurie la plus sympathique du paddock. Russo est arrivé dernier du vote. Il fait semblant de s’en moquer."},
@@ -13262,8 +13329,9 @@ uniform float shadowFar;
     if(y===4 && r===0){
       season.flags.danteLast=true;
       return [{who:"sam", text:"Grosse nouvelle ce matin : Dante Russo annonce que cette saison sera sa dernière."},
-              season.rel.dante>=50 ? {who:"dante", text:"Oui, c’est vrai. Et je veux finir en battant la seule personne qui m’a fait douter. Tu vois de qui je parle."}
-                                   : {who:"dante", text:"Oui, j’arrête à la fin de l’année. Mais avant, je vais te montrer ce qu’est un vrai champion. Une dernière fois."}];
+              rivalMood()==="down" ? {who:"dante", text:"Oui, j’arrête. Tu m’as battu trop souvent ces dernières années pour que j’y prenne encore du plaisir. Mais avant de partir, je veux te battre. Une dernière fois, et pour de bon."}
+              : season.rel.dante>=50 ? {who:"dante", text:"Oui, c’est vrai. Et je veux finir en battant la seule personne qui m’a fait douter. Tu vois de qui je parle."}
+                                     : {who:"dante", text:"Oui, j’arrête à la fin de l’année. Mais avant, je vais te montrer ce qu’est un vrai champion. Une dernière fois."}];
     }
     if(y===4 && r===CIRCUITS.length-1 && season.flags.danteLast) return [{who:"dante", text:"Dernière course. Je n’aurais jamais cru dire ça, mais… merci pour les batailles. Maintenant, sors de mon chemin."}];
     if(y===5 && r===0 && season.flags.danteLast) return [{who:"dante", text:"Oui, je sais. J’avais dit que j’arrêtais. La retraite, c’est ennuyeux. Et je ne pouvais pas te laisser gagner sans moi."},
@@ -13318,15 +13386,22 @@ uniform float shadowFar;
       : [
         {id:"yi.r3", who:"marco", t:"Honnêtement ? La voiture a peu changé. Les autres ont travaillé tout l’hiver. Il va falloir investir à l’usine."},
         {id:"yi.r4", who:"lea", t:"Les autres équipes ont toutes des nouveautés. Nous, pas beaucoup. Il va falloir compenser au pilotage, et à l’usine."}]));
-    L.push(sayPick(champ ? [
+    const lastChamp=reigning(), mood=rivalMood();
+    L.push(sayPick(champ ? ((season.titles||0)>=2 ? [
+        {id:"yi.d7", who:"dante", t:season.titles+" titres. Je ne vais pas te mentir : ça m’énerve. Cette année, c’est fini."},
+        {id:"yi.d8", who:"dante", t:"Tu défends ton titre, moi je viens le reprendre. Chacun son rôle."}] : [
         {id:"yi.d1", who:"dante", t:"Profite de ton titre. Il est à moi en fin d’année."},
-        {id:"yi.d2", who:"dante", t:"J’ai revu toutes les courses de l’an dernier. Toutes. Je sais où tu freines."}]
+        {id:"yi.d2", who:"dante", t:"J’ai revu toutes les courses de l’an dernier. Toutes. Je sais où tu freines."}])
+      : lastChamp===RIVAL_I ? (mood==="down" ? [
+        {id:"yi.d9", who:"dante", t:"Champion l’an dernier, oui. Même si tu m’as battu plus souvent qu’à mon tour. Cette année, pas de cadeau."}] : [
+        {id:"yi.d4", who:"dante", t:"Nouvelle saison, même histoire. Je gagne, tu regardes."},
+        H.pos>=5 ? {id:"yi.d5", who:"dante", t:"Encore là ? J’aurais parié que ton écurie serait vendue cet hiver."} : null])
+      : (lastChamp!==null && lastChamp!==0) ? [
+        {id:"yi.d10", who:"dante", t:"L’an dernier, le titre n’est allé ni à toi ni à moi. Cette année, ça se règle entre nous."}]
       : season.rel.dante>60 ? [
         {id:"yi.d3", who:"dante", t:"Tu étais le seul à me faire peur l’an dernier. Ne t’habitue pas à ce compliment."},
-        {id:"yi.d6", who:"dante", t:"Bonne année, voisin de garage. Je t’ai gardé une place dans mes rétroviseurs."}]
-      : [
-        {id:"yi.d4", who:"dante", t:"Nouvelle saison, même histoire. Je gagne, tu regardes."},
-        {id:"yi.d5", who:"dante", t:"Encore là ? J’aurais parié que ton écurie serait vendue cet hiver."}]));
+        {id:"yi.d6", who:"dante", t:"Bonne année, voisin de garage. Je t’ai gardé une place dans mes rétroviseurs."}] : [
+        {id:"yi.d11", who:"dante", t:"Nouvelle saison. Les compteurs sont à zéro, et moi, j’ai une revanche à prendre."}]));
     // the title sponsor's contract ran with the season: keep it, or look elsewhere
     const M=season.lastMain; season.lastMain=null;
     if(M && H.met && !season.spons[0]) L.push(renewChoice(M));
@@ -13436,7 +13511,7 @@ uniform float shadowFar;
           {id:"lr.f2", who:"nadia", t:"On y est : la dernière course, et l’objectif n’est pas encore là. *"+capF(careerGoal().t)+"*. Rien d’autre ne compte."}]));
       else if(r===CIRCUITS.length-2) L.push(sayPick([
           {id:"lr.p1", who:"lea", t:"Plus que deux courses. On a "+X.myPts+" points et la P"+X.me+" au championnat. Chaque point compte, maintenant."}]));
-      if(L.length<5){ const f=flavorLine(X); if(f) L.push(f); }
+      if(L.length<5 && !L.some(l=>l && l.who==="dante")){ const f=flavorLine(X); if(f) L.push(f); }
     }
     const ev=eventPick(X, scripted);
     if(ev) L.push(ev);
@@ -13507,14 +13582,24 @@ uniform float shadowFar;
       {id:"db.h2", who:"marco", t:"J’ai vu le contact. La voiture a encaissé, mais évite de recommencer : les pièces coûtent cher."},
       {id:"db.h3", who:"lea", t:"Ce petit contact nous a coûté un peu d’appui. Tu l’as senti dans les virages rapides ?"},
       {id:"db.h4", who:"sam", t:"Les commissaires ont regardé ton accrochage. Pas de sanction. Cette fois."}]));
-    // the rival: the first time is news; after that, not every time
-    const bR=season.bR||0;
-    if(P.beatRival && bR===1) add(pos===1 ? {who:"dante", text:"…Profite. Ça n’arrivera pas deux fois."}
-                                          : {who:"sam", text:"Tout le paddock en parle : {team} a fini devant le champion en titre."});
+    // the rival: the first time is news, the second a lesson; after that, not
+    // every time, and in the tone of who has the upper hand now
+    const HH=season.h2h||{me:0, him:0}, mood=rivalMood();
+    if(P.beatRival && HH.me===1) add(pos===1 ? {who:"dante", text:"…Profite. Ça n’arrivera pas deux fois."}
+      : {who:"sam", text:"Tout le paddock en parle : {team} a fini devant "+(reigning()===RIVAL_I ? "le champion en titre." : "Dante Russo.")});
+    else if(P.beatRival && HH.me===2) add({who:"dante", text:"Deux fois. D’accord. J’ai compris le message."});
+    else if(P.beatRival && mood==="down" && (!P.beatBefore || Math.random()<0.3)) add(sayPick([
+        {id:"db.r7", who:"dante", t:"Je n’ai rien à dire. Note-le : c’est la première fois de ma carrière.", once:true},
+        {id:"db.r3", who:"sam", t:"Russo a quitté le circuit sans parler aux journalistes. D’habitude, il adore les micros."},
+        {id:"db.rd1", who:"sam", t:"Russo, encore battu. Il a accusé ses pneus, puis le vent, puis la météo. Il faisait beau."},
+        {id:"db.rd2", who:"sam", t:"Au journal, on a arrêté de compter vos victoires sur Russo : ça prenait trop de place."},
+        {id:"db.rd3", who:"dante", t:"Encore toi. Je commence à connaître ton aileron arrière par cœur."},
+        {id:"db.r13", who:"marco", t:"J’ai croisé l’équipe de Russo au parc fermé. Personne ne m’a dit bonjour. J’adore."},
+        season.rel.dante>55 ? {id:"db.r9", who:"dante", t:"Encore toi devant. Mon ingénieur dit que c’est la voiture. Je commence à croire que c’est toi."}
+                            : {id:"db.rd4", who:"dante", t:"Ta voiture est plus rapide, c’est tout. Donne-moi la même et on verra."}]));
     else if(P.beatRival && (!P.beatBefore || Math.random()<0.3)) add(pos===1 ? sayPick([
         {id:"db.r2", who:"dante", t:"Belle course. Ne le prends pas pour un compliment."},
         {id:"db.r3", who:"sam", t:"Russo a quitté le circuit sans parler aux journalistes. D’habitude, il adore les micros."},
-        {id:"db.r7", who:"dante", t:"Je n’ai rien à dire. Note-le : c’est la première fois de ma carrière.", once:true},
         {id:"db.r8", who:"sam", t:"Russo a passé la conférence de presse à regarder ses chaussures. Elles sont très belles, remarque."},
         {id:"db.r12", who:"sam", t:"Russo, battu une fois de plus, a répondu à une seule question. La réponse était « non »."},
         {id:"db.r13", who:"marco", t:"J’ai croisé l’équipe de Russo au parc fermé. Personne ne m’a dit bonjour. J’adore."},
@@ -13524,11 +13609,18 @@ uniform float shadowFar;
         {id:"db.r10", who:"sam", t:"Russo a fini derrière vous et accuse ses pneus. Ses pneus n’ont pas encore répondu."},
         season.rel.dante<50 ? {id:"db.r11", who:"dante", t:"Tu as eu de la chance aujourd’hui. Beaucoup de chance."} : null,
         season.rel.dante>60 ? {id:"db.r6", who:"dante", t:"Bien joué. Sérieusement. La prochaine fois, je ne te ferai pas de cadeau."} : null]));
-    else if(P.rivalWin && Math.random()<0.65) add(sayPick([
-      {id:"db.rw1", who:"dante", t:"Tu as vu le podium ? Moi, en haut. L’ordre naturel des choses."},
-      {id:"db.rw2", who:"sam", t:"Russo gagne à "+P.cn+". Il a dédié sa victoire « à ceux qui pensaient que c’était fini ». Je crois que ça te vise."},
-      {id:"db.rw3", who:"lea", t:"Russo a gagné. Il n’était pas plus rapide que nous en fin de course : on a perdu la course au départ."},
-      {id:"db.rw4", who:"dante", t:"Victoire. Tu sais ce qui me fait le plus plaisir ? Ta tête dans mes rétroviseurs au dernier tour."}]));
+    else if(P.rivalWin && Math.random()<0.65) add(sayPick(mood==="down" ? [
+        {id:"db.rw5", who:"dante", t:"Enfin. J’avais presque oublié le goût du champagne."},
+        {id:"db.rw6", who:"sam", t:"Russo renoue avec la victoire à "+P.cn+". Il a fait un tour d’honneur deux fois plus long que d’habitude."},
+        {id:"db.rw7", who:"dante", t:"Tu vois ? Je suis encore là. Ne m’enterre pas trop vite."},
+        {id:"db.rw3", who:"lea", t:"Russo a gagné. Il n’était pas plus rapide que nous en fin de course : on a perdu la course au départ."}]
+      : mood==="duel" ? [
+        {id:"db.rw2", who:"sam", t:"Russo gagne à "+P.cn+". Il a dédié sa victoire « à ceux qui pensaient que c’était fini ». Je crois que ça te vise."},
+        {id:"db.rw3", who:"lea", t:"Russo a gagné. Il n’était pas plus rapide que nous en fin de course : on a perdu la course au départ."},
+        {id:"db.rw4", who:"dante", t:"Victoire. Tu sais ce qui me fait le plus plaisir ? Ta tête dans mes rétroviseurs au dernier tour."}]
+      : [
+        {id:"db.rw1", who:"dante", t:"Tu as vu le podium ? Moi, en haut. L’ordre naturel des choses."},
+        {id:"db.rw3", who:"lea", t:"Russo a gagné. Il n’était pas plus rapide que nous en fin de course : on a perdu la course au départ."}]));
     const n=P.stars.filter(Boolean).length;
     if(n===3 && Math.random()<0.7) add(sayPick([
       {id:"db.3a", who:"nadia", t:"Trois étoiles sur trois. Les partenaires ont vu ça."},
@@ -13574,10 +13666,18 @@ uniform float shadowFar;
       L.push(sayPick([{id:"se.c1", who:"lea", t:"CHAMPION DU MONDE ! {team} est championne du monde !"},
                       {id:"se.c2", who:"lea", t:"CHAMPIONS ! On l’a fait ! Je pleure dans mon casque, ne regarde pas."}]));
       L.push(sayPick(season.flags.danteLast && season.year===4 ? [{id:"se.dl", who:"dante", t:"Battu à ma dernière saison, et par toi. Il y a pire, comme fin. Bravo."}]
+        : (season.titles||0)>=1 ? [
+           {id:"se.d3", who:"dante", t:"Encore champion. Je n’ai plus d’excuse, et c’est bien ça le pire."},
+           {id:"se.d4", who:"dante", t:"Un titre de plus pour toi. Garde-moi une place sur la photo : l’an prochain, c’est moi au milieu."}]
+        : rivalMood()==="down" ? [
+           {id:"se.d5", who:"dante", t:"Tu l’as mérité. Tu m’as battu plus souvent que n’importe qui. Profite, mais pas trop longtemps."}]
         : [{id:"se.d1", who:"dante", t:"…Bien joué. Vraiment. Mais je reviendrai."},
            {id:"se.d2", who:"dante", t:"Champion. Profite de chaque jour : l’an prochain, je te reprends tout."}]));
-    } else if(rv===1) L.push(sayPick([
-      {id:"se.r1", who:"dante", t:"Champion, encore. Tu te rapproches, je l’avoue. Mais pas assez."},
+    } else if(rv===1) L.push(sayPick(reigning()===RIVAL_I ? [
+      me<=3 ? {id:"se.r1", who:"dante", t:"Champion, encore. Tu te rapproches, je l’avoue. Mais pas assez."}
+            : {id:"se.r4", who:"dante", t:"Champion, encore. Il faudra plus qu’une bonne saison pour me déloger."},
+      {id:"se.r2", who:"sam", t:"Russo champion du monde. Il a remercié son équipe, sa famille… et toi, « pour la motivation ». C’était presque gentil."}] : [
+      {id:"se.r3", who:"dante", t:"Champion du monde. Tu croyais que j’étais fini ? Moi aussi, un peu. Je me suis trompé."},
       {id:"se.r2", who:"sam", t:"Russo champion du monde. Il a remercié son équipe, sa famille… et toi, « pour la motivation ». C’était presque gentil."}]));
     L.push(met ? {who:"nadia", text:"Saison "+season.year+" terminée : P"+me+" au championnat, et l’objectif est atteint. Prix de fin de saison : *"+fmtMoney(prize)+"*."}
                : sayPick([
@@ -13644,11 +13744,16 @@ uniform float shadowFar;
               start:player.startRank||0, hits:player.hits||0, rank0:rank0, rank1:rank1,
               firstWin: pos===1 && !(season.cw>0), firstPodium: pos>=1 && pos<=3 && !(season.cp>0)};
     if(pos===1) season.cw=(season.cw||0)+1;
-    // beating the champion: counted over the career, and whether it happened last time too
+    // the head-to-head with Russo over the whole career, and the last eight rounds
+    if(pos>0){
+      const H=season.h2h||(season.h2h={me:0, him:0, recent:[]});
+      const ahead=rivalPos>pos;
+      if(ahead) H.me++; else H.him++;
+      H.recent=(H.recent||[]).concat(ahead?1:0).slice(-8);
+    }
     if(P0.beatRival){
       const pr=season.log[season.log.length-2], d=pr && pr.res ? pr.res.find(x=>x.i===RIVAL_I) : null;
       P0.beatBefore=!!(pr && d && pr.me>0 && pr.me<d.pos);
-      season.bR=(season.bR||0)+1;
     }
     if(pos>=1 && pos<=3) season.cp=(season.cp||0)+1;
     const so=obj[2] && obj[2].story;
@@ -13672,7 +13777,9 @@ uniform float shadowFar;
   }
   // a new year: the table starts again, the team and its factory do not
   function newYear(){
-    season.history.push({year:season.year, pos:standings().findIndex(d=>d.i===0)+1, pts:season.pts[0]||0, met:goalMet()});
+    const st=standings();
+    season.history.push({year:season.year, pos:st.findIndex(d=>d.i===0)+1, pts:season.pts[0]||0, met:goalMet(), champ:st[0].i});
+    season.champ=st[0].i;
     season.year++; season.round=0; season.pts={}; season.log=[]; season.obj=null; season.pending=null; season.offers=null;
     season.seen={}; season.ended=false;
     saveSeason(); renderSeason();
@@ -14253,6 +14360,9 @@ uniform float shadowFar;
   function renderUsine(){
     walletsUpdate();
     const box=$("rdList"); if(!box) return;
+    // the sums below are made on the line the chosen level races on
+    const keepAIL=AIL;
+    try{ AIL=aiLineBuild(aiLevel(parseFloat(OPT.diff)||1).extreme ? laneX : laneA); }catch(e){}
     $("usineKick").textContent=(PROF.team ? PROF.team.name : "Ton écurie")+" · Saison "+season.year;
     let now=0;
     try{ now=aiLapEstimate(careerStub(season.rd),1); }catch(e){}
@@ -14294,6 +14404,7 @@ uniform float shadowFar;
                : '<button class="btn'+(short?' ghost':'')+'" data-rd="'+r.k+'"'+(short?' disabled':'')+'>Développer · '+
                  (cost===0 ? 'offert' : fmtMoney(cost)+(cost<list ? ' (−'+Math.round(100*(1-cost/list))+' %)' : ''))+'</button>')+'</div>';
     }).join("");
+    AIL=keepAIL;
   }
 
   /* ------------------------ the sponsors ------------------------ */
@@ -14332,9 +14443,10 @@ uniform float shadowFar;
     nadia:{nm:"Nadia Keller", role:"Directrice d’équipe", col:"#7aa7ff", ini:"NK"},
     lea:{nm:"Léa Tremblay", role:"Ingénieure de course", col:"#ffcf3f", ini:"LT"},
     marco:{nm:"Marco Bellini", role:"Chef mécanicien", col:"#7cf2b0", ini:"MB"},
-    dante:{nm:"Dante Russo", short:"Russo", role:"Champion en titre · voiture #1", col:"#ff5a5f", ini:"DR"},
+    dante:{nm:"Dante Russo", short:"Russo", get role(){ try{ return danteRole(); }catch(e){ return "Champion en titre · voiture #1"; } }, col:"#ff5a5f", ini:"DR"},
     sam:{nm:"Sam Ortega", role:"Journaliste", col:"#c9b3ff", ini:"SO"},
     ines:{nm:"Inès Moreau", role:"Responsable des partenariats", col:"#ff9f5a", ini:"IM"},
+    // (dante's label is set below: champion only while he holds the title)
     radio:{nm:"Radio de l’équipe", role:"En direct", col:"#e6e9ef", ini:"◉"}
   };
   const RIVAL_I=1;                      // the champion's car on the grid
