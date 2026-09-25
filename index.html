@@ -10695,7 +10695,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="5.6";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="5.7";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -14188,16 +14188,71 @@ uniform float shadowFar;
     return short>0 ? "Prochain objectif : "+best[1]+", plus que "+fmtMoney(short)+"."
                    : "Tu peux t’offrir "+best[1]+". Touche pour essayer.";
   }
+  // The garage shows the car on the start-finish straight, in the pole
+  // position box (14 m short of the line, 3.1 m off the middle, as makeCars
+  // lines up the grid), square to the road. (After a race the car stood
+  // wherever the race had left it, in a corner or the pit lane, by a wall or
+  // a hoarding, and the camera going round it passed through them.)
+  const GAR_S=-14, GAR_LAT=-3.1;
+  function garPark(c){
+    if(!GAR.keep) GAR.keep={x:c.x, z:c.z, a:c.a, vx:c.vx, vz:c.vz, vf:c.vf, si:c.si};
+    const sv=wrapS(GAR_S), i=idxAtS(sv), p=pointAt(sv), t=tanA[i], nr=norA[i];
+    c.x=p.x+nr.x*GAR_LAT; c.z=p.z+nr.z*GAR_LAT; c.a=Math.atan2(t.z,t.x); c.vx=0; c.vz=0; c.vf=0; c.si=i;
+    c.strIn=0; c.thrIn=0;
+    project(c); syncMesh(c);
+  }
+  function garUnpark(c){
+    const k=GAR.keep; GAR.keep=null; if(!k || !c) return;
+    c.x=k.x; c.z=k.z; c.a=k.a; c.vx=k.vx; c.vz=k.vz; c.vf=k.vf; c.si=k.si;
+    project(c); syncMesh(c);
+  }
+  // How far the camera can stand from the car in every direction round it:
+  // one look along each of 96 bearings, at the camera's height, against
+  // everything built near the car. Measured once; the scenery does not move.
+  function garRoom(c){
+    const n=96, room=new Float32Array(n).fill(99);
+    try{
+      const tgt=new THREE.Vector3(c.x, c.groundY+0.58, c.z), near=[];
+      const mine=o=>{ let p=o; while(p){ if(p===c.mesh) return true; p=p.parent; } return false; };
+      const sph=new THREE.Sphere();
+      // (only what is shown: a ray also hits hidden things, such as the other
+      // cars put away while the garage is open)
+      scene.traverseVisible(o=>{
+        if(!(o.isMesh||o.isInstancedMesh) || mine(o) || !o.geometry) return;
+        if(o===c.shadow) return;
+        if(!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+        if(!o.geometry.boundingSphere) return;
+        sph.copy(o.geometry.boundingSphere).applyMatrix4(o.matrixWorld);
+        if(sph.center.distanceTo(tgt) < sph.radius+14) near.push(o);
+      });
+      const rc=new THREE.Raycaster(), dir=new THREE.Vector3(), t=c.tan||{x:1,z:0}, nr=c.nor||{x:0,z:1};
+      for(let k=0;k<n;k++){
+        const a=k*2*Math.PI/n, ca=Math.cos(a), sa=Math.sin(a);
+        // the camera's own bearing: along the road, across it, and up to its height
+        dir.set(t.x*ca*8+nr.x*sa*8, 2.1, t.z*ca*8+nr.z*sa*8).normalize();
+        rc.set(tgt, dir); rc.near=0.9; rc.far=12;
+        const hit=rc.intersectObjects(near, false)[0];
+        if(hit) room[k]=hit.distance;
+      }
+    }catch(e){}
+    // a bearing is only as free as its neighbours, so the camera glides in
+    // instead of jumping when it comes past a post
+    const out=new Float32Array(n);
+    for(let k=0;k<n;k++){ let m=99; for(let j=-3;j<=3;j++) m=Math.min(m, room[(k+j+n)%n]); out[k]=m; }
+    return out;
+  }
   function garEnter(){
     GAR.on=true; GAR.pend=null;
     const c=garCar();
-    if(c){ GCAM.ang=0.75; for(const o of cars) if(o!==c){ o.mesh.visible=false; if(o.shadow) o.shadow.visible=false; } }
+    if(c){ GCAM.ang=0.75; GCAM.k=1; garPark(c); for(const o of cars) if(o!==c){ o.mesh.visible=false; if(o.shadow) o.shadow.visible=false; } }
     previewTOD("jour");
     garRefreshCar(true);
+    if(c) GAR.room=garRoom(c);
     renderGarage();
   }
   function garLeave(){
     GAR.on=false; GAR.pend=null;
+    garUnpark(garCar());
     for(const o of cars){ o.mesh.visible=true; if(o.shadow) o.shadow.visible=true; }
     if(GCAM.off){ camera.clearViewOffset(); GCAM.off=false; }
     const c=garCar(); if(c && PROF.team) garRefreshCar();
@@ -14224,10 +14279,20 @@ uniform float shadowFar;
     const t=c.tan||{x:1,z:0}, nr=c.nor||{x:0,z:1}, edge=W+APRON-0.9;
     const ca=Math.cos(GCAM.ang), sa=Math.sin(GCAM.ang);
     const across=clamp(edge-(sa>=0?1:-1)*(c.lat||0), 2.6, R);
-    const ox=t.x*ca*R+nr.x*sa*across, oz=t.z*ca*R+nr.z*sa*across;
-    camera.position.set(tx+ox, ty+2.1, tz+oz);
+    let ox=t.x*ca*R+nr.x*sa*across, oz=t.z*ca*R+nr.z*sa*across, oy=2.1;
+    // and never beyond what is free in that direction (measured on the way in):
+    // the camera comes in quickly and goes back out gently
+    if(GAR.room){
+      const n=GAR.room.length, f=((GCAM.ang/(2*Math.PI))%1+1)%1*n, k0=Math.floor(f)%n, k1=(k0+1)%n, u=f-Math.floor(f);
+      const free=GAR.room[k0]*(1-u)+GAR.room[k1]*u - 0.6;
+      const want=clamp(free/Math.sqrt(ox*ox+oz*oz+oy*oy), 0.3, 1);
+      const cur=GCAM.k||1;
+      GCAM.k = want<cur ? cur+(want-cur)*(1-Math.exp(-12*dt)) : cur+(want-cur)*(1-Math.exp(-2.5*dt));
+      ox*=GCAM.k; oz*=GCAM.k; oy*=GCAM.k;
+    }
+    camera.position.set(tx+ox, ty+oy, tz+oz);
     // the lens is set from the distance the camera actually stands at
-    const dist=Math.sqrt(ox*ox+oz*oz+2.1*2.1);
+    const dist=Math.sqrt(ox*ox+oz*oz+oy*oy);
     const fov=clamp(2*Math.atan(3.4/(dist*eff))*180/Math.PI, 36, 82);
     camera.lookAt(tx, ty, tz);
     camPos.copy(camera.position); camLook.set(tx, ty, tz);
@@ -14544,6 +14609,16 @@ uniform float shadowFar;
     if(!document.querySelector('#menu .pane[data-pane="'+name+'"]')) name="home";
     if(GAR.on && name!=="garage") garLeave();
     if(name==="garage" && pane!=="garage") GAR.from=pane;
+    // the team's garage is at the circuit of its next Grand Prix
+    if(name==="garage" && CAR_PANES.indexOf(GAR.from)>=0 && PROF.team && !NET.race && !seasonOver()
+       && roundCircuit(season.round).id!==TRACK.id){
+      const to=roundCircuit(season.round).id;
+      let tried=null; try{ tried=sessionStorage.getItem("trs_gartrip"); }catch(e){}
+      if(tried!==to){                                  // (never twice in a row: no reload loop)
+        try{ sessionStorage.setItem("trs_gartrip", to); sessionStorage.setItem("trs_garfrom", GAR.from); }catch(e){}
+        pane="garage"; chooseCircuit(to); return;
+      }
+    }
     if(name==="strat" && (pane==="free"||pane==="season"||pane==="multi")) STRAT_BACK=pane;
     pane=name;
     if(name!=="strat") menuCarLook(CAR_PANES.indexOf(name)>=0);
@@ -15012,6 +15087,11 @@ uniform float shadowFar;
   try{
     const back=sessionStorage.getItem("trs_pane");
     sessionStorage.removeItem("trs_pane");
+    // (the garage, reopened at the next round's circuit, still leads back
+    // to the room it was opened from)
+    const gf=sessionStorage.getItem("trs_garfrom");
+    sessionStorage.removeItem("trs_garfrom");
+    if(back==="garage" && gf) pane=gf;
     showPane(back||"home");
   }catch(e){ showPane("home"); }
   netBoot();
@@ -15028,6 +15108,9 @@ uniform float shadowFar;
   await LOAD.step(98, "Grille de départ");
   makeCars();
   try{ weldScenery(); }catch(e){}
+  // (a page opened straight onto the garage set it up on the cars built
+  // before these: park this car and put the others away again)
+  if(GAR.on){ GAR.keep=null; try{ garEnter(); }catch(e){} }
   csmApplyAll();
   warmUp();
   STRAT_READY=true; stratChipsUpdate();
