@@ -8211,6 +8211,33 @@ uniform float shadowFar;
     if(!M || !M.best || !M.best.length) return 0;
     return M.best.length>=3 ? (M.best[0]+M.best[1]+M.best[2])/3 : M.best[0]*1.008;
   }
+  // Each level is set on each circuit, at the start of the race: its best team,
+  // on an average day, this far from a perfect lap in the player's car, both
+  // on the same line. The gentler levels get there by their drivers' pace;
+  // Extreme, already at the limit of what a driver can take, by a better car.
+  const LEVEL_GAP={f:1.12, n:1.06, d:1.025, x:0.975};
+  function levelCalibrate(){
+    const LV=aiLevel(diff), key=LV.extreme ? "x" : diff<0.97 ? "f" : diff<1.02 ? "n" : "d";
+    const goal=aiLapEstimate({aiPace:1, gripMul:1, maxSpeed:BASE, accel:30, aiTop:1, roll:2.2, dragC:0.11, brake:55},1)*LEVEL_GAP[key];
+    const PF=TEAM["Red Bull"]||TEAM_NEUTRAL;
+    const car=(p,a)=>({aiPace:Math.min(0.995, p*(1+PF.pace*LV.mix/100)), gripMul:LV.grip*(1+PF.grip*LV.mix/100),
+      maxSpeed:BASE*(1+PF.top*Math.min(LV.mix,1.6)/100), accel:30*LV.accel*(1+PF.top*Math.min(LV.mix,1.6)/100), aiTop:LV.top, roll:2.2, dragC:0.11, brake:55});
+    LRN.levelK=1; LRN.levelLift=1;
+    if(key==="x"){
+      // a lift of the car, the way the adaptation does it; never below the level
+      let lo=1, hi=1.12;
+      if(aiLapEstimate(car(LV.pace),1)<=goal) return;
+      for(let it=0;it<18;it++){ const m=(lo+hi)/2; if(aiLapEstimate(car(LV.pace),m)<=goal) hi=m; else lo=m; }
+      LRN.levelLift=hi;
+      for(const c of cars){ if(c.player||c.human||c.remote) continue; c.gripMul*=hi*hi; c.grip=GRIP_ON*c.gripMul; c.accel*=hi; c.maxSpeed*=1+0.35*(hi-1); }
+      return;
+    }
+    let lo=0.3, hi=0.985;
+    for(let it=0;it<22;it++){ const m=(lo+hi)/2; if(aiLapEstimate(car(m),1)>goal) lo=m; else hi=m; }
+    const k=((lo+hi)/2)/LV.pace;
+    LRN.levelK=k;
+    for(const c of cars){ if(c.player||c.human||c.remote) continue; c.aiPace=clamp(c.aiPace*k, 0.3, 0.985); }
+  }
   // the lift that brings a car's lap down to the goal, if it needs one
   function adaptFor(car, goal, max){
     const cal=(LRN.mem && LRN.mem.calib2)||LRN_CAL0;
@@ -8228,7 +8255,7 @@ uniform float shadowFar;
   // Extreme, outside the career: the best car a whisker quicker than the humans
   function learnAdapt(){
     const lvl=learnLevel(LRN.mem);
-    return lvl ? adaptTo(lvl*0.99, 1.12) : 1;
+    return lvl ? adaptTo(lvl*0.985, 1.15) : 1;
   }
   // The player's pace as a lap in the standard car. A career lap is put back
   // into the standard car by the gap between the two cars; the circuits not
@@ -8259,10 +8286,10 @@ uniform float shadowFar;
     const d=parseFloat(OPT.diff)||1;
     if(d<1.03) return 0;
     const lvl=careerSkillLap();
-    return lvl ? lvl*(d>=1.1 ? 0.99 : 1.025) : 0;
+    return lvl ? lvl*(d>=1.1 ? 0.985 : 1.025) : 0;
   }
-  function careerAdapt(){ const g=careerGoalLap(); return g ? adaptTo(g, 1.12) : 1; }
-  function careerAdaptFor(car){ const g=careerGoalLap(); return g ? adaptFor(car, g, 1.12) : 1; }
+  function careerAdapt(){ const g=careerGoalLap(); return g ? adaptTo(g, 1.15) : 1; }
+  function careerAdaptFor(car){ const g=careerGoalLap(); return g ? adaptFor(car, g, 1.15) : 1; }
   function adaptApply(){
     if(LRN.adapt>1) for(const c of cars){
       if(c.player || c.human || c.remote) continue;
@@ -8277,10 +8304,10 @@ uniform float shadowFar;
     const LV=aiLevel(diff);
     LRN.on = !!LV.extreme && !!LRN.mem && (!NET.race || NET.role==="host");
     LRN.adapt=1; LRN.pace0=LV.pace;
-    const base = LV.extreme ? laneX : laneA;
+    const base = laneX;
     AIL=aiLineBuild(base);
     try{ humPrepare(); }catch(e){ HUM.on=false; AIL=aiLineBuild(base); }
-    if(!LRN.on){ if(CAREER_ON && !NET.race){ LRN.adapt=careerAdapt(); adaptApply(); } return; }
+    if(!LRN.on){ try{ levelCalibrate(); }catch(e){} if(CAREER_ON && !NET.race){ LRN.adapt=careerAdapt(); adaptApply(); } return; }
     const M=LRN.mem, B=LRN.B;
     // for every sample of the lap: the line the humans drove, the speed they
     // carried on it, and how sure the memory is of both
@@ -8323,6 +8350,7 @@ uniform float shadowFar;
         if(c.plan[0].c>=0) c.comp=c.plan[0].c;
       }
     }
+    try{ levelCalibrate(); }catch(e){}
     LRN.adapt = CAREER_ON ? careerAdapt() : learnAdapt();
     // the lift goes into the cars themselves
     adaptApply();
@@ -8512,7 +8540,7 @@ uniform float shadowFar;
     for(let i=0;i<N;i++){
       const b=Math.min(B-1, Math.floor(cum[i]/LBIN)), n=H.hn[b]||0;
       const conf=clamp((n-2)/4,0,1);
-      HUM.line[i]=laneA[i]+(clamp(H.hl[b],-AI_LIM,AI_LIM)-laneA[i])*conf;
+      HUM.line[i]=laneX[i]+(clamp(H.hl[b],-AI_LIM,AI_LIM)-laneX[i])*conf;
       if(n>=4){ sds.push(Math.sqrt(Math.max(0,H.hll[b]-H.hl[b]*H.hl[b]))); }
       grip[i]= aiVA[i]*Math.sqrt(LV.pace*LV.grip)<BASE*0.97 ? 1 : 0;
       cf[i]=conf;
@@ -8688,7 +8716,7 @@ uniform float shadowFar;
     const R=c.rc||(c.rc={mode:"free", tgt:null, side:0, stuck:0, close:0, cool:0, defLane:null, defEnd:0, yside:0, yT:0, lane:null, mul:1, lo:-W, hi:W});
     const i=idxAtS(c.s), v=Math.max(8,Math.abs(c.vf)), brk=aiBrk[i], inside=aiIn[i];
     const PF=c.prof||TEAM_NEUTRAL;
-    let ahead=null, dA=1e9, behind=null, dB=1e9, lo=-W*0.84, hi=W*0.84;
+    let ahead=null, dA=1e9, behind=null, dB=1e9, lo=-W*0.84, hi=W*0.84, side=null, sideDs=0;
     for(const o of cars){
       if(o===c || o.onPit || o.inPitLane || o.service>0) continue;
       const ds=signedTo(c.s,o.s), dl=o.lat-c.lat;
@@ -8698,7 +8726,8 @@ uniform float shadowFar;
       // ahead is the following distance's business)
       const soon = Math.abs(dl)>FOOT_W && (Math.abs(dsF)<FOOT_L*1.1 || (ds*dsF<0 && Math.abs(ds)<FOOT_L*3.3));
       if((Math.abs(ds)<FOOT_L*1.1 || soon) && Math.abs(dl)<FOOT_W*2){
-        if(dl>0) hi=Math.min(hi, o.lat-FOOT_W*1.16); else lo=Math.max(lo, o.lat+FOOT_W*1.16);
+        if(Math.abs(ds)<FOOT_L*1.1 && (!side || Math.abs(ds)<Math.abs(sideDs))){ side=o; sideDs=ds; }
+        if(dl>0) hi=Math.min(hi, Math.min(o.lat, AI_LIM+0.4)-FOOT_W*1.3); else lo=Math.max(lo, Math.max(o.lat, -AI_LIM-0.4)+FOOT_W*1.3);
       }
       if(ds>=FOOT_L*0.5){ if(ds<dA && ds<95){ dA=ds; ahead=o; } }
       else if(ds<=-FOOT_L*0.5){ if(-ds<dB && -ds<70){ dB=-ds; behind=o; } }
@@ -8751,21 +8780,23 @@ uniform float shadowFar;
           }
           if(zp && zp[0]>=2) hSide = zp[1]*2>=zp[0] ? inside : -inside;
         }
-        const want = lapT || going || adv>0.004 || R.close>2.2 || (late && R.stuck>stuckFor);
+        // the first lap, bunched up: a move only with real pace in hand
+        const lap1 = c.lap<=0;
+        const want = lapT || going || (lap1 ? (adv>0.012 || R.close>3.5) : (adv>0.004 || R.close>2.2 || (late && R.stuck>stuckFor)));
         if(want && gapT<1.6 && R.cool<=0){
           R.mode="attack";
           if(!going && (R.side===0 || brk>v*3.2)){
             const roomIn=W*0.80-inside*T.lat, roomOut=W*0.80+inside*T.lat;
             if(lapT) R.side = roomIn>=roomOut ? inside : -inside;
-            else if(hd!==null && hd>=0.6 && roomOut>=FOOT_W*1.2 && brk>v*1.2) R.side=-inside;
-            else if(hSide===-inside && roomOut>=FOOT_W*1.2 && brk>v*1.2) R.side=-inside;
-            else if(roomIn>=FOOT_W*1.2) R.side=inside;
-            else if(roomOut>=FOOT_W*1.2 && brk>v*1.6) R.side=-inside;
+            else if(hd!==null && hd>=0.6 && roomOut>=FOOT_W*1.38 && brk>v*1.2) R.side=-inside;
+            else if(hSide===-inside && roomOut>=FOOT_W*1.38 && brk>v*1.2) R.side=-inside;
+            else if(roomIn>=FOOT_W*1.38) R.side=inside;
+            else if(roomOut>=FOOT_W*1.38 && brk>v*1.6) R.side=-inside;
             else R.side=0;
           }
           const tow = !lapT && !going && brk>v*2.2 && dT>FOOT_L*1.6;
           if(R.side!==0 && !tow){
-            lane=clamp(T.lat+R.side*FOOT_W*1.2, -W*0.80, W*0.80);
+            lane=clamp(T.lat+R.side*FOOT_W*1.38, -W*0.80, W*0.80);
             if(R.side===inside && dT<FOOT_L*0.9 && brk<v*0.9) mul=1+0.012*PF.attack;
             // side by side and getting nowhere on a straight: tuck back in
             R.sideT = Math.abs(dT)<FOOT_L ? (R.sideT||0)+dt : 0;
@@ -8803,6 +8834,15 @@ uniform float shadowFar;
     }
     // giving up a move alongside: ease off for a moment to drop in behind
     if(R.liftT>0){ R.liftT-=dt; mul=Math.min(mul,0.985); }
+    if(side && R.mode!=="yield"){
+      const edge=W-FOOT_W/2+0.2, room=Math.min(hi,edge)-Math.max(lo,-edge);
+      const behindIt = sideDs>0.4 || (Math.abs(sideDs)<=0.4 && Math.abs(c.lat)>Math.abs(side.lat));
+      if(room<0.3 && behindIt){
+        R.giveT=0.9;
+        if(R.mode==="attack"){ R.mode="follow"; R.side=0; R.cool=Math.max(R.cool,2.0); }
+      }
+    }
+    if(R.giveT>0){ R.giveT-=dt; mul=Math.min(mul,0.955); }
     R.lane=lane; R.mul=mul; R.lo=lo; R.hi=hi;
     return R;
   }
@@ -8810,7 +8850,13 @@ uniform float shadowFar;
     const aim=idxAtS(c.s + CAR_L*2.2 + Math.abs(c.vf)*0.32);
     const planned = R && R.lane!==null;
     const base = planned ? R.lane : aiLineAt(aim)+c.aiOff+(HUM.on && !c.player ? (c.hw||0)+(c.hwKick||0) : 0);
-    const hold = planned ? 2.2 : 1.0;
+    let hold = planned ? 2.2 : 1.0;
+    if(!planned){
+      const v2=c.vf*c.vf; let m=0;
+      for(let d=20; d<=160; d+=10){ const k=Math.abs(AIL.k[idxAtS(c.s+d)])*v2; if(k>m) m=k; }
+      // (only for a car well off it: in the pack, near the line, the cars keep their room)
+      hold *= 1+4*clamp(m/(AI_LAT*0.6)-0.3, 0, 1)*clamp((Math.abs(c.aiShift||0)-1.5)/2, 0, 1);
+    }
     let best=base, bestCost=Infinity;
     for(let q=-1;q<LANE_CAND.length;q++){
       const L = q<0 ? base : LANE_CAND[q]*W;
@@ -8821,14 +8867,14 @@ uniform float shadowFar;
         const ds=signedTo(c.s,o.s);
         if(ds<-FOOT_L || ds>CAR_L*8) continue;   // only what is just ahead
         const side=Math.abs(o.lat-L);
-        if(side<FOOT_W*1.3){
+        if(side<FOOT_W*1.45){
           const near=1-clamp(ds/(CAR_L*8),0,1);
           // A tow is worth sitting in. Pull out only with pace in hand, the
           // way a driver waits for the slipstream before committing.
           const closing=Math.abs(c.vf)-Math.abs(o.vf);
           const wantPass=clamp((closing+1.2)/5.5,0,1);
           const w = ds>CAR_L*2.6 ? (5+26*wantPass) : 30;
-          cost += w*near*(1-side/(FOOT_W*1.3));
+          cost += w*near*(1-side/(FOOT_W*1.45));
         }
       }
       if(cost<bestCost){ bestCost=cost; best=L; }
@@ -8895,25 +8941,37 @@ uniform float shadowFar;
     // Past the opening, only a car that actually made it behind the wall is
     // still pitting. One that missed rejoins the circuit and tries next lap,
     // rather than braking to a halt against the wall.
-    const pitting=c.wantPit && pw>1.0 && (c.inPitLane || !pitWallAt(c.s));
+    // A stop is made through the entry, before the line. (The exit road after
+    // the line is an opening in the wall too; a car that had just decided to
+    // stop turned into it the wrong way and hit the wall at its end.) And a car
+    // that reaches the entry without being lined up for it goes round again,
+    // rather than lunging across at the nose of the pit wall.
+    const onEntry = pw>1.0 && !pitWallAt(c.s) && signedTo(0,c.s)<0;
+    if(c.wantPit && !c.inPitLane && onEntry && c.pitSkip!==c.lap && signedTo(ENTRY_S,c.s)<6 && c.lat>-W*0.55) c.pitSkip=c.lap;
+    const pitting=c.wantPit && pw>1.0 && (c.inPitLane || (onEntry && c.pitSkip!==c.lap));
     const RC = (!pitting && !(c.inPitLane && pw>1.0) && !scOn && !c.onPit && state==="racing") ? raceCraft(c, dt) : null;
     if(RC) spd*=RC.mul;
     // Coming in for tyres, a driver drifts to the pit side of the circuit at
     // racing speed and does all the braking in the entry road.
     let approach=0;
-    if(c.wantPit && !pitting){
+    if(c.wantPit && !pitting && c.pitSkip!==c.lap){
       let d=ENTRY_S-c.s; while(d<0) d+=TOT;
-      approach=clamp((150-d)/110, 0, 1);
+      approach=clamp((230-d)/170, 0, 1);
     }
 
     // ---- the lateral plan: how far from the line this car wants to be ----
     const aimS=c.s + CAR_L*2.2 + av*0.32, aimI=idxAtS(aimS);
     const inLane = !!c.inPitLane && pw>1.0;
     if(!(pitting || inLane)){
-      const want = scOn ? aiLineAt(aimI) : pickLane(c, RC);
+      let want = scOn ? aiLineAt(aimI) : pickLane(c, RC);
+      // coming in for tyres: across to the pit side, as part of the plan (so
+      // the speeds through the last corner are the ones for that line)
+      if(approach>0) want += (-W*0.92-want)*approach;
       const target = want - aiLineAt(aimI);
       // a move across the road takes the time a driver takes: brisk in a fight
-      const rate = RC && (RC.mode==="attack" || RC.mode==="yield") ? 4.2 : 3.0;
+      // back to the line briskly once clear, but only with nobody alongside
+      const clear = !RC || (RC.lo<=-W*0.84+1e-6 && RC.hi>=W*0.84-1e-6);
+      const rate = (RC && (RC.mode==="attack" || RC.mode==="yield")) || (clear && Math.abs(target)<Math.abs(c.aiShift)-0.3) ? 4.2 : 3.0;
       const dv=clamp((target-c.aiShift)*2.5, -rate, rate);
       c.aiShiftV += (dv-c.aiShiftV)*(1-Math.exp(-8*h));
       c.aiShift += c.aiShiftV*h;
@@ -10695,7 +10753,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="5.7";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="5.8";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -14427,7 +14485,7 @@ uniform float shadowFar;
     const box=$("rdList"); if(!box) return;
     // the sums below are made on the line the chosen level races on
     const keepAIL=AIL;
-    try{ AIL=aiLineBuild(aiLevel(parseFloat(OPT.diff)||1).extreme ? laneX : laneA); }catch(e){}
+    try{ AIL=aiLineBuild(laneX); }catch(e){}
     $("usineKick").textContent=(PROF.team ? PROF.team.name : "Ton écurie")+" · Saison "+season.year;
     let now=0;
     try{ now=aiLapEstimate(careerStub(season.rd),1); }catch(e){}
