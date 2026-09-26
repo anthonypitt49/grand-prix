@@ -5625,7 +5625,22 @@ uniform float shadowFar;
   }
   const lampPole=new THREE.MeshStandardMaterial({color:0x8a9098, roughness:.45, metalness:.6});
   const lampLens=new THREE.MeshStandardMaterial({color:0x1b1c1f, roughness:.4, emissive:0xfff0d8, emissiveIntensity:0});
-  let lampHalo=null, lampMap=null;
+  let lampHalo=null, lampMap=null, lampData=null, lampW=0, lampH=0, LAMP_LVL=0;
+  // A car's own light map: one texel for what faces down, one for what faces up.
+  // uv2 comes from the normal (carUv2), so the lamps above light the top of a
+  // car more than its flanks, and its flanks more than its floor.
+  const CAR_LM=(()=>{
+    const t=new THREE.DataTexture(new Uint8Array([46,43,37,255, 255,237,204,255]), 1, 2, THREE.RGBAFormat, THREE.UnsignedByteType);
+    t.magFilter=THREE.LinearFilter; t.minFilter=THREE.LinearFilter; t.generateMipmaps=false;
+    t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; t.needsUpdate=true; return t;
+  })();
+  const LAMP_OWNER=new WeakMap();
+  function carUv2(g){
+    if(!g || g.attributes.uv2 || !g.attributes.normal) return;
+    const n=g.attributes.normal, a=new Float32Array(n.count*2);
+    for(let i=0;i<n.count;i++){ a[i*2]=0.5; a[i*2+1]=0.5+0.25*clamp(n.getY(i),-1,1); }
+    g.setAttribute("uv2", new THREE.BufferAttribute(a,2));
+  }
   {
     // a pole with its arm and head, the arm along +x; and a second arm alone
     const arm=(len, y)=>{
@@ -5706,6 +5721,7 @@ uniform float shadowFar;
         data[q]=v; data[q+1]=Math.round(v*0.93); data[q+2]=Math.round(v*0.80); data[q+3]=255;
       }
     }
+    lampData=data; lampW=LW; lampH=LH;
     lampMap=new THREE.DataTexture(data, LW, LH, THREE.RGBAFormat, THREE.UnsignedByteType);
     lampMap.wrapS=THREE.ClampToEdgeWrapping; lampMap.wrapT=THREE.RepeatWrapping;
     lampMap.magFilter=THREE.LinearFilter; lampMap.minFilter=THREE.LinearMipmapLinearFilter;
@@ -5715,6 +5731,7 @@ uniform float shadowFar;
   // how much the lamps give at each time of day
   function streetLights(k){
     const lvl = k==="nuit" ? 1 : (k==="couchant" ? 0.3 : 0);
+    LAMP_LVL=lvl;
     for(const m of LIT_MATS) m.lightMapIntensity=1.6*lvl;
     lampLens.emissiveIntensity = lvl>0 ? 0.8+2.2*lvl : 0;
     if(lampHalo){ lampHalo.visible=lvl>0; lampHalo.material.opacity=0.95*lvl; }
@@ -7480,7 +7497,51 @@ uniform float shadowFar;
     });
     weldCar(mesh);
     carFar(mesh);
+    carLampReady(mesh);
     return mesh;
+  }
+  // Every material of this car's own (not the ones all cars share) gets the
+  // car light map; every part, near and far, its uv2.
+  // (a material found on two cars is shared after all: it stays unlit, since
+  // one value could not suit both; LAMP_OWNER says whose each one is)
+  function carLampReady(root){
+    const shared=new Set([glassMat, tyreMat, darkMat, headMat, discMat, nutMat]);
+    const mats=new Set();
+    root.traverse(o=>{
+      if(!o.isMesh) return;
+      carUv2(o.geometry);
+      const ms=Array.isArray(o.material)?o.material:[o.material];
+      for(const m of ms){
+        if(!m || shared.has(m) || !m.isMeshStandardMaterial || m.userData.lampShared) continue;
+        const own=LAMP_OWNER.get(m);
+        if(own && own!==root){
+          m.userData.lampShared=1;
+          if(m.userData.lampLit){ m.lightMap=null; m.userData.lampLit=0; m.needsUpdate=true; }
+          if(own.userData.lampMats) own.userData.lampMats.delete(m);
+          continue;
+        }
+        LAMP_OWNER.set(m, root);
+        if(m.lightMap) continue;
+        m.lightMap=CAR_LM; m.lightMapIntensity=0; m.userData.lampLit=1; m.needsUpdate=true;
+        mats.add(m);
+      }
+    });
+    for(const m of (root.userData.lampMats||[])) mats.add(m);
+    root.userData.lampMats=mats; root.userData.lampK=-1;
+  }
+  // The street light where this car stands, read from the baked map (between
+  // the two nearest rows round the lap, and across), onto its paint.
+  function carLampLight(c){
+    const u=c.mesh.userData; if(!u.lampMats) return;
+    let k=0;
+    if(LAMP_LVL>0 && lampData){
+      const sv=(((c.s%TOT)+TOT)%TOT)/TOT*lampH-0.5, r0=Math.floor(sv), f=sv-r0;
+      const ra=((r0%lampH)+lampH)%lampH, rb=(ra+1)%lampH;
+      const col=clamp(Math.round(lmU(c.lat)*lampW-0.5), 0, lampW-1);
+      const e=(lampData[(ra*lampW+col)*4]*(1-f)+lampData[(rb*lampW+col)*4]*f)/150;
+      k=1.1*LAMP_LVL*e;          // (the ground takes 1.6: paint at 1.6 washed out to pastel)
+    }
+    if(Math.abs(k-u.lampK)>0.004){ u.lampK=k; for(const m of u.lampMats) m.lightMapIntensity=k; }
   }
   // Swapping a car's look: a new mesh in place of the old, the old one freed
   // (the few materials every car shares are left alone).
@@ -7609,7 +7670,7 @@ uniform float shadowFar;
     for(const gr of groups.values()){
       if(gr.list.length<minCount) continue;
       const mt=gr.mat;
-      if(mt.aoMap || mt.lightMap) continue;
+      if(mt.aoMap || (mt.lightMap && !mt.userData.lampLit)) continue;
       const parts=[]; let verts=0, uvAll=true, ok=true;
       for(const o of gr.list){
         const src=o.geometry, pa=src && src.attributes.position;
@@ -7636,6 +7697,7 @@ uniform float shadowFar;
       mg.setAttribute("position", new THREE.BufferAttribute(pos,3));
       mg.setAttribute("normal", new THREE.BufferAttribute(nrm,3));
       if(uv) mg.setAttribute("uv", new THREE.BufferAttribute(uv,2));
+      if(mt.userData.lampLit) carUv2(mg);
       mg.computeBoundingBox(); mg.computeBoundingSphere();
       const wm=new THREE.Mesh(mg, mt);
       wm.castShadow=gr.cast; wm.receiveShadow=gr.recv;
@@ -7777,6 +7839,7 @@ uniform float shadowFar;
   }
   function syncMesh(c){
     c.mesh.position.set(c.x, c.groundY+(c.lift||0), c.z);
+    carLampLight(c);
     c.mesh.rotation.set(0, -c.a, 0);
     {
       const att=c.mesh.userData.att;
@@ -11072,7 +11135,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="6.0";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="6.1";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
