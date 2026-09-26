@@ -7505,14 +7505,31 @@ uniform float shadowFar;
   // (a material found on two cars is shared after all: it stays unlit, since
   // one value could not suit both; LAMP_OWNER says whose each one is)
   function carLampReady(root){
-    const shared=new Set([glassMat, tyreMat, darkMat, headMat, discMat, nutMat]);
+    // the parts every car was built with share one material: this car gets its
+    // own copy of each (the headlamp glows by itself and keeps the shared one)
+    const shared=new Set([glassMat, tyreMat, darkMat, discMat, nutMat]);
+    const own=root.userData.ownMats||(root.userData.ownMats=new Map());
+    const mine=m=>{
+      let cl=own.get(m);
+      if(!cl){
+        cl=m.clone(); delete cl.userData.csm;
+        if(csm && m.userData.csm){ csm.setupMaterial(cl); cl.userData.csm=1; }
+        own.set(m, cl);
+      }
+      return cl;
+    };
     const mats=new Set();
+    root.traverse(o=>{
+      if(!o.isMesh) return;
+      if(Array.isArray(o.material)) o.material=o.material.map(m=>shared.has(m) ? mine(m) : m);
+      else if(shared.has(o.material)) o.material=mine(o.material);
+    });
     root.traverse(o=>{
       if(!o.isMesh) return;
       carUv2(o.geometry);
       const ms=Array.isArray(o.material)?o.material:[o.material];
       for(const m of ms){
-        if(!m || shared.has(m) || !m.isMeshStandardMaterial || m.userData.lampShared) continue;
+        if(!m || m===headMat || !m.isMeshStandardMaterial || m.userData.lampShared) continue;
         const own=LAMP_OWNER.get(m);
         if(own && own!==root){
           m.userData.lampShared=1;
@@ -9259,7 +9276,8 @@ uniform float shadowFar;
       spd*=1+c.rhy-(c.push===0 ? 0.008 : 0);
     }
     // a moment gone wrong: the driver is off line and slow for about a second
-    if(c.slip2>0) spd *= (1 - 0.16*Math.min(1,c.slip2));
+    // (a moment gone wrong is a lift off the throttle, below, not a stab on
+    // the brakes)
     // running out of grip (the steering cannot turn enough) for more than a
     // moment: ease off a touch. A flicker of it on a change of line is not one.
     c.aiUS=Math.max(0, (c.aiUS||0)-h*2.0);
@@ -9284,6 +9302,11 @@ uniform float shadowFar;
     if(pitting && !c.inPitLane) c.pitGo=c.lap;
     const RC = (!pitting && !(c.inPitLane && pw>1.0) && !scOn && !c.onPit && state==="racing") ? raceCraft(c, dt) : null;
     if(RC) spd*=RC.mul;
+    // Going slower by choice (letting a car by, easing off, the rhythm of the
+    // lap) comes in at 5 % a second at most: a lift a driver behind can read,
+    // never a stab on the brakes. Faster again at once.
+    c.spdS = (c.spdS===undefined || spd>=c.spdS) ? spd : Math.max(spd, c.spdS-0.05*h);
+    spd=c.spdS;
     // Coming in for tyres, a driver drifts to the pit side of the circuit at
     // racing speed and does all the braking in the entry road.
     let approach=0, apLat=-W*0.92, apD=-1;
@@ -9319,7 +9342,21 @@ uniform float shadowFar;
           if(pull>0){ const ln=aiLineAt(aimI); want = ln + (want-ln)*(1-pull); }
         }
       }
-      const target = want - aiLineAt(aimI);
+      let target = want - aiLineAt(aimI);
+      // Only a lane the road will still give it: at each point of the next
+      // stretch, no further off the line than the room there, plus what it can
+      // take back across the road before it gets there (a driver heads for the
+      // apex, not for the barrier beyond it).
+      if(!scOn && approach<=0){
+        let lo=-1e3, hi=1e3;
+        const back=3.2/Math.max(8, av);
+        for(let d=0; d<=Math.max(30, av*1.3); d+=5){
+          const j=idxAtS(c.s+d), slack=back*d;
+          lo=Math.max(lo, Math.min(-AI_LIM, lbLo(j))-0.05-AIL.lat[j]-slack);
+          hi=Math.min(hi, Math.max(AI_LIM, lbHi(j))+0.05-AIL.lat[j]+slack);
+        }
+        if(lo<=hi) target=clamp(target, lo, hi);
+      }
       c.aiTgt=target;
       // a move across the road takes the time a driver takes: brisk in a fight
       // back to the line briskly once clear, but only with nobody alongside
@@ -9340,7 +9377,8 @@ uniform float shadowFar;
     // ---- speed: every corner ahead, and the car in front ----
     const aPlan=aiBrakePlan(c);
     const m0=1.5+av*0.05, reach=av*av/(2*aPlan)+40;
-    let aNeed=0, vNow=1e3, vSoon=1e3;
+    let aNeed=0, vNow=1e3, vSoon=1e3, vLift=1e3, vcLift=1e3;
+    const aCoast=0.95*((c.roll||2.2)+(c.dragC||0.11)*av);
     const dSoon=av*0.25;
     {
       let i=here, guard=0;
@@ -9355,11 +9393,19 @@ uniform float shadowFar;
           // the fastest the car can be going now and still make this speed
           // here, braking at the planned rate: that, not the speed of every
           // bend as it comes into view, is what it keeps to
-          const vAl = di<=m0 ? vc : Math.sqrt(vc*vc+2*aPlan*(di-m0));
-          if(vAl<vNow) vNow=vAl;
-          // the same a quarter of a second on: how fast the target is falling
-          const d2=di-dSoon;
-          if(d2>=-2){ const v2 = d2<=m0 ? vc : Math.sqrt(vc*vc+2*aPlan*(d2-m0)); if(v2<vSoon) vSoon=v2; }
+          // a bend that asks for only a little less speed is taken off the
+          // throttle, early enough for the air to do it; the others braking
+          // (once on the brakes, it stays on them to the end of the zone)
+          if(di>m0 && av-vc<4 && !c.aiOnBrk){
+            const vl=Math.sqrt(vc*vc+2*aCoast*(di-m0)); if(vl<vLift) vLift=vl;
+            if(vc<vcLift) vcLift=vc;
+          } else {
+            const vAl = di<=m0 ? vc : Math.sqrt(vc*vc+2*aPlan*(di-m0));
+            if(vAl<vNow) vNow=vAl;
+            // the same a quarter of a second on: how fast the target is falling
+            const d2=di-dSoon;
+            if(d2>=-2){ const v2 = d2<=m0 ? vc : Math.sqrt(vc*vc+2*aPlan*(d2-m0)); if(v2<vSoon) vSoon=v2; }
+          }
           // a corner the car could no longer make at the planned rate (the
           // metres right in front of it are the speed now, not a braking need)
           if(av>vc && di>m0){ const need=(av*av-vc*vc)/(2*(di-m0+2)); if(need>aNeed) aNeed=need; }
@@ -9420,14 +9466,25 @@ uniform float shadowFar;
     const aFF = Math.min(0, (Math.min(vSoon, vTop)-vT)/0.25)*onCurve;
     // (above the target it is corrected firmly: that is speed the corner will not take)
     let aDes = Math.max(-aMax, aFF) + (av>vT ? 9 : Kv)*(vT-av);
-    if(aNeed>aPlan*1.08) aDes=Math.min(aDes, -Math.min(aNeed, aMax));
+    // (a corner it can no longer make at the planned rate: more braking, brought
+    // in as the need grows, not switched on and off)
+    if(aNeed>aPlan) aDes=Math.min(aDes, -Math.min(aMax, aPlan+(aNeed-aPlan)*clamp((aNeed/aPlan-1)/0.2, 0, 1)*2));
     if(av>vFollow) aDes=Math.min(aDes, -Math.min((c.brake||55)+(c.roll||2.2), (av-vFollow)*7));
     else aDes=Math.min(aDes, Kv*(vFollow-av)+2);
     if(vTop<1e3) aDes=Math.min(aDes, Kv*(vTop-av));
     if(pitting) aDes=Math.min(aDes, 5*(vPit-av));
     const drag=(c.roll||2.2)+(c.dragC||0.11)*(c.drs?0.62:1)*av;
+    // a brake light for a few km/h too many reads as braking for nothing to
+    // anyone behind: outside a braking zone, small corrections are a lift
+    if(aDes<-drag && aDes>-drag-7 && aFF>-2 && !(aNeed>aPlan*1.08) && !(av>vFollow+2.5) && !pitting) aDes=-drag;
+    // off the throttle for a bend that the air alone will slow the car for
+    // (only with speed to lose: through a long fast bend at its own speed the
+    // car holds it)
+    if(av>vLift-0.2 && vcLift<av-0.5 && aDes>-drag) aDes=-drag;
     let thr = aDes+drag>=0 ? (aDes+drag)/(c.accel||30) : (aDes+drag)/(c.brake||55);
     thr=clamp(thr,-1,1);
+    if(c.slip2>0 && thr>0) thr*=1-Math.min(1, c.slip2);
+    c.aiOnBrk = thr<-0.05;
     if(pitting && vPit<=0.01) thr=-1;
     // the lights are out, but a driver still needs a moment to react
     if(c.react && state==="racing" && performance.now()-raceStart<c.react*1000) thr=0;
@@ -11135,7 +11192,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="6.1";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="6.2";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
