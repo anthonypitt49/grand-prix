@@ -4630,13 +4630,17 @@ uniform float shadowFar;
   }
 
   // ribbon between two lateral offsets, following the track's elevation
+  // The street lighting's light map covers the road and everything beside it
+  // (pit lane included): u across from LM_LO to LM_HI, v round the lap.
+  const LM_LO=-(W+APRON+PIT_W+3), LM_HI=W+APRON+3, LIT_MATS=[], TUNNELS=[];
+  const lmU=o=>(o-LM_LO)/(LM_HI-LM_LO);
   function ribbon(offA, offB, texture, vScale, yLift, side, mask){
-    const pos=[], uv=[], idx=[];
+    const pos=[], uv=[], uv2=[], idx=[];
     for(let i=0;i<=N;i++){
       const j=i%N, p=pts[j], nr=norA[j], s=(i<N?cum[i]:TOT);
       const ya=p.y+yLift, yb=p.y+yLift;
-      pos.push(p.x+nr.x*offA, ya, p.z+nr.z*offA); uv.push(0, s/vScale);
-      pos.push(p.x+nr.x*offB, yb, p.z+nr.z*offB); uv.push(1, s/vScale);
+      pos.push(p.x+nr.x*offA, ya, p.z+nr.z*offA); uv.push(0, s/vScale); uv2.push(lmU(offA), s/TOT);
+      pos.push(p.x+nr.x*offB, yb, p.z+nr.z*offB); uv.push(1, s/vScale); uv2.push(lmU(offB), s/TOT);
     }
     for(let i=0;i<N;i++){
       if(mask && !mask(i)) continue;
@@ -4645,30 +4649,34 @@ uniform float shadowFar;
     const g=new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.Float32BufferAttribute(pos,3));
     g.setAttribute("uv", new THREE.Float32BufferAttribute(uv,2));
+    g.setAttribute("uv2", new THREE.Float32BufferAttribute(uv2,2));
     g.setIndex(idx); g.computeVertexNormals();
     const m=new THREE.Mesh(g, new THREE.MeshStandardMaterial({
       map:texture, roughness:.93, metalness:.02, side:side||THREE.FrontSide }));
     m.userData.onTrack=1;                   // a ribbon follows the road by design
+    LIT_MATS.push(m.material);
     return m;
   }
   const asFn=v=>(typeof v==="function"? v : (()=>v));
   function wallRibbon(off, h, texture, uScale, drop, flipU){
     const F=asFn(off);
-    const pos=[], uv=[], idx=[];
+    const pos=[], uv=[], uv2=[], idx=[];
     for(let i=0;i<=N;i++){
       const j=i%N, p=pts[j], nr=norA[j], s=(i<N?cum[i]:TOT);
       const o=F(s), x=p.x+nr.x*o, z=p.z+nr.z*o;
       const u=flipU ? -s/uScale : s/uScale;
-      pos.push(x, p.y+(drop||0), z); uv.push(u, 0);
-      pos.push(x, p.y+h,        z); uv.push(u, 1);
+      pos.push(x, p.y+(drop||0), z); uv.push(u, 0); uv2.push(lmU(o), s/TOT);
+      pos.push(x, p.y+h,        z); uv.push(u, 1); uv2.push(lmU(o), s/TOT);
     }
     for(let i=0;i<N;i++){ const a=i*2; idx.push(a,a+1,a+3, a,a+3,a+2); }
     const g=new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.Float32BufferAttribute(pos,3));
     g.setAttribute("uv", new THREE.Float32BufferAttribute(uv,2));
+    g.setAttribute("uv2", new THREE.Float32BufferAttribute(uv2,2));
     g.setIndex(idx); g.computeVertexNormals();
     const m=new THREE.Mesh(g, new THREE.MeshStandardMaterial({map:texture, roughness:.7, side:THREE.DoubleSide}));
     m.userData.onTrack=1;
+    LIT_MATS.push(m.material);
     return m;
   }
 
@@ -4720,6 +4728,7 @@ uniform float shadowFar;
     // the painted edge lines, now their own strips so the surface can tile
     const lineMat=new THREE.MeshStandardMaterial({color:0xeef0f4, roughness:.80, metalness:.02, side:DS,
       polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-2});
+    LIT_MATS.push(lineMat);
     for(const sgn of [1,-1]){
       const ln=ribbon(sgn*(W-0.26), sgn*(W-0.02), null, 16, 0.012, DS);
       ln.material.dispose(); ln.material=lineMat;
@@ -4758,21 +4767,24 @@ uniform float shadowFar;
     const span=2*(PIT_FULL+PIT_TAPER)+10;
     const i0=idxAtS(wrapS(-(PIT_FULL+PIT_TAPER)-5));
     const cnt=Math.round(span/STEP);
-    const pos=[], uv=[], idx=[];
+    const pos=[], uv=[], uv2=[], idx=[];
     for(let k=0;k<=cnt;k++){
       const j=(i0+k)%N, p=pts[j], nr=norA[j], sv=cum[j];
       const pw=pitWidthAt(sv);
       const oa=-(W+KERB), ob=-(W+APRON+pw);
-      pos.push(p.x+nr.x*oa, p.y+0.03, p.z+nr.z*oa); uv.push(0, k*STEP/9);
-      pos.push(p.x+nr.x*ob, p.y+0.03, p.z+nr.z*ob); uv.push(1, k*STEP/9);
+      pos.push(p.x+nr.x*oa, p.y+0.03, p.z+nr.z*oa); uv.push(0, k*STEP/9); uv2.push(lmU(oa), sv/TOT);
+      pos.push(p.x+nr.x*ob, p.y+0.03, p.z+nr.z*ob); uv.push(1, k*STEP/9); uv2.push(lmU(ob), sv/TOT);
     }
     for(let k=0;k<cnt;k++){ const a=k*2; idx.push(a,a+1,a+3, a,a+3,a+2); }
     const g=new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.Float32BufferAttribute(pos,3));
     g.setAttribute("uv", new THREE.Float32BufferAttribute(uv,2));
+    g.setAttribute("uv2", new THREE.Float32BufferAttribute(uv2,2));
     g.setIndex(idx); g.computeVertexNormals();
-    scene.add(new THREE.Mesh(g, new THREE.MeshStandardMaterial({
-      map:pitTex(), roughness:.9, side:THREE.DoubleSide })));
+    const pitSurf=new THREE.Mesh(g, new THREE.MeshStandardMaterial({
+      map:pitTex(), roughness:.9, side:THREE.DoubleSide }));
+    LIT_MATS.push(pitSurf.material);
+    scene.add(pitSurf);
   }
   // A ribbon standing on its edge over one arc of the circuit.
   function arcWall(off, h, texture, uScale, s0, len, yLift, mat){
@@ -5389,6 +5401,8 @@ uniform float shadowFar;
         const ct=tex(cc,true,true); ct.repeat.set(6,40);
         const roof=ribbon(-(W+APRON+0.8), W+APRON+0.8, ct, 9, 6.6, THREE.DoubleSide, span);
         roof.userData.shaded=1; roof.castShadow=true; roof.receiveShadow=false; scene.add(roof);
+        LIT_MATS.splice(LIT_MATS.indexOf(roof.material), 1);      // the street lamps are above it
+        const TN={s:sv, half:half, lamps:[]}; TUNNELS.push(TN);
         for(const sgn of [1,-1]){
           const wl=arcWall(sgn*(W+APRON+0.7), 6.7, ct.clone(), 14, wrapS(sv-half), mk.len||100, 0);
           wl.userData.shaded=1; wl.castShadow=false; wl.receiveShadow=true; scene.add(wl);
@@ -5400,6 +5414,7 @@ uniform float shadowFar;
           const s2=wrapS(sv+d), j=idxAtS(s2), r=pointAt(s2), n2=norA[j];
           const lm=new THREE.Mesh(lampG, lampM);
           lm.position.set(r.x+n2.x*0, r.y+6.35, r.z+n2.z*0);
+          TN.lamps.push([r.x, r.y+6.3, r.z]);
           lm.rotation.y=-Math.atan2(tanA[j].z,tanA[j].x);
           lm.userData.shaded=1; scene.add(lm);
         }
@@ -5580,6 +5595,131 @@ uniform float shadowFar;
     cim.frustumCulled=false; cim.instanceMatrix.needsUpdate=true;
     cim.userData.deco=1; scene.add(cim);
   }
+
+  // ---- street lighting ---------------------------------------------------
+  // A lamp every 22 m, sides alternating, behind the barrier with its arm out
+  // over the edge of the track; on the pit wall a double one, lighting the
+  // track and the pit lane. Where the ground is not free (another part of the
+  // circuit, water) the lamp is left out.
+  const LAMP_H=10.2, LAMP_ARM=3.2;
+  const LAMPS=[], LAMP_HEADS=[];
+  {
+    const n=Math.floor(TOT/22);
+    for(let k=0;k<n;k++){
+      const sv=wrapS(k*TOT/n), side=(k%2) ? 1 : -1;
+      if(Math.abs(signedTo(0, sv))<14) continue;               // the start gantry
+      if(TUNNELS.some(T=>Math.abs(signedTo(T.s, sv))<T.half+14)) continue;   // a roof over the road
+      const i=idxAtS(sv), p=pointAt(sv), nr=norA[i], pw=pitWidthAt(sv);
+      const onWall = side<0 && pitWallAt(sv);
+      const off = side>0 ? W+APRON+1.8 : (onWall ? -(W+APRON)-0.14 : -(W+APRON+(pw>1 ? pw+2.4 : 0)+1.8));
+      const x=p.x+nr.x*off, z=p.z+nr.z*off;
+      if(!onWall && !spotFree(x, z, 0.6)) continue;
+      const by = onWall ? p.y+PWALL_H : Math.min(groundY(x,z), p.y+2.5);
+      const L={s:sv, x, z, by, ang:Math.atan2(side*nr.z, -side*nr.x), twin:onWall, heads:[]};
+      for(const d of (onWall ? [LAMP_ARM*0.8, -LAMP_ARM*0.8] : [LAMP_ARM])){
+        const o=off-side*d, hx=p.x+nr.x*o, hz=p.z+nr.z*o, hy=(onWall ? p.y+PWALL_H+LAMP_H-1.2 : by+LAMP_H)-0.12;
+        L.heads.push([hx, hy, hz]); LAMP_HEADS.push([hx, hy, hz, p.y]);
+      }
+      LAMPS.push(L);
+    }
+  }
+  const lampPole=new THREE.MeshStandardMaterial({color:0x8a9098, roughness:.45, metalness:.6});
+  const lampLens=new THREE.MeshStandardMaterial({color:0x1b1c1f, roughness:.4, emissive:0xfff0d8, emissiveIntensity:0});
+  let lampHalo=null, lampMap=null;
+  {
+    // a pole with its arm and head, the arm along +x; and a second arm alone
+    const arm=(len, y)=>{
+      const a=new THREE.BoxGeometry(len, 0.11, 0.11); a.translate(len/2, y, 0);
+      const h=new THREE.BoxGeometry(0.95, 0.17, 0.44); h.translate(len, y-0.06, 0);
+      const b=new THREE.BoxGeometry(len*0.45, 0.07, 0.07); b.rotateZ(0.42); b.translate(len*0.2, y-0.45, 0);
+      return [a, h, b];
+    };
+    const full=(h, len)=>{ const pole=new THREE.CylinderGeometry(0.1, 0.16, h, 8); pole.translate(0, h/2, 0); return mergeGeos([pole, ...arm(len, h)]); };
+    const gFull=full(LAMP_H, LAMP_ARM), gWall=full(LAMP_H-1.2, LAMP_ARM*0.8), gArm=mergeGeos(arm(LAMP_ARM*0.8, LAMP_H-1.2));
+    const lens=new THREE.PlaneGeometry(0.84, 0.34); lens.rotateX(Math.PI/2);
+    const single=LAMPS.filter(L=>!L.twin), twin=LAMPS.filter(L=>L.twin);
+    const M=new THREE.Matrix4(), Q=new THREE.Quaternion(), U=new THREE.Vector3(0,1,0), V=new THREE.Vector3(), ONE=new THREE.Vector3(1,1,1);
+    const put=(im, j, x, y, z, a)=>{ Q.setFromAxisAngle(U, a); M.compose(V.set(x,y,z), Q, ONE); im.setMatrixAt(j, M); };
+    const batch=(geo, mat, list, fill)=>{
+      if(!list.length) return;
+      const im=new THREE.InstancedMesh(geo, mat, list.length);
+      list.forEach((L,j)=>fill(im, j, L));
+      im.instanceMatrix.needsUpdate=true; im.frustumCulled=false;
+      im.castShadow=false; im.receiveShadow=true; im.userData.shaded=1;
+      scene.add(im);
+    };
+    batch(gFull, lampPole, single, (im,j,L)=>put(im, j, L.x, L.by, L.z, L.ang));
+    batch(gWall, lampPole, twin, (im,j,L)=>put(im, j, L.x, L.by, L.z, L.ang));
+    batch(gArm,  lampPole, twin, (im,j,L)=>put(im, j, L.x, L.by, L.z, L.ang+Math.PI));
+    // the lenses, one under every head
+    const heads=[];
+    for(const L of LAMPS) L.heads.forEach((h,q)=>heads.push([h, L.ang+(q ? Math.PI : 0)]));
+    if(heads.length){
+      const lim=new THREE.InstancedMesh(lens, lampLens, heads.length);
+      heads.forEach((H,j)=>put(lim, j, H[0][0], H[0][1]-0.03, H[0][2], H[1]));
+      lim.instanceMatrix.needsUpdate=true; lim.frustumCulled=false; lim.castShadow=false; lim.receiveShadow=false;
+      scene.add(lim);
+      // the glow round each lit lens, seen from far off
+      const hc=cvs(64,64), hg=hc.getContext("2d");
+      const gr=hg.createRadialGradient(32,32,0,32,32,32);
+      gr.addColorStop(0,"rgba(255,246,228,1)"); gr.addColorStop(0.18,"rgba(255,236,205,.55)");
+      gr.addColorStop(0.5,"rgba(255,222,180,.12)"); gr.addColorStop(1,"rgba(255,210,160,0)");
+      hg.fillStyle=gr; hg.fillRect(0,0,64,64);
+      const hp=new Float32Array(heads.length*3);
+      heads.forEach((H,j)=>{ hp[j*3]=H[0][0]; hp[j*3+1]=H[0][1]-0.2; hp[j*3+2]=H[0][2]; });
+      const hgeo=new THREE.BufferGeometry(); hgeo.setAttribute("position", new THREE.BufferAttribute(hp,3));
+      const htex=new THREE.CanvasTexture(hc); htex.encoding=THREE.sRGBEncoding;
+      lampHalo=new THREE.Points(hgeo, new THREE.PointsMaterial({map:htex, size:6.5, sizeAttenuation:true,
+        transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, opacity:0}));
+      lampHalo.frustumCulled=false; lampHalo.visible=false; lampHalo.renderOrder=5;
+      scene.add(lampHalo);
+    }
+  }
+  // The light on the ground: for every point of the road and its sides, what
+  // the lamps near it throw there (inverse square, the cosine of the ground,
+  // the lamp's spread cut off towards the horizontal), baked once.
+  {
+    const LW=64; let LH=256; while(LH<Math.min(4096, TOT/1.6)) LH*=2;
+    const data=new Uint8Array(LW*LH*4);
+    const CELL=40, grid=new Map();
+    const SRC=LAMP_HEADS.map(H=>[H[0],H[1],H[2],1]);
+    for(const T of TUNNELS) for(const H of T.lamps) SRC.push([H[0],H[1],H[2],0.35]);   // the tunnel's own lamps, lower
+    for(const H of SRC){ const k=Math.floor(H[0]/CELL)+","+Math.floor(H[2]/CELL); let a=grid.get(k); if(!a){ a=[]; grid.set(k,a); } a.push(H); }
+    const I0=110;                                   // lux-like units: 1.0 under a lamp at 10 m
+    for(let r=0;r<LH;r++){
+      const sv=(r+0.5)/LH*TOT, i=idxAtS(sv), p=pointAt(sv), nr=norA[i];
+      for(let c=0;c<LW;c++){
+        const lat=LM_LO+(c+0.5)/LW*(LM_HI-LM_LO), x=p.x+nr.x*lat, z=p.z+nr.z*lat, y=p.y;
+        let e=0;
+        const cx=Math.floor(x/CELL), cz=Math.floor(z/CELL);
+        for(let ax=cx-1;ax<=cx+1;ax++) for(let az=cz-1;az<=cz+1;az++){
+          const a=grid.get(ax+","+az); if(!a) continue;
+          for(const H of a){
+            const dx=H[0]-x, dy=H[1]-y, dz=H[2]-z, d2=dx*dx+dy*dy+dz*dz;
+            if(d2>2500 || dy<=0.5) continue;
+            const d=Math.sqrt(d2), cs=dy/d;
+            const spread=clamp((cs-0.12)/0.38, 0, 1);            // nothing near the horizontal
+            e += I0*H[3]*spread*spread*(3-2*spread)*cs/d2;
+          }
+        }
+        const v=Math.min(255, Math.round(e*150)), q=(r*LW+c)*4;
+        data[q]=v; data[q+1]=Math.round(v*0.93); data[q+2]=Math.round(v*0.80); data[q+3]=255;
+      }
+    }
+    lampMap=new THREE.DataTexture(data, LW, LH, THREE.RGBAFormat, THREE.UnsignedByteType);
+    lampMap.wrapS=THREE.ClampToEdgeWrapping; lampMap.wrapT=THREE.RepeatWrapping;
+    lampMap.magFilter=THREE.LinearFilter; lampMap.minFilter=THREE.LinearMipmapLinearFilter;
+    lampMap.generateMipmaps=true; lampMap.needsUpdate=true;
+    for(const m of LIT_MATS){ m.lightMap=lampMap; m.lightMapIntensity=0; m.needsUpdate=true; }
+  }
+  // how much the lamps give at each time of day
+  function streetLights(k){
+    const lvl = k==="nuit" ? 1 : (k==="couchant" ? 0.3 : 0);
+    for(const m of LIT_MATS) m.lightMapIntensity=1.6*lvl;
+    lampLens.emissiveIntensity = lvl>0 ? 0.8+2.2*lvl : 0;
+    if(lampHalo){ lampHalo.visible=lvl>0; lampHalo.material.opacity=0.95*lvl; }
+  }
+  streetLights(todKey);
 
   await LOAD.step(58, "Relief et horizon");
   // soft hills on the horizon, well inside the haze
@@ -8957,7 +9097,12 @@ uniform float shadowFar;
   function pickLane(c, R){
     const aim=idxAtS(c.s + CAR_L*2.2 + Math.abs(c.vf)*0.32);
     const planned = R && R.lane!==null;
-    const base = planned ? R.lane : aiLineAt(aim)+c.aiOff+(HUM.on && !c.player ? (c.hw||0)+(c.hwKick||0) : 0);
+    // A driver's own line is his own on the straights, but everyone meets the
+    // kerb at the apex: the offset never presses the car onto the edge. (A
+    // human's moment gone wide, hwKick, is meant to.)
+    const ln=aiLineAt(aim), own=(c.aiOff||0)+(c.aiErr||0)+(HUM.on && !c.player ? (c.hw||0) : 0);
+    const room = own>0 ? Math.max(0, lbHi(aim)-ln-0.3) : Math.max(0, ln-lbLo(aim)-0.3);
+    const base = planned ? R.lane : ln+Math.sign(own)*Math.min(Math.abs(own), room)+(HUM.on && !c.player ? (c.hwKick||0) : 0);
     let hold = planned ? 2.2 : 1.0;
     if(!planned){
       const v2=c.vf*c.vf; let m=0;
@@ -9132,13 +9277,14 @@ uniform float shadowFar;
     // ---- speed: every corner ahead, and the car in front ----
     const aPlan=aiBrakePlan(c);
     const m0=1.5+av*0.05, reach=av*av/(2*aPlan)+40;
-    let aNeed=0, vNow=1e3, vNear=1e3;
+    let aNeed=0, vNow=1e3, vSoon=1e3;
+    const dSoon=av*0.25;
     {
       let i=here, guard=0;
       const s0=c.s;
       for(;;){
         let di=cum[i]-s0; if(di<-TOT/2) di+=TOT; else if(di>TOT/2) di-=TOT;
-        if(di>reach || guard++>300) break;
+        if(di>reach || guard++>600) break;
         if(di>=-2){
           const sh=c.aiShift*Math.max(0, 1-Math.max(0,di)/90), apI = apD<0 ? -1 : apD-di;
           const kk = Math.abs(sh)>0.02 || (apI>=0 && apI<230+10) ? aiPathAt(i, sh, di<90 ? -c.aiShift/90 : 0, -1e3, 1e3, false, apI, AIP).k : AIL.k[i];
@@ -9148,15 +9294,16 @@ uniform float shadowFar;
           // bend as it comes into view, is what it keeps to
           const vAl = di<=m0 ? vc : Math.sqrt(vc*vc+2*aPlan*(di-m0));
           if(vAl<vNow) vNow=vAl;
-          if(di<14 && vc<vNear) vNear=vc;
-          if(av>vc){ const need=(av*av-vc*vc)/(2*Math.max(0.5, di-m0)); if(need>aNeed) aNeed=need; }
+          // the same a quarter of a second on: how fast the target is falling
+          const d2=di-dSoon;
+          if(d2>=-2){ const v2 = d2<=m0 ? vc : Math.sqrt(vc*vc+2*aPlan*(d2-m0)); if(v2<vSoon) vSoon=v2; }
+          // a corner the car could no longer make at the planned rate (the
+          // metres right in front of it are the speed now, not a braking need)
+          if(av>vc && di>m0){ const need=(av*av-vc*vc)/(2*(di-m0+2)); if(need>aNeed) aNeed=need; }
         }
-        i=(i+2)%N;
+        i=(i+1)%N;
       }
     }
-    // Off the line, or wheel to wheel, the path is not quite the one planned:
-    // there the car is at each corner's speed before it reaches it.
-    if(Math.abs(c.aiShift)>1.0 || (RC && (RC.mode==="attack" || RC.mode==="defend" || RC.mode==="yield"))) vNow=Math.min(vNow, vNear);
     // the top of the straight, for the gentler levels
     let vTop = c.aiTop<1 ? c.maxSpeed*c.aiTop : 1e3;
     if(scOn) vTop=Math.min(vTop, SC_SPEED);
@@ -9199,8 +9346,18 @@ uniform float shadowFar;
         if(vs<vFollow) vFollow=vs;
       }
     }
-    const Kv=3.2;
-    let aDes = aNeed>aPlan*0.85 ? -Math.min(aNeed, (c.brake||55)+(c.roll||2.2)) : Kv*(Math.min(vNow, vTop)-av);
+    const Kv=3.2, aMax=(c.brake||55)+(c.roll||2.2);
+    // The target speed a quarter of a second on says how hard to be braking
+    // now (on a braking curve: the planned rate, steadily); the speed error is
+    // corrected on top. Only a corner the car can no longer make at the planned
+    // rate asks for more.
+    // (only on the curve: a car still below it has no braking to do yet, and
+    // the pedal comes in over the last 3 m/s as it reaches it)
+    const vT=Math.min(vNow, vTop), onCurve=clamp((av-(vT-3))/3, 0, 1);
+    const aFF = Math.min(0, (Math.min(vSoon, vTop)-vT)/0.25)*onCurve;
+    // (above the target it is corrected firmly: that is speed the corner will not take)
+    let aDes = Math.max(-aMax, aFF) + (av>vT ? 9 : Kv)*(vT-av);
+    if(aNeed>aPlan*1.08) aDes=Math.min(aDes, -Math.min(aNeed, aMax));
     if(av>vFollow) aDes=Math.min(aDes, -Math.min((c.brake||55)+(c.roll||2.2), (av-vFollow)*7));
     else aDes=Math.min(aDes, Kv*(vFollow-av)+2);
     if(vTop<1e3) aDes=Math.min(aDes, Kv*(vTop-av));
@@ -9216,6 +9373,7 @@ uniform float shadowFar;
     // one at the end of a stint has one every few laps. They only happen where
     // a mistake is possible, which is under braking and in a corner.
     c.slip2=Math.max(0, (c.slip2||0)-dt*1.6);
+    c.aiErr=(c.aiErr||0)*Math.exp(-h/1.2);            // back on line within a couple of seconds
     c.slipT=(c.slipT||6)-dt;
     if(HUM.on && !c.player){
       // a human's line is never on rails
@@ -9245,8 +9403,7 @@ uniform float shadowFar;
       const cornering=Math.abs(vmaxA[here]-BASE)>4;
       if(cornering && Math.random()<risk*0.5){
         c.slip2=1;
-        c.aiOff += (Math.random()<0.5?-1:1)*(0.9+Math.random()*1.4);
-        c.aiOff = clamp(c.aiOff, -W*0.55, W*0.55);
+        c.aiErr = clamp((c.aiErr||0) + (Math.random()<0.5?-1:1)*(0.9+Math.random()*1.4), -W*0.55, W*0.55);
       }
       c.slipT = 5 + Math.random()*16;
     }
@@ -10915,7 +11072,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="5.9";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="6.0";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -12773,6 +12930,7 @@ uniform float shadowFar;
       const lit = k==="nuit" ? 1.35 : (k==="couchant" ? 0.35 : 0);
       for(const m of cityGlow) m.emissiveIntensity=lit;
     }
+    try{ streetLights(k); }catch(e){}
     buildEnv();
     applyWeather(weather.wet);
   }
