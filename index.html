@@ -438,6 +438,23 @@
     font-style:normal; font-size:12px; letter-spacing:.30em; color:var(--yellow);
     text-transform:uppercase;
   }
+  .pitauto{
+    position:absolute; left:50%; top:min(158px,32%); transform:translateX(-50%); pointer-events:none;
+    font-family:var(--font-num); font-size:clamp(13px,3.8vw,18px); letter-spacing:.14em; white-space:nowrap;
+    color:#06222a; background:#3fd6e8; border-radius:8px; padding:3px 16px 1px;
+    box-shadow:0 0 26px rgba(63,214,232,.5);
+  }
+  .pitauto i{font-style:normal; opacity:.72; font-size:.75em; margin-left:10px}
+  .pitgo{position:absolute; left:50%; top:34%; transform:translate(-50%,-50%); text-align:center; pointer-events:none}
+  .pitgo b{
+    display:block; font-family:var(--font-num); font-weight:700; font-size:min(15vw,104px); line-height:.9;
+    color:#fff; font-variant-numeric:tabular-nums; text-shadow:0 8px 34px rgba(0,0,0,.75); white-space:nowrap;
+  }
+  .pitgo i{
+    display:inline-block; margin-top:8px; font-style:normal; font-size:13px; letter-spacing:.3em; color:#3fd6e8;
+    text-transform:uppercase; white-space:nowrap; background:rgba(10,13,19,.72); border-radius:6px; padding:3px 10px 2px;
+  }
+  .pitgo.go b{color:#24d17a; text-shadow:0 0 30px rgba(36,209,122,.55), 0 8px 34px rgba(0,0,0,.7)}
   #tyreKind{color:#66a8ff; margin-left:6px; letter-spacing:.06em}
   .sector.sec-purple{color:#c07bff; text-shadow:0 0 16px rgba(192,123,255,.6)}
   .sector.sec-green{color:#24d17a; text-shadow:0 0 16px rgba(36,209,122,.55)}
@@ -1103,6 +1120,8 @@
     <div class="rainban" id="rainban" hidden>PLUIE <i>passe aux pneus pluie</i></div>
     <div class="netwait" id="netWait" hidden>ARRIV&Eacute;E <i>en attente des autres pilotes</i></div>
     <div class="pittimer" id="pitTimer" hidden><b id="pitT">0.0</b><i>Arr&ecirc;t au stand</i></div>
+    <div class="pitauto" id="pitAuto" hidden>PILOTE AUTOMATIQUE <i>arr&ecirc;t au stand</i></div>
+    <div class="pitgo" id="pitGo" hidden><b id="pitGoN">3</b><i>reprise des commandes</i></div>
       <div class="draft blue" id="blueBadge">DRAPEAU BLEU</div>
       <div class="draft drs" id="drsBadge">DRS</div>
       <div class="warn" id="warn">&#9668; SENS INVERSE &#9658;</div>
@@ -8258,10 +8277,49 @@ uniform float shadowFar;
   // just alongside it: letting that car go now would put it into its side
   function pitRoadBusy(c){
     for(const o of cars){
-      if(o===c || !o.inPitLane || (o.service||0)>0 || Math.abs(o.vf||0)<3) continue;
+      if(o===c || !o.inPitLane || (o.service||0)>0 || Math.abs(o.vf||0)<0.5) continue;
       const ds=signedTo(o.s, c.s);          // >0: o is behind c
       if(ds>-6 && ds<45) return true;
     }
+    return false;
+  }
+  // The stop driven for the player: from the pit road on the way in (before
+  // the line) to three seconds after the car is back on the circuit, its
+  // controls are the AI's: the pits are done the way the AI does them. The
+  // count on screen says when the car is the player's again.
+  const PA={on:false, phase:"", t:0, goT:0};
+  function pitAutoReset(){
+    PA.on=false; PA.phase=""; PA.t=0; PA.goT=0;
+    if(player) player.autoPit=false;
+    const a=$("pitAuto"), g=$("pitGo");
+    if(a) a.hidden=true;
+    if(g){ g.hidden=true; g.classList.remove("go"); }
+  }
+  // true while the game drives the player's car (called every physics step)
+  function pitAutoOn(c, dt){
+    if(PA.goT>0){ PA.goT-=dt; if(PA.goT<=0) $("pitGo").hidden=true; }
+    if(!PA.on){
+      if(!(state==="racing" && !QU.on && !c.finished && c.inPitLane && pitWidthAt(c.s)>1.0 && signedTo(0,c.s)<0)) return false;
+      PA.on=true; PA.phase="in"; PA.t=0; PA.goT=0;
+      // a stop, committed; the plan starts from where the car is
+      c.autoPit=true; c.wantPit=true; c.pitGo=c.lap; c.aiInit=false; c.rc=null;
+      $("pitAuto").hidden=false; $("pitGo").hidden=true; $("pitGo").classList.remove("go");
+    }
+    PA.t+=dt;
+    c.slipT=Math.max(c.slipT||0, 5);                 // no moment of its own while driven
+    if(PA.phase==="in"){
+      // back on the circuit after the line (or a minute gone by, whatever
+      // happened): the count
+      if((!c.inPitLane && !c.onPit && !(c.service>0) && signedTo(0,c.s)>0) || PA.t>60){
+        PA.phase="count"; PA.t=0;
+        $("pitAuto").hidden=true; $("pitGoN").textContent="3"; $("pitGo").hidden=false;
+      }
+      return true;
+    }
+    const left=3-PA.t;
+    if(left>0){ $("pitGoN").textContent=String(Math.ceil(left)); return true; }
+    PA.on=false; PA.phase=""; c.autoPit=false; c.wantPit=false;
+    $("pitGoN").textContent="\u00c0 TOI !"; $("pitGo").classList.add("go"); PA.goT=0.9;
     return false;
   }
   function updatePits(dt){
@@ -8321,7 +8379,7 @@ uniform float shadowFar;
       }
       // Touching your own marking is enough. The crew stop the car, whatever
       // speed it rolls in at, rather than making you creep the last few metres.
-      if(c.onPit && c.canService && c.tyre<0.985
+      if(c.onPit && c.canService && (c.tyre<0.985 || c.autoPit)
          && Math.abs(signedTo(c.s,c.boxS))<BOX_TOL){
         c.service=(2.3+1.1*(1-c.tyre)+2.4*(c.damage||0))*(c.pitMul||1);  // a new nose costs time
         c.serviceTotal=c.service;
@@ -8417,7 +8475,7 @@ uniform float shadowFar;
       // driving after the flag), and what only spoils the stretch around it (a
       // trip off, a touch of a wall or a car, a spin)
       const b=Math.min(B-1, Math.max(0, Math.floor(c.s/LBIN)));
-      if(c.netDone || c.inPitLane || c.onPit || c.service>0 || scNow || weather.wet>0.12 || (c.damage||0)>0.3){ o.dirty=true; o.lost=true; }
+      if(c.netDone || c.autoPit || c.inPitLane || c.onPit || c.service>0 || scNow || weather.wet>0.12 || (c.damage||0)>0.3){ o.dirty=true; o.lost=true; }
       if(Math.abs(c.lat)>W+KERB*0.6 || (c.hitAt||0)>now-500 || Math.abs(c.vf)<3){
         o.dirty=true;
         // sixty metres either side of it
@@ -8763,7 +8821,7 @@ uniform float shadowFar;
   // live, every frame, for each human car: mistakes, the start, first lap and out-laps
   function humObserve(c, o, i, b, now){
     const H=HUM.mem; if(!H) return;
-    const scNow=safety.active, inPit=c.inPitLane||c.onPit||c.service>0;
+    const scNow=safety.active, inPit=c.inPitLane||c.onPit||c.service>0||!!c.autoPit;
     if(scNow) o.hSC=true;
     if(inPit) o.hPit=true;
     const g=c.remote ? 1 : Math.max(0.4,(c.grip||GRIP_ON)/GRIP_ON), vn=Math.abs(c.vf)/Math.sqrt(g);
@@ -9232,7 +9290,12 @@ uniform float shadowFar;
   // last metres before its box and the first after it. (It used to cross over
   // 34 m out, over the car standing at the box before its own, 20 m back.)
   function aiPitLane(c, s){
-    if(c.inPitLane && !c.wantPit && !pitWallAt(s)) return -W*0.62;
+    if(c.inPitLane && !c.wantPit && !pitWallAt(s)){
+      const d=signedTo(0,s);
+      if(d<=0) return -W*0.62;
+      const fast=-(W+APRON)-Math.max(1.75, PIT_W*0.30), u=clamp((d-PIT_FULL-2)/(PIT_TAPER+10), 0, 1);
+      return Math.max(fast+(-W*0.62-fast)*u*u*(3-2*u), -(W+APRON+pitWidthAt(s))+FOOT_W*0.5+0.6);
+    }
     const wLane=Math.min(pitWidthAt(s), PIT_W);
     const away=clamp((Math.abs(signedTo(s, c.boxS))-2)/14, 0, 1);
     const fast=-(W+APRON)-Math.max(1.75, wLane*0.30), work=-(W+APRON)-Math.max(1.75, wLane*0.68);
@@ -9445,11 +9508,16 @@ uniform float shadowFar;
       for(const o of cars){
         if(o===c) continue;
         // on the track, the cars on the track; in the pit road, the cars in it
-        if(c.onPit ? !o.onPit : (o.onPit || (o.inPitLane && !c.inPitLane))) continue;
+        // (a car on its way in keeps its distance from the cars in the pit road
+        // ahead on the lane it is about to take, but the ones at their boxes)
+        const goingIn = !c.onPit && !c.inPitLane && o.inPitLane && (pitting || (approach>0 && apD<120))
+                        && !((o.service||0)>0) && Math.abs(signedTo(o.s, o.boxS))>16;
+        if(!goingIn && (c.onPit ? !o.onPit : (o.onPit || (o.inPitLane && !c.inPitLane)))) continue;
         const ds=signedTo(c.s, o.s);
         if(ds<FOOT_L*0.55 || ds>av*2.6+35) continue;
         const myLat = c.onPit ? aiPitLane(c, o.s) : aiLineAt(idxAtS(o.s)) + c.aiShift*Math.max(0, 1-ds/90);
         let inPath = Math.abs(o.lat-myLat)<FOOT_W*1.08 || (ds<FOOT_L*2.3 && Math.abs(o.lat-c.lat)<FOOT_W*1.05);
+        if(goingIn) inPath = Math.abs(o.lat-aiPitLane(c, o.s))<FOOT_W*1.08;
         // where the two will meet, not only where the other is now: into a
         // corner the lines converge. (When: the first moment, over the time it
         // takes to catch it, that the two are less than a car apart across.)
@@ -9493,6 +9561,19 @@ uniform float shadowFar;
         }
       }
     }
+    let pitSide=null;
+    if(pitting || inLane){
+      const lane0=aiPitLane(c, c.s);
+      for(const o of cars){
+        if(o===c || !o.inPitLane || (o.service||0)>0) continue;
+        const ds=signedTo(c.s, o.s);
+        if(ds<-FOOT_L*1.1 || ds>FOOT_L*1.6 || Math.abs(o.lat-c.lat)<FOOT_W*0.95) continue;
+        if(Math.abs(o.lat-lane0)<FOOT_W && Math.abs(c.lat-lane0)>Math.abs(o.lat-lane0)){
+          pitSide={lat:o.lat+Math.sign(c.lat-o.lat)*FOOT_W*1.1, v:Math.max(0, Math.abs(o.vf)-3)};
+          break;
+        }
+      }
+    }
     const Kv=3.2, aMax=(c.brake||55)+(c.roll||2.2);
     // The target speed a quarter of a second on says how hard to be braking
     // now (on a braking curve: the planned rate, steadily); the speed error is
@@ -9512,6 +9593,12 @@ uniform float shadowFar;
     if(aFollow<aDes) aDes=Math.max(aFollow, -aMax);
     if(vTop<1e3) aDes=Math.min(aDes, Kv*(vTop-av));
     if(pitting) aDes=Math.min(aDes, 5*(vPit-av));
+    if(pitSide) aDes=Math.min(aDes, Kv*(pitSide.v-av));
+    // pulling out of its box: it waits there while a car comes down the pit
+    // road at it (no more than three seconds)
+    if(inLane && !c.wantPit && av<6 && Math.abs(signedTo(c.boxS, c.s))<12){
+      if(pitRoadBusy(c) && (c.outHold||0)<3){ c.outHold=(c.outHold||0)+h; aDes=Math.min(aDes, -5*av-2); }
+    } else c.outHold=0;
     const drag=(c.roll||2.2)+(c.dragC||0.11)*(c.drs?0.62:1)*av;
     // a brake light for a few km/h too many reads as braking for nothing to
     // anyone behind: outside a braking zone, small corrections are a lift
@@ -9570,12 +9657,18 @@ uniform float shadowFar;
     // ---- steering ----
     const tf=clamp(0.22+av/((c.maxSpeed||BASE)*0.10),0,1);
     if(pitting || inLane){
-      const aim=idxAtS(c.s + CAR_L*1.4 + av*0.16);
-      const he=angNorm(angOf(tanA[aim]) - c.a);
-      const lane=aiPitLane(c, c.s);
+      const laneAt=s=>pitSide ? pitSide.lat : aiPitLane(c, s);
+      const lane=laneAt(c.s);
       c.aiLane=lane; c.aiShift=lane-aiLineAt(here); c.aiShiftV=0;
-      const steer=Math.atan2(-(c.lat-lane)*3.4, av+CAR_L*2.5);
-      return {t:thr, s:clamp(he*1.35+steer,-1,1)};
+      // the lane as a path: three points of it round the car
+      const P=s=>{ const p=pointAt(s), n=norA[idxAtS(s)], l=laneAt(s); return [p.x+n.x*l, p.z+n.z*l]; };
+      const s1=c.s+av*0.03+0.5, A=P(s1-4), B=P(s1), C=P(s1+4);
+      const cr=(B[0]-A[0])*(C[1]-B[1])-(B[1]-A[1])*(C[0]-B[0]);
+      const dd=Math.hypot(B[0]-A[0],B[1]-A[1])*Math.hypot(C[0]-B[0],C[1]-B[1])*Math.hypot(C[0]-A[0],C[1]-A[1]);
+      const kk=dd>1e-6 ? 2*cr/dd : 0, th=Math.atan2(C[1]-A[1], C[0]-A[0]);
+      const psi=th+Math.atan((2.2*(lane-c.lat))/(av+6));
+      const om=av*kk+5.5*angNorm(psi-c.a);
+      return {t:thr, s:clamp(om/Math.max(0.2, (c.turnRate||2.2)*tf), -1, 1)};
     }
     // Follow the line itself: its own curve fed forward, then the heading and
     // the distance off it corrected, both judged a few metres ahead.
@@ -10820,9 +10913,9 @@ uniform float shadowFar;
     const t=player.tan;
     $("warn").classList.toggle("on",
       (Math.cos(player.a)*t.x+Math.sin(player.a)*t.z)<-0.3 && Math.abs(player.vf)>6);
-    if(player.onPit && player.service<=0 && player.tyre<0.985){
+    if(player.onPit && player.service<=0 && (player.tyre<0.985 || player.autoPit)){
       const d=signedTo(player.s, player.boxS);
-      $("sector").textContent = Math.abs(d)<BOX_TOL ? "ARRÊTE-TOI — TON STAND"
+      $("sector").textContent = Math.abs(d)<BOX_TOL ? (player.autoPit ? "ARRÊT AU STAND" : "ARRÊTE-TOI — TON STAND")
                               : ("TON STAND : " + Math.round(d<0? d+TOT : d) + " m");
       $("sector").classList.add("on");
       sectorUntil=now+500;
@@ -11153,6 +11246,7 @@ uniform float shadowFar;
             if(c.remote) continue;
             if(c.service>0){ c.vx=0; c.vz=0; c.vf=0; continue; }
             if(c===player && c.netDone){ const a=aiControls(c,h); stepCar(c,a.t,a.s,h); continue; }
+            if(c===player && pitAutoOn(c,h)){ const a=aiControls(c,h); const w=stepCar(c,a.t,a.s,h); if(w>6) imp=Math.max(imp,w); continue; }
             if(c===player){ const w=stepCar(c,thr,str,h); if(w>6) imp=Math.max(imp,w); }
             else { const a=aiControls(c,h); stepCar(c,a.t,a.s,h); }
           }
@@ -11231,7 +11325,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-2";
-  const NET_BUILD="6.3";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="6.4";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -12782,7 +12876,7 @@ uniform float shadowFar;
     weather.on=false; weather.wet=0; weather.target=0; weather.shown=-1;
     rainSeeded=false; rainMesh.visible=false; spray.visible=false;
     $("rainban").hidden=true;
-    $("pitTimer").hidden=true; pitShownT=0;
+    $("pitTimer").hidden=true; pitShownT=0; pitAutoReset();
     kerbAmt=0;
     for(const id of ["speedVig","proxL","proxR"]){ const e=$(id); if(e) e.style.opacity=0; }
     applyWeather(0);
@@ -12840,7 +12934,7 @@ uniform float shadowFar;
     rows.sort((a,b)=>a.t-b.t);
     QU.rows=rows; QU.order=rows.map(r=>r.i);
     QU.slot=Math.max(0, rows.findIndex(r=>r.me));
-    state="results"; $("hud").hidden=true;
+    state="results"; $("hud").hidden=true; pitAutoReset();
     stage.classList.toggle("noTower", OPT.tower==="0");
     const pole=rows[0].t;
     $("resKicker").textContent="Qualifications \u00b7 "+TRACK.name;
@@ -12936,7 +13030,7 @@ uniform float shadowFar;
     $("replayBtn").hidden=false; $("againBtn").hidden=false;
     if(!CAREER_ON) try{ learnRaceEnd(now||performance.now()); }catch(e){}
     if(!CAREER_ON) try{ careerSkillNote(); }catch(e){}
-    state="results"; $("hud").hidden=true;
+    state="results"; $("hud").hidden=true; pitAutoReset();
     RP.rec=false;
     RP.events.sort((a,b)=>a.t-b.t);     // confirmed passes are filed late
     const order = NET.race ? netSortedCars() : cars.slice().sort((a,b)=>
@@ -13000,7 +13094,7 @@ uniform float shadowFar;
     $("hud").hidden=true;   $("menu").hidden=false;
     showPane("home");
     $("scban").hidden=true; $("rainban").hidden=true; $("pitTimer").hidden=true;
-    pitShownT=0;
+    pitShownT=0; pitAutoReset();
     $("hint").classList.remove("on");
     const fl=$("flash"); if(fl) fl.style.opacity=0;
     for(const id of ["speedVig","proxL","proxR"]){ const e=$(id); if(e) e.style.opacity=0; }
