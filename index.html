@@ -912,6 +912,14 @@
   .emoPick button[aria-pressed="true"]{border-color:#3fd6e8; background:rgba(63,214,232,.14)}
   .emoPick button i{font-style:normal; font-family:var(--font-num); color:#3fd6e8; margin-right:6px}
   .mpShopRow{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .mpDaily{display:flex; flex-direction:column; gap:5px; padding:10px 12px; border-radius:12px;
+    background:rgba(63,214,232,.06); border:1px solid rgba(63,214,232,.25)}
+  .mpDaily .hd{font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:#3fd6e8}
+  .mpDaily .dl{display:flex; justify-content:space-between; gap:12px; font-size:14px; color:var(--white)}
+  .mpDaily .dl b{font-family:var(--font-num); font-weight:500; color:#3fd6e8; white-space:nowrap}
+  .mpDaily .dl.ok{color:var(--muted); text-decoration:line-through}
+  .mpDaily .dl.ok b{color:var(--green); text-decoration:none}
+  .mpStats{font-size:13px; color:var(--muted)}
   .mpRoster .ttl{font-size:11px; letter-spacing:.06em; color:#3fd6e8; margin-left:8px}
   .mpReact{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px}
   .mpReact button{font:inherit; font-size:14px; color:var(--white); cursor:pointer; border-radius:999px; padding:5px 11px 4px;
@@ -1512,6 +1520,8 @@
               <button class="jetChip" id="mpJet" data-go="shop" title="Tes jetons, gagn&eacute;s en course en ligne"></button>
               <button class="btn ghost small" data-go="shop">Boutique</button>
             </div>
+            <div class="mpStats" id="mpStats"></div>
+            <div class="mpDaily" id="mpDaily"></div>
             <div class="mpSplit">
               <div class="mpSide">
                 <b>Cr&eacute;er une salle</b>
@@ -1547,6 +1557,7 @@
               <div class="results mpRoster" id="mpRoster"></div>
               <div class="mpReact" id="mpReact"></div>
               <div class="mpFeed" id="mpFeed"></div>
+              <div class="mpDaily" id="mpDaily2" style="margin-top:10px"></div>
             </div>
             <div class="col">
               <div class="colLbl">La course &middot; <span id="mpHostNote"></span></div>
@@ -5310,6 +5321,42 @@ uniform float shadowFar;
     L.mpTitle=k.title||"rookie"; L.mpTag=k.tag||"std";
     L.key="mp:"+JSON.stringify(k)+"|"+L.nm+"|"+L.no;
     return L;
+  }
+  // today's three challenges: [id, what to do, jetons, met?]
+  const MP_DEFIS=[
+    ["finir","Termine une course en ligne",100, R=>R.pos>0],
+    ["places","Gagne au moins deux places",120, R=>R.gained>=2],
+    ["propre","Finis sans toucher personne",150, R=>R.clean],
+    ["podium","Monte sur le podium",200, R=>R.pos>0 && R.pos<=3],
+    ["humain","Bats un pilote humain",150, R=>R.beaten>=1],
+    ["long","Fais une course de 10 tours ou plus",180, R=>R.laps>=10],
+    ["top5","Finis dans les cinq premiers",140, R=>R.pos>0 && R.pos<=5],
+    ["react","Envoie une réaction pendant une course",60, R=>R.reacted],
+    ["pluie","Finis une course sous la pluie",160, R=>R.wet],
+    ["nuit","Finis une course de nuit",120, R=>R.night]
+  ];
+  // the day as the player lives it (local time, not UTC)
+  function mpToday(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  function mpDaily(){
+    const today=mpToday();
+    if(!MPP.daily || MPP.daily.date!==today || !Array.isArray(MPP.daily.ids)){
+      let h=2166136261>>>0; for(const ch of today) h=Math.imul(h^ch.charCodeAt(0), 16777619)>>>0;
+      const pool=MP_DEFIS.map((d,i)=>i), pick=[];
+      while(pick.length<3){ h=(Math.imul(h,1103515245)+12345)>>>0; pick.push(pool.splice(h%pool.length,1)[0]); }
+      MPP.daily={date:today, ids:pick.map(i=>MP_DEFIS[i][0]), done:{}};
+    }
+    if(!MPP.daily.done || typeof MPP.daily.done!=="object") MPP.daily.done={};
+    return MPP.daily;
+  }
+  function mpDailyRender(){
+    const D=mpDaily();
+    const h='<div class="hd">Défis du jour</div>'+D.ids.map(id=>{ const d=MP_DEFIS.find(x=>x[0]===id); if(!d) return "";
+      const ok=!!D.done[id];
+      return '<div class="dl'+(ok?' ok':'')+'"><span>'+d[1]+'</span><b>'+(ok?'✔ ':'+')+fmtJet(d[2])+'</b></div>'; }).join("");
+    for(const id of ["mpDaily","mpDaily2"]){ const e=$(id); if(e) e.innerHTML=h; }
+    const st=$("mpStats"), S=MPP.stats;
+    if(st) st.textContent = S.races ? S.races+" course"+(S.races>1?"s":"")+" en ligne · "+S.wins+" victoire"+(S.wins>1?"s":"")+
+      " · "+S.podiums+" podium"+(S.podiums>1?"s":"")+" · "+S.beaten+" pilote"+(S.beaten>1?"s":"")+" battu"+(S.beaten>1?"s":"") : "Aucune course en ligne pour l’instant.";
   }
   function mpTitleName(id){ const t=MP_TITLES.find(x=>x[0]===id); return t && t[0]!=="rookie" ? t[1] : ""; }
   function freeItem(kind, id){
@@ -11510,7 +11557,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-3";
-  const NET_BUILD="6.5";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="6.6";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -12397,6 +12444,7 @@ uniform float shadowFar;
 
   // ---- the lobby ----
   function mpRender(){
+    mpDailyRender();
     const inRoom = NET.role==="host" ? !!(NET.cli && NET.cli.ready && NET.code) : (NET.role==="guest" && NET.welcomed);
     const st=$("mpStart"), lb=$("mpLobby"); if(!st||!lb) return;
     st.hidden=inRoom; lb.hidden=!inRoom;
@@ -15652,8 +15700,16 @@ uniform float shadowFar;
     if(gained>0) lines.push(["Places gagnées (+"+gained+")", Math.round(10*gained*lapsK)]);
     const clean=!(player.hits>0);
     if(clean) lines.push(["Course propre", Math.round(50*lapsK)]);
-    const today=new Date().toISOString().slice(0,10);
+    const today=mpToday();
     if(MPP.day!==today){ MPP.day=today; lines.push(["Première course en ligne du jour", MP_DAY]); }
+    {
+      const D=mpDaily(), R={pos:pos, gained:gained, clean:clean, beaten:beaten, laps:totalLaps, reacted:!!EMO.raced,
+                            wet:weather.wet>0.35, night:todKey==="nuit"};
+      for(const id of D.ids){
+        const d=MP_DEFIS.find(x=>x[0]===id);
+        if(d && !D.done[id] && d[3](R)){ D.done[id]=true; lines.push(["Défi : "+d[1].toLowerCase(), d[2]]); }
+      }
+    }
     const tot=lines.reduce((a,l)=>a+l[1],0);
     MPP.jet+=tot; MPP.gift=false;
     const S=MPP.stats; S.races++; S.earned+=tot; S.beaten+=beaten; if(pos===1) S.wins++; if(pos<=3) S.podiums++; if(clean) S.clean++;
@@ -15678,6 +15734,7 @@ uniform float shadowFar;
   function mpEmoSlot(i){ const k=MPP.emo[i]; if(k) mpEmoSend(k); }
   function mpEmoSend(key){
     if(!NET.role || !mpEmoOf(key)) return;
+    if(NET.race && state==="racing") EMO.raced=true;
     const now=Date.now(); if(EMO.sentAt>now-1500) return; EMO.sentAt=now;
     if(NET.role==="host"){ netDown({k:"emo", id:NET.myId, e:key}); }
     else netUp({k:"emo", e:key});
@@ -15734,6 +15791,7 @@ uniform float shadowFar;
     }
   }
   function mpEmoRaceReset(){
+    EMO.raced=false;
     for(const c of EMO.bubbles) if(c.emoSp){ try{ c.mesh.remove(c.emoSp); }catch(e){} c.emoSp=null; }
     EMO.bubbles.length=0;
     const f=$("emoFeed"); if(f) f.innerHTML="";
