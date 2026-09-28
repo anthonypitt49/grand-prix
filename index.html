@@ -937,6 +937,124 @@
   .mpDaily .dl.ok{color:var(--muted); text-decoration:line-through}
   .mpDaily .dl.ok b{color:var(--green); text-decoration:none}
   .mpStats{font-size:13px; color:var(--muted)}
+  /* ---- multiplayer, 6.8: depth, colour, the room at a glance ---- */
+  #pMulti .paneHead .mpHeadJet{margin-left:auto; align-self:center}
+  .mpKick{color:#3fd6e8}
+  .mpGrid{display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.25fr); gap:clamp(14px,2.4vw,26px); width:100%; max-width:1100px; margin:0 auto; align-items:start}
+  @media (max-width:820px){ .mpGrid{grid-template-columns:1fr} }
+  .mpColL, .mpColR{display:flex; flex-direction:column; gap:14px; min-width:0}
+  .mpCard{position:relative; padding:16px 18px; border-radius:18px; overflow:hidden;
+    background:linear-gradient(160deg, rgba(26,33,48,.92), rgba(9,12,18,.92)); border:1px solid rgba(255,255,255,.10);
+    box-shadow:0 18px 44px rgba(0,0,0,.40), inset 0 1px 0 rgba(255,255,255,.05)}
+  .mpMe{display:flex; flex-direction:column; gap:9px}
+  .mpMe::before{content:""; position:absolute; right:-60px; top:-70px; width:220px; height:220px; border-radius:50%;
+    background:radial-gradient(circle, rgba(63,214,232,.20), transparent 68%); pointer-events:none}
+  .mpMeHead{display:flex; align-items:center; justify-content:space-between; gap:10px}
+  .mpTagImg{display:block; width:min(250px,100%); height:auto; margin:2px 0 4px; filter:drop-shadow(0 8px 18px rgba(0,0,0,.5))}
+  .mpTiles{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:4px}
+  .mpTiles .st{display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding:9px 10px 8px; border-radius:12px;
+    background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07)}
+  .mpTiles .st b{font-family:var(--font-num); font-weight:600; font-size:24px; line-height:1; color:#fff}
+  .mpTiles .st span{font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
+  .mpTiles .st.win b{color:var(--yellow)}
+  .mpDaily{box-shadow:0 14px 34px rgba(0,0,0,.30)}
+  .mpDaily .dl::before{content:"\25CB"; color:#3fd6e8; margin-right:8px}
+  .mpDaily .dl.ok::before{content:"\2713"; color:var(--green)}
+  .mpDaily .dl span{flex:1}
+  /* the call to action: one big button, the rest is for friends */
+  .mpQuick{position:relative; display:flex; align-items:center; gap:16px; width:100%; text-align:left; cursor:pointer; font:inherit; color:#fff;
+    padding:20px 22px; border-radius:20px; overflow:hidden; border:1px solid rgba(255,255,255,.18);
+    background:linear-gradient(120deg, #c4082a 0%, #e8002d 42%, #ff5a3c 100%);
+    box-shadow:0 22px 50px rgba(232,0,45,.32), inset 0 1px 0 rgba(255,255,255,.25); transition:transform .16s ease, box-shadow .16s ease}
+  .mpQuick::after{content:""; position:absolute; inset:0; background:repeating-linear-gradient(-55deg, rgba(255,255,255,.08) 0 14px, transparent 14px 34px); pointer-events:none}
+  .mpQuick:hover{transform:translateY(-3px); box-shadow:0 28px 60px rgba(232,0,45,.42), inset 0 1px 0 rgba(255,255,255,.25)}
+  .mpQuick:focus-visible{outline:3px solid var(--yellow); outline-offset:3px}
+  .mpQIcon{position:relative; z-index:1; flex:0 0 auto; width:54px; height:54px; border-radius:16px; display:flex; align-items:center; justify-content:center;
+    font-size:28px; background:rgba(0,0,0,.22); box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+  .mpQTxt{position:relative; z-index:1; display:flex; flex-direction:column; gap:4px; flex:1; min-width:0}
+  .mpQTxt b{font-family:var(--font-display); font-weight:400; font-size:clamp(26px,3.2vw,36px); line-height:.95; text-transform:uppercase}
+  .mpQTxt span{font-size:13px; line-height:1.4; color:rgba(255,255,255,.86)}
+  .mpQGo{position:relative; z-index:1; flex:0 0 auto; font-family:var(--font-num); font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    padding:10px 16px 8px; border-radius:12px; background:#fff; color:#b10424; box-shadow:0 6px 18px rgba(0,0,0,.25)}
+  @media (max-width:520px){ .mpQGo{display:none} }
+  .mpSide{background:linear-gradient(160deg, rgba(26,33,48,.88), rgba(9,12,18,.88)); border-color:rgba(255,255,255,.10)}
+  .mpPubSeg{align-self:flex-start}
+  .mpPub{display:flex; flex-direction:column; gap:10px}
+  .mpListHead{display:flex; align-items:center; justify-content:space-between; gap:10px}
+  .mpListHead b{font-family:var(--font-display); font-weight:400; font-size:22px; text-transform:uppercase; line-height:1}
+  .mpLive{display:inline-flex; align-items:center; gap:7px; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted)}
+  .mpLive::before{content:""; width:8px; height:8px; border-radius:50%; background:#6b7280}
+  .mpLive.on::before{background:var(--green); box-shadow:0 0 0 0 rgba(36,209,122,.6); animation:mpPulse 1.6s infinite}
+  @keyframes mpPulse{0%{box-shadow:0 0 0 0 rgba(36,209,122,.55)} 70%{box-shadow:0 0 0 9px rgba(36,209,122,0)} 100%{box-shadow:0 0 0 0 rgba(36,209,122,0)}}
+  .mpRooms{display:flex; flex-direction:column; gap:7px}
+  .mpNone{font-size:13.5px; line-height:1.45; color:var(--muted); padding:6px 2px}
+  .mpRoom{display:flex; align-items:center; gap:12px; width:100%; text-align:left; font:inherit; color:#fff; cursor:pointer;
+    padding:8px 12px 8px 8px; border-radius:14px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); transition:border-color .15s, background .15s}
+  .mpRoom:hover:not(:disabled){border-color:#3fd6e8; background:rgba(63,214,232,.08)}
+  .mpRoom:disabled{cursor:default; opacity:.62}
+  .mpRoom img{width:84px; height:54px; border-radius:10px; background:rgba(0,0,0,.35); flex:0 0 auto}
+  .mpRoom .rn{display:flex; flex-direction:column; gap:2px; flex:1; min-width:0}
+  .mpRoom .rn b{font-size:16px}
+  .mpRoom .rn small{font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .mpRoom .rp{font-family:var(--font-num); color:var(--muted); font-size:14px}
+  .mpRoom .rp b{font-size:20px; color:#fff}
+  .mpRoom .rs{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:#06222a; background:#3fd6e8; border-radius:999px; padding:5px 10px 4px; white-space:nowrap}
+  .mpRoom .rs.busy{background:rgba(255,255,255,.10); color:var(--muted)}
+  /* the room */
+  .mpRoomHead{display:flex; align-items:stretch; gap:clamp(12px,2vw,22px); width:100%; max-width:1100px; margin:0 auto 14px; padding:16px 18px;
+    border-radius:20px; background:linear-gradient(120deg, rgba(20,28,44,.95), rgba(9,12,18,.94)); border:1px solid rgba(255,255,255,.10);
+    box-shadow:0 20px 50px rgba(0,0,0,.42)}
+  .mpMap{width:170px; height:110px; flex:0 0 auto; border-radius:14px; background:radial-gradient(circle at 50% 40%, rgba(63,214,232,.12), rgba(0,0,0,.25))}
+  .mpRoomInfo{display:flex; flex-direction:column; gap:6px; flex:1; min-width:0}
+  .mpBadges{display:flex; gap:6px; flex-wrap:wrap}
+  .mpBadge{font-size:11px; letter-spacing:.16em; text-transform:uppercase; padding:4px 10px 3px; border-radius:999px; background:rgba(255,207,63,.14); color:var(--yellow); border:1px solid rgba(255,207,63,.35)}
+  .mpBadge.pub{background:rgba(36,209,122,.14); color:var(--green); border-color:rgba(36,209,122,.40)}
+  .mpBadge.dim{background:rgba(255,255,255,.05); color:var(--muted); border-color:rgba(255,255,255,.12)}
+  .mpCircuit b{display:block; font-family:var(--font-display); font-weight:400; font-size:clamp(24px,3vw,36px); line-height:.95; text-transform:uppercase}
+  .mpCircuit small{font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--yellow)}
+  .mpRules{font-size:13px; color:var(--muted)}
+  .mpRoomHead .mpCodeBox{padding:0; background:none; border:0; gap:12px; margin-top:2px}
+  .mpCodeLbl{font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--muted)}
+  .mpRoomHead .mpCodeBox b{font-size:clamp(28px,4vw,42px)}
+  .mpAuto{position:relative; width:110px; height:110px; flex:0 0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; align-self:center}
+  .mpAuto svg{position:absolute; inset:0; transform:rotate(-90deg)}
+  .mpAuto circle{fill:none; stroke-width:7}
+  .mpAuto circle.bg{stroke:rgba(255,255,255,.08)}
+  .mpAuto circle.fg{stroke:#3fd6e8; stroke-linecap:round; transition:stroke-dashoffset .5s linear}
+  .mpAuto b{position:relative; font-family:var(--font-num); font-size:34px; line-height:1}
+  .mpAuto span{position:relative; max-width:64%; margin-top:3px; text-align:center; font-size:9.5px; line-height:1.15; letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
+  .mpBadge{white-space:nowrap}
+  @media (max-width:760px){
+    .mpRoomHead{position:relative; flex-direction:column; gap:10px}
+    .mpMap{width:140px; height:84px}
+    .mpAuto{position:absolute; right:14px; top:14px; width:84px; height:84px}
+    .mpAuto b{font-size:26px}
+    .mpAuto span{font-size:8.5px; letter-spacing:.1em}
+    .mpCircuit b{font-size:26px; overflow-wrap:anywhere}
+  }
+  .mpGridNote{letter-spacing:.06em; text-transform:none; color:var(--muted)}
+  .mpSlots{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; margin-bottom:12px}
+  @media (max-width:520px){ .mpSlots{grid-template-columns:1fr} }
+  .mpSlot{position:relative; display:flex; align-items:center; gap:10px; padding:8px 10px 8px 8px; border-radius:13px; overflow:hidden;
+    background:linear-gradient(90deg, rgba(255,255,255,.06), rgba(255,255,255,.02)); border:1px solid rgba(255,255,255,.09)}
+  .mpSlot.me{border-color:rgba(63,214,232,.55); background:linear-gradient(90deg, rgba(63,214,232,.16), rgba(255,255,255,.02))}
+  .mpSlot.ai{opacity:.62}
+  .mpSlot .p{font-family:var(--font-num); font-size:15px; color:var(--muted); width:18px; text-align:center}
+  .mpSlot .car{width:12px; height:36px; border-radius:4px; flex:0 0 auto; background:linear-gradient(var(--c) 62%, var(--ac) 62%); box-shadow:0 0 12px var(--c)}
+  .mpSlot.ai .car{box-shadow:none}
+  .mpSlot .who{display:flex; flex-direction:column; gap:1px; flex:1; min-width:0}
+  .mpSlot .who b{font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .mpSlot .who small{font-size:11.5px; color:#3fd6e8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .mpSlot.ai .who small{color:var(--muted)}
+  .mpSlot .tags{display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end}
+  .mpSlot .t{font-style:normal; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; padding:3px 6px 2px; border-radius:6px; background:rgba(255,255,255,.07); color:var(--muted)}
+  .mpSlot .t.host{background:rgba(255,207,63,.16); color:var(--yellow)}
+  .mpSlot .t.me{background:rgba(63,214,232,.18); color:#3fd6e8}
+  .mpSlot .t.ok{color:var(--green)}
+  .mpChat{display:flex; flex-direction:column; gap:6px; padding:12px 14px}
+  .mpChat .mpFeed div{align-self:flex-start; background:rgba(255,255,255,.06); border-radius:12px 12px 12px 4px; padding:5px 10px 4px}
+  .mpLobbyCols .col > .mpCard{margin-bottom:12px}
+  .mpGoBtn{box-shadow:0 12px 30px rgba(232,0,45,.35)}
   .mpRoster .ttl{font-size:11px; letter-spacing:.06em; color:#3fd6e8; margin-left:8px}
   .mpReact{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px}
   .mpReact button{font:inherit; font-size:14px; color:var(--white); cursor:pointer; border-radius:999px; padding:5px 11px 4px;
@@ -1576,57 +1694,93 @@
       <section class="pane" id="pMulti" data-pane="multi" hidden>
         <div class="paneHead">
           <button class="backBtn" data-go="home">&lsaquo; Accueil</button>
-          <h2>Multijoueur</h2>
+          <div>
+            <div class="kicker mpKick">Jusqu&rsquo;&agrave; 8 pilotes &middot; l&rsquo;IA compl&egrave;te la grille</div>
+            <h2>Multijoueur</h2>
+          </div>
+          <button class="jetChip mpHeadJet" id="mpJet" data-go="shop" title="Tes jetons, gagn&eacute;s en course en ligne"></button>
         </div>
 
         <div class="mpStart" id="mpStart">
-          <div class="mpCard">
-            <label class="colLbl" for="mpName">Ton pseudo</label>
-            <input class="mpInput" id="mpName" maxlength="14" autocomplete="off" spellcheck="false" placeholder="Pilote">
-            <div class="mpShopRow">
-              <button class="jetChip" id="mpJet" data-go="shop" title="Tes jetons, gagn&eacute;s en course en ligne"></button>
-              <button class="btn ghost small" data-go="shop">Boutique</button>
-            </div>
-            <div class="mpStats" id="mpStats"></div>
-            <div class="mpDaily" id="mpDaily"></div>
-            <div class="mpSplit">
-              <div class="mpSide">
-                <b>Cr&eacute;er une salle</b>
-                <span>Tu re&ccedil;ois un code &agrave; donner &agrave; tes amis. Tu choisis le circuit et tu lances la course.</span>
-                <button class="btn" id="mpCreate">Cr&eacute;er</button>
+          <div class="mpGrid">
+            <div class="mpColL">
+              <div class="mpCard mpMe">
+                <div class="mpMeHead"><span class="colLbl">Ton pilote</span><button class="btn ghost small" data-go="shop">Boutique</button></div>
+                <img class="mpTagImg" id="mpTagImg" alt="">
+                <label class="colLbl" for="mpName">Ton pseudo</label>
+                <input class="mpInput" id="mpName" maxlength="14" autocomplete="off" spellcheck="false" placeholder="Pilote">
+                <div class="mpTiles" id="mpStats"></div>
               </div>
-              <div class="mpSide">
-                <b>Rejoindre</b>
-                <span>Entre le code &agrave; cinq caract&egrave;res que ton ami t&rsquo;a donn&eacute;.</span>
-                <div class="mpJoinRow">
-                  <input class="mpInput code" id="mpCode" maxlength="5" autocomplete="off" spellcheck="false" placeholder="CODE">
-                  <button class="btn ghost" id="mpJoin">Rejoindre</button>
+              <div class="mpDaily" id="mpDaily"></div>
+            </div>
+            <div class="mpColR">
+              <button class="mpQuick" id="mpQuick">
+                <span class="mpQIcon" aria-hidden="true">&#9889;</span>
+                <span class="mpQTxt"><b>Partie rapide</b><span>Tu rejoins une salle publique. S&rsquo;il n&rsquo;y en a aucune, la tienne s&rsquo;ouvre : l&rsquo;IA remplit la grille et le d&eacute;part se donne tout seul.</span></span>
+                <span class="mpQGo">Jouer</span>
+              </button>
+              <div class="mpSplit">
+                <div class="mpSide">
+                  <b>Cr&eacute;er une salle</b>
+                  <span>Tu choisis le circuit et les r&egrave;gles, tu lances la course.</span>
+                  <span class="seg mpPubSeg">
+                    <button class="chip" data-mppub="0">Priv&eacute;e</button>
+                    <button class="chip" data-mppub="1">Publique</button>
+                  </span>
+                  <button class="btn" id="mpCreate">Cr&eacute;er</button>
+                </div>
+                <div class="mpSide">
+                  <b>Rejoindre</b>
+                  <span>Entre le code &agrave; cinq caract&egrave;res que ton ami t&rsquo;a donn&eacute;.</span>
+                  <div class="mpJoinRow">
+                    <input class="mpInput code" id="mpCode" maxlength="5" autocomplete="off" spellcheck="false" placeholder="CODE">
+                    <button class="btn ghost" id="mpJoin">Rejoindre</button>
+                  </div>
                 </div>
               </div>
+              <div class="mpCard mpPub">
+                <div class="mpListHead"><b>Salles publiques</b><span class="mpLive" id="mpLive">recherche&hellip;</span></div>
+                <div class="mpRooms" id="mpRooms"></div>
+              </div>
+              <div class="mpMsg" id="mpMsg"></div>
             </div>
-            <div class="mpMsg" id="mpMsg"></div>
           </div>
           <div class="mpNote" id="mpNote"></div>
         </div>
 
         <div class="mpLobby" id="mpLobby" hidden>
-          <div class="twoCol">
-            <div class="col">
-              <div class="colLbl">Code de la salle</div>
+          <div class="mpRoomHead">
+            <canvas class="mpMap" id="mpMap"></canvas>
+            <div class="mpRoomInfo">
+              <div class="mpBadges"><span class="mpBadge" id="mpVis">Salle priv&eacute;e</span><span class="mpBadge dim" id="mpCount"></span></div>
+              <div class="mpCircuit" id="mpCircuit">&mdash;</div>
+              <div class="mpRules" id="mpRulesTxt"></div>
               <div class="mpCodeBox">
+                <span class="mpCodeLbl">Code</span>
                 <b id="mpCodeTxt">&mdash;</b>
                 <div class="mpCodeBtns">
                   <button class="btn small" id="mpCopyLink">Copier le lien d&rsquo;invitation</button>
                   <button class="btn ghost small" id="mpCopyCode">Copier le code</button>
                 </div>
               </div>
-              <div class="colLbl">Pilotes <span id="mpCount"></span></div>
-              <div class="results mpRoster" id="mpRoster"></div>
-              <div class="mpReact" id="mpReact"></div>
-              <div class="mpFeed" id="mpFeed"></div>
-              <div class="mpDaily" id="mpDaily2" style="margin-top:10px"></div>
+            </div>
+            <div class="mpAuto" id="mpAuto" hidden>
+              <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="bg" cx="50" cy="50" r="44"></circle><circle class="fg" id="mpAutoRing" cx="50" cy="50" r="44"></circle></svg>
+              <b id="mpAutoN">&mdash;</b><span>d&eacute;part auto</span>
+            </div>
+          </div>
+          <div class="twoCol mpLobbyCols">
+            <div class="col">
+              <div class="colLbl">La grille <span class="mpGridNote">&middot; les places libres sont prises par l&rsquo;IA</span></div>
+              <div class="mpSlots" id="mpRoster"></div>
+              <div class="mpCard mpChat">
+                <div class="colLbl">R&eacute;actions</div>
+                <div class="mpReact" id="mpReact"></div>
+                <div class="mpFeed" id="mpFeed"></div>
+              </div>
             </div>
             <div class="col">
+              <div class="mpCard">
               <div class="colLbl">La course &middot; <span id="mpHostNote"></span></div>
               <div class="optRow">
                 <span class="lbl">Circuit</span>
@@ -1684,14 +1838,16 @@
                   <button class="chip" data-net="diff" data-val="1.16">Extr&ecirc;me</button>
                 </span>
               </div>
+              </div>
               <div class="mpActions">
-                <button class="btn ghost" data-go="strat">Strat&eacute;gie de course</button>
-                <button class="btn ghost" data-go="shop">Boutique</button>
-                <button class="btn" id="mpGo">Lancer la course</button>
+                <button class="btn mpGoBtn" id="mpGo">Lancer la course</button>
                 <span class="mpWait" id="mpWaitHost">L&rsquo;h&ocirc;te lancera la course.</span>
+                <button class="btn ghost" data-go="strat">Strat&eacute;gie</button>
+                <button class="btn ghost" data-go="shop">Boutique</button>
                 <button class="btn ghost" id="mpLeave">Quitter la salle</button>
               </div>
               <div class="mpMsg" id="mpLobbyMsg"></div>
+              <div class="mpDaily" id="mpDaily2"></div>
             </div>
           </div>
         </div>
@@ -5419,11 +5575,11 @@ uniform float shadowFar;
     const D=mpDaily();
     const h='<div class="hd">Défis du jour</div>'+D.ids.map(id=>{ const d=MP_DEFIS.find(x=>x[0]===id); if(!d) return "";
       const ok=!!D.done[id];
-      return '<div class="dl'+(ok?' ok':'')+'"><span>'+d[1]+'</span><b>'+(ok?'✔ ':'+')+fmtJet(d[2])+'</b></div>'; }).join("");
+      return '<div class="dl'+(ok?' ok':'')+'"><span>'+d[1]+'</span><b>'+(ok?'':'+')+fmtJet(d[2])+'</b></div>'; }).join("");
     for(const id of ["mpDaily","mpDaily2"]){ const e=$(id); if(e) e.innerHTML=h; }
     const st=$("mpStats"), S=MPP.stats;
-    if(st) st.textContent = S.races ? S.races+" course"+(S.races>1?"s":"")+" en ligne · "+S.wins+" victoire"+(S.wins>1?"s":"")+
-      " · "+S.podiums+" podium"+(S.podiums>1?"s":"")+" · "+S.beaten+" pilote"+(S.beaten>1?"s":"")+" battu"+(S.beaten>1?"s":"") : "Aucune course en ligne pour l’instant.";
+    if(st) st.innerHTML=[[S.races,"courses",""],[S.wins,"victoires","win"],[S.podiums,"podiums",""],[S.beaten,"battus",""]]
+      .map(x=>'<div class="st '+x[2]+'"><b>'+(x[0]|0)+'</b><span>'+x[1]+'</span></div>').join("");
   }
   function mpTitleName(id){ const t=MP_TITLES.find(x=>x[0]===id); return t && t[0]!=="rookie" ? t[1] : ""; }
   function freeItem(kind, id){
@@ -11626,8 +11782,8 @@ uniform float shadowFar;
   }
 
   /* =========================== MULTIJOUEUR ========================== */
-  const NET_VERSION="gp-mp-3";
-  const NET_BUILD="6.7";                              // shown to players; 2.x and 3.x pages play together
+  const NET_VERSION="gp-mp-4";
+  const NET_BUILD="6.8";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -12171,7 +12327,7 @@ uniform float shadowFar;
   }
   function netSendTo(P, m){ m.to=P.id; netDown(m); }
   function netBroadcast(m){ netDown(m); }
-  function netRoster(){ netBroadcast({k:"roster", roster:NET.roster}); mpRender(); }
+  function netRoster(){ netBroadcast({k:"roster", roster:NET.roster}); netPresence(); mpRender(); }
   function netStopTimers(){
     clearInterval(NET.beatT); clearTimeout(NET.joinTimer); clearTimeout(NET.openTimer); clearInterval(NET.helloT);
     NET.beatT=0; NET.joinTimer=0; NET.openTimer=0; NET.helloT=0;
@@ -12189,6 +12345,7 @@ uniform float shadowFar;
     NET.peers.clear(); NET.roster=[];
     NET.race=null; NET.final=null; NET.over=false; NET.finAt=0; NET.snap={};
     NET.offset=0; NET.offTarget=0; NET.offSet=false; NET.viewT=0; NET.viewPn=0; NET.rttBest=1e9; NET.reclaim=false; NET.lastDown=Date.now();
+    NET.pub=false; NET.autoAt=0; NET.finalAt=0; NET.presAt=0; MPQ.guestPub=false; MPQ.autoLocalAt=0;
     const rb=$("restartBtn"); if(rb) rb.disabled=false;
     const nw=$("netWait"); if(nw) nw.hidden=true;
   }
@@ -12211,6 +12368,7 @@ uniform float shadowFar;
     netReset();
     NET.settings=keepSettings;
     NET.role="host"; NET.reclaim=!!reclaim;
+    NET.pub=!!MPQ.pub; NET.autoAt=0;
     NET.myId=netId();
     // try every relay at once and keep the first that answers; each attempt
     // carries its own room code, because the code names the relay
@@ -12233,8 +12391,9 @@ uniform float shadowFar;
         NET.tries=[];
         clearTimeout(NET.openTimer);
         cli.subscribe([netTopic(cd,"u")]);
-        cli.publish(pres, JSON.stringify({k:"open", v:NET_VERSION, circuit:TRACK.id, t:Date.now()}), true);
         NET.roster=[{id:NET.myId, name:NET.name, liv:0, look:mpMyLook()}];
+        if(NET.pub) NET.autoAt=Date.now()+MP_AUTO_OPEN;
+        netPresence();
         NET.lastDown=Date.now();
         // a heartbeat for the players, and a watch for the ones who went silent
         NET.beatT=setInterval(()=>{
@@ -12242,6 +12401,13 @@ uniform float shadowFar;
           if(!NET.race){ netDown({k:"hb"}); mpRender(); }
           const limit = NET.race ? 15000 : 75000, now=Date.now();
           for(const P of Array.from(NET.peers.values())) if(now-P.last>limit) netDrop(P.id);
+          // the room's line in the public list, kept fresh; a public room's own clock
+          if(now-(NET.presAt||0)>20000) netPresence();
+          if(NET.pub && !NET.race && NET.autoAt){
+            if(now>=NET.autoAt){ NET.autoAt=0; netLaunch(); }
+            else netDown({k:"auto", left:NET.autoAt-now});
+          }
+          if(NET.pub && NET.race && NET.over && NET.finalAt && now-NET.finalAt>MP_AUTO_LOBBY && state==="results"){ netBroadcast({k:"lobby"}); netToLobby(); }
         }, 3000);
         mpMsg(""); showPane("multi"); mpRender();
       };
@@ -12279,6 +12445,7 @@ uniform float shadowFar;
       if(why){ netSendTo(P, {k:"refuse", why:why}); netKick(P); return; }
       P.name=netClean(m.name)||"Pilote"; P.liv=liv;
       NET.roster.push({id:P.id, name:P.name, liv:liv, look:mpCleanLook(m.look)});
+      if(NET.pub && NET.autoAt) NET.autoAt=Math.max(NET.autoAt, Date.now()+MP_AUTO_JOIN);
       netSendTo(P, {k:"welcome", you:P.id, code:NET.code, circuit:TRACK.id, settings:NET.settings});
       netRoster();
     } else if(m.k==="look"){
@@ -12377,7 +12544,7 @@ uniform float shadowFar;
       if(!payload){ if(NET.welcomed) netFail("L\u2019h\u00f4te a ferm\u00e9 la salle."); else NET.present=false; return; }
       let pr; try{ pr=JSON.parse(payload); }catch(e){ return; }
       if(pr.v && pr.v!==NET_VERSION){ netFail("Vous n\u2019avez pas la m\u00eame version du jeu. Rechargez tous les deux la page."); return; }
-      NET.present=true;
+      NET.present=true; MPQ.guestPub=!!pr.pub;
       if(!NET.welcomed){
         const hello=()=>{ if(NET.role==="guest" && !NET.welcomed) netUp({k:"hello", name:NET.name, v:NET_VERSION, look:mpMyLook()}); };
         hello();
@@ -12434,6 +12601,8 @@ uniform float shadowFar;
       netRain();
     } else if(m.k==="final"){
       netFinal(m);
+    } else if(m.k==="auto"){
+      MPQ.autoLocalAt=Date.now()+Math.max(0, +m.left||0);
     } else if(m.k==="emo"){
       if(m.id!==NET.myId) mpEmoShow(m.id, m.e);
     } else if(m.k==="lobby"){
@@ -12458,7 +12627,7 @@ uniform float shadowFar;
 
   // ---- changing circuit means a reload, so the room is carried across it ----
   function netGoto(id){
-    try{ window.name="trsnet:"+JSON.stringify({role:NET.role, code:NET.code, name:NET.name, settings:NET.settings}); }catch(e){}
+    try{ window.name="trsnet:"+JSON.stringify({role:NET.role, code:NET.code, name:NET.name, settings:NET.settings, pub:!!NET.pub}); }catch(e){}
     if(NET.role==="guest") netUp({k:"bye"});
     const cli=NET.cli;
     netStopTimers(); rtcCloseAll(); NET.cli=null; NET.role=null;
@@ -12502,6 +12671,7 @@ uniform float shadowFar;
     if(resume && resume.code){
       NET.name=netClean(resume.name)||NET.name; if(inp) inp.value=NET.name;
       if(resume.settings) NET.settings=resume.settings;
+      MPQ.pub=!!resume.pub;
       showPane("multi");
       if(resume.role==="host") netHost(resume.code, true); else netJoin(resume.code, true);
       return;
@@ -12513,35 +12683,194 @@ uniform float shadowFar;
   }
 
   // ---- the lobby ----
+  /* ---- public rooms: listed, found, and a quick match ----
+     A public room says so in its presence message (the retained one every
+     room keeps on its relay, cleared by the relay itself if the host drops):
+     the circuit, the host, how many are in, and whether it is racing. The
+     multiplayer screen listens to every room's presence on the three relays
+     and lists the public ones; a quick match joins the fullest that is
+     waiting, or opens one of its own when there is none. A public room starts
+     by itself (the AI fills the grid) and comes back to its lobby by itself. */
+  const MPQ={clis:[], rooms:new Map(), browsing:false, pub:false, quick:false, maps:{}, uiT:0, autoLocalAt:0};
+  const MP_AUTO_OPEN=40000, MP_AUTO_JOIN=15000, MP_AUTO_LOBBY=25000;
+  function netPresence(){
+    if(NET.role!=="host" || !NET.cli || !NET.cli.ready || !NET.code) return;
+    NET.cli.publish(netTopic(NET.code,"h"), JSON.stringify({k:"open", v:NET_VERSION, circuit:TRACK.id, t:Date.now(),
+      pub:!!NET.pub, name:NET.name, n:NET.roster.length, max:LIVERY.length, st:NET.race ? "race" : "lobby",
+      laps:NET.settings.laps, diff:NET.settings.diff}), true);
+    NET.presAt=Date.now();
+  }
+  function mpBrowseStart(){
+    if(MPQ.browsing) return;
+    MPQ.browsing=true; MPQ.clis=[];
+    NET_BROKERS.forEach((url,k)=>{
+      const cli=mqttOpen(url, "gpb"+netRand(9).toLowerCase(), null,
+        (topic, payload)=>mpRoomMsg(topic, payload), ()=>{});
+      cli.onReady=()=>{ cli.subscribe([NET_ROOT+"+/h"]); };
+      MPQ.clis.push(cli);
+    });
+    MPQ.since=Date.now();
+  }
+  function mpBrowseStop(){
+    if(!MPQ.browsing) return;
+    MPQ.browsing=false;
+    for(const c of MPQ.clis) try{ c.close(); }catch(e){}
+    MPQ.clis=[];
+  }
+  function mpRoomMsg(topic, payload){
+    const parts=String(topic).split("/"), code=parts[parts.length-2];
+    if(!/^[A-Z0-9]{5}$/.test(code||"")) return;
+    if(!payload){ MPQ.rooms.delete(code); return; }
+    let o=null; try{ o=JSON.parse(payload); }catch(e){ return; }
+    if(!o || o.k!=="open" || !o.pub || o.v!==NET_VERSION){ MPQ.rooms.delete(code); return; }
+    MPQ.rooms.set(code, {code:code, circuit:String(o.circuit||""), name:netClean(o.name)||"Pilote", n:Math.max(1, o.n|0), max:(o.max|0)||8,
+      st:o.st==="race" ? "race" : "lobby", laps:String(o.laps||"5"), diff:String(o.diff||"1.00"), t:+o.t||0});
+  }
+  // the rooms worth showing: fresh ones (a host refreshes its line every 20 s)
+  function mpRoomList(){
+    const now=Date.now(), L=[];
+    for(const r of MPQ.rooms.values()){
+      if(Math.abs(now-r.t)>90000 || r.code===NET.code) continue;
+      L.push(r);
+    }
+    return L.sort((a,b)=>(a.st===b.st ? 0 : a.st==="lobby" ? -1 : 1) || b.n-a.n || b.t-a.t);
+  }
+  function mpBestRoom(){ return mpRoomList().find(r=>r.st==="lobby" && r.n<r.max) || null; }
+  function mpQuick(){
+    if(NET.role || MPQ.quick) return;
+    netName();
+    MPQ.quick=true; mpBrowseStart();
+    mpMsg("Recherche d’une salle publique…");
+    const t0=Date.now();
+    const look=()=>{
+      if(!MPQ.quick) return;
+      const r=mpBestRoom();
+      if(r){ MPQ.quick=false; mpBrowseStop(); mpMsg("Salle trouvée chez "+r.name+"…"); NET.retry=0; netJoin(r.code, false); return; }
+      if(Date.now()-t0<3200 || Date.now()-(MPQ.since||0)<2600){ setTimeout(look, 350); return; }
+      MPQ.quick=false; mpBrowseStop(); MPQ.pub=true;
+      mpMsg("Aucune salle publique ouverte : la tienne s’ouvre, l’IA complète la grille…");
+      NET.retry=0; netHost(null, false);
+    };
+    setTimeout(look, 500);
+  }
+  // a circuit's outline: the real centreline for the one loaded, the design
+  // points for the others
+  function mpPoly(id){
+    if(id===TRACK.id && pts.length) return pts.filter((p,i)=>i%4===0).map(p=>[p.x, p.z]);
+    const C=CIRCUITS.find(x=>x.id===id); return C ? C.cp.map(p=>[p[0], p[2]]) : null;
+  }
+  function mpMapDraw(cv, id, w, h, col, lw){
+    const P=mpPoly(id); if(!P || !P.length) return;
+    const dp=Math.min(2, window.devicePixelRatio||1);
+    cv.width=Math.round(w*dp); cv.height=Math.round(h*dp);
+    const g=cv.getContext("2d"); g.setTransform(dp,0,0,dp,0,0); g.clearRect(0,0,w,h);
+    let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9; for(const p of P){ x0=Math.min(x0,p[0]); x1=Math.max(x1,p[0]); z0=Math.min(z0,p[1]); z1=Math.max(z1,p[1]); }
+    const pad=Math.max(4, w*0.07), k=Math.min((w-2*pad)/Math.max(1,x1-x0), (h-2*pad)/Math.max(1,z1-z0));
+    const ox=(w-(x1-x0)*k)/2, oz=(h-(z1-z0)*k)/2, X=p=>ox+(p[0]-x0)*k, Z=p=>oz+(p[1]-z0)*k;
+    const path=()=>{ g.beginPath(); P.forEach((p,i)=>{ if(i) g.lineTo(X(p),Z(p)); else g.moveTo(X(p),Z(p)); }); g.closePath(); };
+    g.lineJoin="round"; g.lineCap="round";
+    g.strokeStyle="rgba(255,255,255,.10)"; g.lineWidth=lw*2.6; path(); g.stroke();
+    g.strokeStyle=col; g.lineWidth=lw; path(); g.stroke();
+    g.fillStyle="#ffffff"; g.beginPath(); g.arc(X(P[0]), Z(P[0]), lw*1.3, 0, Math.PI*2); g.fill();
+  }
+  function mpMapUrl(id){
+    if(MPQ.maps[id]) return MPQ.maps[id];
+    const cv=document.createElement("canvas"); mpMapDraw(cv, id, 84, 54, "#3fd6e8", 2.2);
+    return (MPQ.maps[id]=cv.toDataURL());
+  }
+  const MP_DIFF={"0.94":"Facile","1.00":"Normal","1.045":"Difficile","1.16":"Extrême"};
+  function mpRoomsRender(){
+    const box=$("mpRooms"), live=$("mpLive"); if(!box) return;
+    const L=mpRoomList();
+    // (rebuilt only when something changed: a button replaced under the pointer loses its click)
+    const sig=L.map(r=>r.code+r.n+r.st).join("|")+"|"+MPQ.browsing;
+    if(box.dataset.sig===sig) return;
+    box.dataset.sig=sig;
+    if(live){ live.textContent = MPQ.browsing ? (L.length ? L.length+" en ligne" : "en direct") : "en pause"; live.classList.toggle("on", MPQ.browsing); }
+    if(!L.length){ box.innerHTML='<div class="mpNone">Aucune salle publique pour l’instant. Lance une partie rapide : la tienne s’ouvre et tout le monde pourra la rejoindre.</div>'; return; }
+    box.innerHTML=L.slice(0,8).map(r=>{
+      const C=CIRCUITS.find(x=>x.id===r.circuit), can=r.st==="lobby" && r.n<r.max;
+      return '<button class="mpRoom" data-room="'+r.code+'"'+(can?'':' disabled')+'>'+
+        '<img alt="" src="'+mpMapUrl(r.circuit)+'"><span class="rn"><b>'+netEsc(C ? C.short : r.circuit)+'</b><small>'+netEsc(r.name)+' · '+netEsc(r.laps)+' tours · IA '+(MP_DIFF[r.diff]||"")+'</small></span>'+
+        '<span class="rp"><b>'+r.n+'</b>/'+r.max+'</span><span class="rs'+(can?'':' busy')+'">'+(r.st==="race" ? "En course" : r.n>=r.max ? "Complète" : "Rejoindre")+'</span></button>';
+    }).join("");
+  }
+  // every half-second while the screen is up: the list, the countdowns
+  function mpTick(){
+    const onMp = state==="menu" && pane==="multi";
+    const inRoom = !!NET.role;
+    if(onMp && !inRoom) mpBrowseStart(); else if(!MPQ.quick) mpBrowseStop();
+    if(onMp && !inRoom) mpRoomsRender();
+    // the automatic start, as a ring
+    const au=$("mpAuto");
+    if(au){
+      const at = NET.role==="host" ? (NET.pub && !NET.race ? NET.autoAt : 0) : (NET.role==="guest" && !NET.race ? MPQ.autoLocalAt : 0);
+      const left = at ? Math.max(0, at-Date.now()) : 0;
+      au.hidden = !(onMp && inRoom && at);
+      if(!au.hidden){
+        $("mpAutoN").textContent=Math.ceil(left/1000);
+        const ring=$("mpAutoRing"), C=2*Math.PI*44;
+        ring.style.strokeDasharray=C.toFixed(1); ring.style.strokeDashoffset=(C*(1-Math.min(1, left/MP_AUTO_OPEN))).toFixed(1);
+      }
+    }
+    // a public room goes back to its lobby by itself after the results
+    if(state==="results" && NET.race && NET.pub && NET.finalAt){
+      const b=$("resLobbyBtn"), left=Math.max(0, Math.ceil((NET.finalAt+MP_AUTO_LOBBY-Date.now())/1000));
+      if(b) b.textContent = NET.role==="host" ? "Retour au salon · "+left+" s" : "Retour au salon";
+    }
+  }
+  function mpStartTicking(){ if(!MPQ.uiT) MPQ.uiT=setInterval(mpTick, 500); }
+
   function mpRender(){
     mpDailyRender();
+    jetsUpdate();
     const inRoom = NET.role==="host" ? !!(NET.cli && NET.cli.ready && NET.code) : (NET.role==="guest" && NET.welcomed);
     const st=$("mpStart"), lb=$("mpLobby"); if(!st||!lb) return;
     st.hidden=inRoom; lb.hidden=!inRoom;
     const back=document.querySelector("#pMulti .backBtn"); if(back) back.hidden=inRoom;
-    if(!inRoom) return;
+    // the player's own tag, as the others see it above the car
+    const ti=$("mpTagImg");
+    if(ti){ const lk=mpMyLook(), key=mpName()+"|"+lk.title+"|"+lk.tag+"|"+lk.c;
+      if(ti.dataset.k!==key){ ti.dataset.k=key; ti.src=mpTagCanvas(mpName(), lk.title, lk.tag, lk.c).toDataURL(); } }
+    document.querySelectorAll("#pMulti [data-mppub]").forEach(b=>b.setAttribute("aria-pressed", String((b.dataset.mppub==="1")===!!MPQ.pub)));
+    if(!inRoom){ mpRoomsRender(); return; }
     const host=NET.role==="host";
     $("mpCodeTxt").textContent=NET.code;
-    const ro=$("mpRoster"); ro.innerHTML="";
+    // the room: its circuit, drawn, its rules, public or not
+    const mc=$("mpMap");
+    if(mc && mc.dataset.id!==TRACK.id){ mc.dataset.id=TRACK.id; mpMapDraw(mc, TRACK.id, mc.clientWidth||170, mc.clientHeight||110, "#3fd6e8", 3); }
+    $("mpCircuit").innerHTML='<b>'+netEsc(TRACK.name)+'</b><small>'+netEsc(TRACK.event)+'</small>';
+    const S=NET.settings;
+    $("mpRulesTxt").textContent=S.laps+" tours · IA "+(MP_DIFF[S.diff]||"")+" · "+
+      ({auto:"météo aléatoire", dry:"sec", wet:"pluie"}[S.wx]||"")+" · "+({auto:"heure d’origine", jour:"jour", couchant:"couchant", nuit:"nuit"}[S.tod]||"");
+    const pubRoom = host ? !!NET.pub : !!MPQ.guestPub;
+    $("mpVis").textContent = pubRoom ? "Salle publique" : "Salle privée";
+    $("mpVis").classList.toggle("pub", pubRoom);
+    $("mpCount").textContent=NET.roster.length+" / "+LIVERY.length+" pilotes";
+    // the grid: the players first, then the teams the AI drives
+    const hx=v=>"#"+(v>>>0).toString(16).padStart(6,"0");
+    const used=new Set(NET.roster.map(r=>r.liv));
+    let h="", pos=0;
     NET.roster.forEach((r,k)=>{
       const L0=LIVERY[r.liv]||LIVERY[0], lk=r.look ? mpCleanLook(r.look) : null;
       const L = lk ? mpLivery(lk, r.name, L0.no) : L0;
-      const row=document.createElement("div");
-      row.className="row"+(r.id===NET.myId?" me":"");
-      let tags=(k===0?'<span class="tag">H\u00f4te</span>':"")+(r.id===NET.myId?'<span class="tag">Toi</span>':"");
+      let tags=(k===0?'<i class="t host">Hôte</i>':"")+(r.id===NET.myId?'<i class="t me">Toi</i>':"");
       if(r.id!==NET.myId && (host || k===0)){
         const ls=rtcState(host ? r.id : "host");
-        tags += ls==="direct" ? '<span class="tag link ok">direct</span>'
-              : ls==="relais" ? '<span class="tag link">relais</span>' : '<span class="tag link">connexion\u2026</span>';
+        tags += ls==="direct" ? '<i class="t ok">direct</i>' : ls==="relais" ? '<i class="t">relais</i>' : '<i class="t">connexion…</i>';
       }
-      const hx=v=>"#"+(v>>>0).toString(16).padStart(6,"0"), ttl=lk ? mpTitleName(lk.title) : "";
-      row.innerHTML='<span class="pos">'+(k+1)+'</span><span class="sw" style="background:linear-gradient('+hx(L.c)+' 62%,'+hx(L.ac)+' 62%)"></span><span class="nm">'+netEsc(r.name)+
-        (ttl ? '<span class="ttl">'+netEsc(ttl)+'</span>' : '')+tags+
-        '</span><span class="gap">'+(lk ? '#'+L.no : L0.nm)+'</span>';
-      ro.appendChild(row);
+      const ttl=lk ? mpTitleName(lk.title) : "";
+      h+='<div class="mpSlot'+(r.id===NET.myId?' me':'')+'" style="--c:'+hx(L.c)+';--ac:'+hx(L.ac)+'"><span class="p">'+(++pos)+'</span><span class="car"></span>'+
+         '<span class="who"><b>'+netEsc(r.name)+'</b><small>'+(ttl ? netEsc(ttl)+' · ' : '')+'#'+netEsc(L.no)+'</small></span><span class="tags">'+tags+'</span></div>';
     });
-    $("mpCount").textContent="\u00b7 "+NET.roster.length+" / "+LIVERY.length;
-    $("mpHostNote").textContent = host ? "tu choisis" : "choisie par l\u2019h\u00f4te";
+    for(let i=0;i<LIVERY.length;i++){
+      if(used.has(i)) continue;
+      const L=LIVERY[i];
+      h+='<div class="mpSlot ai" style="--c:'+hx(L.c)+';--ac:'+hx(L.ac)+'"><span class="p">'+(++pos)+'</span><span class="car"></span>'+
+         '<span class="who"><b>'+netEsc(L.nm)+'</b><small>IA · #'+netEsc(L.no)+'</small></span><span class="tags"><i class="t">IA</i></span></div>';
+    }
+    $("mpRoster").innerHTML=h;
+    $("mpHostNote").textContent = host ? "tu choisis" : "choisie par l’hôte";
     document.querySelectorAll("#mpLobby [data-net]").forEach(b=>{
       b.setAttribute("aria-pressed", NET.settings[b.dataset.net]===b.dataset.val ? "true":"false");
       b.disabled=!host;
@@ -12551,6 +12880,8 @@ uniform float shadowFar;
       b.disabled=!host;
     });
     $("mpGo").hidden=!host; $("mpWaitHost").hidden=host;
+    $("mpGo").textContent = host && NET.pub ? "Lancer maintenant" : "Lancer la course";
+    $("mpWaitHost").textContent = pubRoom ? "Le départ se donnera tout seul." : "L’hôte lancera la course.";
     mpReactRender();
   }
   function netCopy(txt, btn){
@@ -12597,6 +12928,8 @@ uniform float shadowFar;
     towerKey="";
     $("restartBtn").disabled=true;
     $("netWait").hidden=true;
+    MPQ.autoLocalAt=0;
+    netPresence();
   }
   function netPack(c){
     // 128: coming in for tyres (older pages ignore the bit)
@@ -13009,7 +13342,7 @@ uniform float shadowFar;
   }
   function netFinal(m){
     if(!NET.race || !Array.isArray(m.order)) return;
-    NET.over=true; NET.final=m.order;
+    NET.over=true; NET.final=m.order; NET.finalAt=Date.now();
     for(const r of m.order){
       const c=cars[r[0]]; if(!c) continue;
       c.finished=!!r[1]; c.netFin=r[2]; c.prog=r[3]; c.netVf=r[5]||0;
@@ -13062,7 +13395,9 @@ uniform float shadowFar;
   function netToLobby(){
     if(!NET.role) return;
     if(BB.cur) bbFinish();
-    NET.race=null; NET.final=null; NET.over=false; NET.finAt=0; NET.snap={};
+    NET.race=null; NET.final=null; NET.over=false; NET.finAt=0; NET.snap={}; NET.finalAt=0;
+    { const b=$("resLobbyBtn"); if(b) b.textContent="Retour au salon"; }
+    if(NET.role==="host"){ if(NET.pub) NET.autoAt=Date.now()+MP_AUTO_OPEN; netPresence(); }
     $("netWait").hidden=true; $("restartBtn").disabled=false;
     toMenu();
     showPane("multi");
@@ -16335,7 +16670,14 @@ uniform float shadowFar;
   $("replayBtn").addEventListener("click",()=>rpOpen(0));
   $("resHomeBtn").addEventListener("click",()=>{ if(NET.role) netLeave(); toMenu(); });
   $("resLobbyBtn").addEventListener("click",()=>{ if(NET.role==="host") netBroadcast({k:"lobby"}); netToLobby(); });
-  $("mpCreate").addEventListener("click",()=>{ NET.retry=0; netHost(null, false); });
+  $("mpCreate").addEventListener("click",()=>{ NET.retry=0; mpBrowseStop(); netHost(null, false); });
+  $("mpQuick").addEventListener("click", mpQuick);
+  $("pMulti").addEventListener("click", e=>{
+    const b=e.target.closest("button"); if(!b) return;
+    if(b.dataset.mppub!==undefined){ MPQ.pub = b.dataset.mppub==="1"; mpRender(); return; }
+    if(b.dataset.room && !b.disabled && !NET.role){ mpBrowseStop(); mpMsg("Connexion \u00e0 la salle "+b.dataset.room+"\u2026"); NET.retry=0; netJoin(b.dataset.room, false); }
+  });
+  mpStartTicking();
   $("mpJoin").addEventListener("click",()=>{ NET.retry=0; netJoin($("mpCode").value, false); });
   $("mpCode").addEventListener("keydown",e=>{ if(e.key==="Enter"){ NET.retry=0; netJoin($("mpCode").value, false); } });
   $("mpName").addEventListener("change",netName);
