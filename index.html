@@ -887,6 +887,47 @@
     border:1px solid var(--line); border-radius:8px; font:12px/1.4 ui-monospace,Consolas,monospace; padding:8px}
   .mpActions{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:6px}
   .mpWait{color:var(--muted); font-size:14px}
+  /* the online shop: the garage's column and turntable, paid in jetons */
+  #menu[data-pane="shop"]{
+    background:linear-gradient(90deg, rgba(5,7,12,.94) 0%, rgba(5,7,12,.82) 30%, rgba(5,7,12,.06) 50%, rgba(5,7,12,0) 100%);
+    backdrop-filter:none;
+  }
+  @media (max-width:760px){
+    #menu[data-pane="shop"]{background:linear-gradient(0deg, rgba(5,7,12,.96) 0%, rgba(5,7,12,.88) 54%, rgba(5,7,12,0) 60%)}
+  }
+  #pShop{padding:0; cursor:grab}
+  #pShop.drag{cursor:grabbing}
+  .jetChip{display:inline-flex; align-items:center; gap:8px; align-self:flex-start; font:inherit; color:var(--white); cursor:pointer;
+    background:rgba(63,214,232,.10); border:1px solid rgba(63,214,232,.45); border-radius:999px; padding:5px 14px 4px}
+  .jetChip b{font-family:var(--font-num); font-size:19px; font-weight:500; color:#3fd6e8; white-space:nowrap}
+  .jetChip span{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); white-space:nowrap}
+  .jet{color:#3fd6e8; font-family:var(--font-num); white-space:nowrap}
+  .shopIntro{font-size:13px; line-height:1.45; color:var(--muted)}
+  .shopIntro b{color:#3fd6e8; font-weight:600}
+  .shopTabs .chip{padding:6px 10px}
+  .tagPrev{display:block; width:240px; max-width:100%; height:auto; margin:2px 0 4px}
+  .emoPick{display:flex; flex-wrap:wrap; gap:6px; margin-top:4px}
+  .emoPick button{font:inherit; font-size:14px; color:var(--white); cursor:pointer; border-radius:999px; padding:5px 11px 4px;
+    background:rgba(255,255,255,.05); border:1px solid var(--line)}
+  .emoPick button[aria-pressed="true"]{border-color:#3fd6e8; background:rgba(63,214,232,.14)}
+  .emoPick button i{font-style:normal; font-family:var(--font-num); color:#3fd6e8; margin-right:6px}
+  .mpShopRow{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .mpRoster .ttl{font-size:11px; letter-spacing:.06em; color:#3fd6e8; margin-left:8px}
+  .mpReact{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px}
+  .mpReact button{font:inherit; font-size:14px; color:var(--white); cursor:pointer; border-radius:999px; padding:5px 11px 4px;
+    background:rgba(255,255,255,.05); border:1px solid var(--line)}
+  .mpReact button:hover{border-color:#3fd6e8}
+  .mpFeed{display:flex; flex-direction:column; gap:4px; margin-top:6px; min-height:1.2em}
+  .mpFeed div{font-size:14px; color:var(--white); transition:opacity .6s}
+  .mpFeed div b{color:#3fd6e8; font-weight:600; margin-right:6px}
+  .emoFeed{position:absolute; right:14px; top:150px; display:flex; flex-direction:column; gap:5px; align-items:flex-end; pointer-events:none}
+  .emoFeed div{background:rgba(10,13,19,.80); border:1px solid var(--line); border-radius:999px; padding:3px 12px 2px;
+    font-size:15px; color:var(--white); transition:opacity .6s; white-space:nowrap}
+  .emoFeed div b{color:#3fd6e8; font-weight:600; margin-right:6px}
+  .temoPop{position:absolute; left:50%; bottom:calc(var(--tgap) + 54px); transform:translateX(-50%); display:flex; gap:6px; pointer-events:auto}
+  .temoPop[hidden]{display:none}
+  .temoPop button{font:inherit; font-size:15px; color:var(--white); border-radius:12px; padding:8px 10px;
+    background:rgba(10,13,19,.86); border:1px solid rgba(63,214,232,.5)}
   #menu .chip:disabled{cursor:default}
   #menu .chip:disabled:not([aria-pressed="true"]){opacity:.42}
   .netwait{
@@ -1122,6 +1163,7 @@
     <div class="pittimer" id="pitTimer" hidden><b id="pitT">0.0</b><i>Arr&ecirc;t au stand</i></div>
     <div class="pitauto" id="pitAuto" hidden>PILOTE AUTOMATIQUE <i>arr&ecirc;t au stand</i></div>
     <div class="pitgo" id="pitGo" hidden><b id="pitGoN">3</b><i>reprise des commandes</i></div>
+    <div class="emoFeed" id="emoFeed"></div>
       <div class="draft blue" id="blueBadge">DRAPEAU BLEU</div>
       <div class="draft drs" id="drsBadge">DRS</div>
       <div class="warn" id="warn">&#9668; SENS INVERSE &#9658;</div>
@@ -1146,7 +1188,9 @@
         <button class="tmini" id="tgyro" title="Activer l&rsquo;inclinaison" hidden>&#128241;</button>
         <button class="tmini" id="tzero" title="Recentrer l&rsquo;inclinaison" hidden>&#8982;</button>
         <button class="tmini" id="tpause" title="Pause">&#10074;&#10074;</button>
+        <button class="tmini" id="temo" title="R&eacute;actions" hidden>&#128172;</button>
       </div>
+      <div class="temoPop" id="temoPop" hidden></div>
       <div class="trot">Tourne ton appareil en paysage</div>
     </div>
 
@@ -1408,6 +1452,32 @@
         </div>
       </section>
 
+      <section class="pane" id="pShop" data-pane="shop" hidden>
+        <div class="garCol" id="shopCol">
+          <div class="paneHead">
+            <button class="backBtn" data-go="multi">&lsaquo; Multijoueur</button>
+            <div>
+              <div class="kicker">Ce que les autres pilotes voient</div>
+              <h2>Boutique</h2>
+            </div>
+          </div>
+          <button class="jetChip" id="shopJet" tabindex="-1"></button>
+          <div class="garTabs shopTabs" id="shopTabs">
+            <button class="chip" data-stab="paint">Peinture</button>
+            <button class="chip" data-stab="fin">Finition</button>
+            <button class="chip" data-stab="des">Motif</button>
+            <button class="chip" data-stab="gear">Casque &amp; jantes</button>
+            <button class="chip" data-stab="spons">Sponsors</button>
+            <button class="chip" data-stab="num">Num&eacute;ro</button>
+            <button class="chip" data-stab="title">Titre</button>
+            <button class="chip" data-stab="tag">&Eacute;tiquette</button>
+            <button class="chip" data-stab="emo">R&eacute;actions</button>
+          </div>
+          <div id="shopBody"></div>
+          <div class="garFoot" id="shopFoot"></div>
+        </div>
+      </section>
+
       <section class="pane" id="pSettings" data-pane="settings" hidden>
         <div class="paneHead">
           <button class="backBtn" data-go="home">&lsaquo; Accueil</button>
@@ -1438,6 +1508,10 @@
           <div class="mpCard">
             <label class="colLbl" for="mpName">Ton pseudo</label>
             <input class="mpInput" id="mpName" maxlength="14" autocomplete="off" spellcheck="false" placeholder="Pilote">
+            <div class="mpShopRow">
+              <button class="jetChip" id="mpJet" data-go="shop" title="Tes jetons, gagn&eacute;s en course en ligne"></button>
+              <button class="btn ghost small" data-go="shop">Boutique</button>
+            </div>
             <div class="mpSplit">
               <div class="mpSide">
                 <b>Cr&eacute;er une salle</b>
@@ -1471,6 +1545,8 @@
               </div>
               <div class="colLbl">Pilotes <span id="mpCount"></span></div>
               <div class="results mpRoster" id="mpRoster"></div>
+              <div class="mpReact" id="mpReact"></div>
+              <div class="mpFeed" id="mpFeed"></div>
             </div>
             <div class="col">
               <div class="colLbl">La course &middot; <span id="mpHostNote"></span></div>
@@ -1532,6 +1608,7 @@
               </div>
               <div class="mpActions">
                 <button class="btn ghost" data-go="strat">Strat&eacute;gie de course</button>
+                <button class="btn ghost" data-go="shop">Boutique</button>
                 <button class="btn" id="mpGo">Lancer la course</button>
                 <span class="mpWait" id="mpWaitHost">L&rsquo;h&ocirc;te lancera la course.</span>
                 <button class="btn ghost" id="mpLeave">Quitter la salle</button>
@@ -2789,7 +2866,7 @@ uniform float shadowFar;
     return (n<0?"\u2212":"")+s+"\u00a0$";
   }
   let pane="home";
-  const PANE_BACK={play:"home", season:"play", free:"play", settings:"home", multi:"home", strat:"free", garage:"home", usine:"season"};
+  const PANE_BACK={play:"home", season:"play", free:"play", settings:"home", multi:"home", strat:"free", garage:"home", usine:"season", shop:"multi"};
   // the room, known to everything from the first line so no handler can reach it early
   const NET={
     role:null, cli:null, tries:[], code:"", myId:"", name:"", welcomed:false, present:false,
@@ -5130,6 +5207,111 @@ uniform float shadowFar;
   // the look a new team starts with
   function lookDefault(){ return {c:0xE8002D, ac:0xF4F5F7, finish:"gloss", design:"classic", helmet:0xFFD21F, rim:0x15161B}; }
   function ownedItem(id){ return !!PROF.own[id]; }
+
+  /* ======================== BOUTIQUE EN LIGNE ========================
+     Jetons, won racing online and nowhere else, spent on how a player shows
+     up to the others: paint, finish, design, helmet and wheels, sponsors,
+     number, title, name tag and reactions. Every item is seen by the room;
+     none makes a car any quicker (that belongs to the career). */
+  const MP_KEY="trs_mp_v1";
+  const jetOf=it=>Math.round(it[3]/100);            // a garage price, in jetons
+  // titles: [id, name, price, how it is won instead of bought, what it says]
+  const MP_TITLES=[
+    ["rookie","Rookie",0,null,"Le premier titre de tout pilote en ligne."],
+    ["dimanche","Pilote du dimanche",150,null,"Pour ceux qui roulent pour le plaisir."],
+    ["gentleman","Gentleman driver",300,null,"La classe, même dans le bac à graviers."],
+    ["freinage","Roi du freinage tardif",600,null,"Toujours le dernier à freiner."],
+    ["esses","Spécialiste des S",600,null,"À fond dans les enchaînements."],
+    ["pluie","Maître de la pluie",800,null,"Rien ne l’arrête, surtout pas l’eau."],
+    ["stratege","Stratège",800,null,"Le bon arrêt, au bon moment."],
+    ["usine","Pilote d’usine",1500,null,"Recruté par une grande écurie."],
+    ["legende","Légende du paddock",5000,null,"Tout le paddock connaît ton nom."],
+    ["vainqueur","Vainqueur",0,"Gagne une course en ligne","Une victoire en ligne."],
+    ["triple","Triple vainqueur",0,"Gagne trois courses en ligne","Trois victoires en ligne."],
+    ["fairplay","Fair-play",0,"Finis cinq courses en ligne sans toucher personne","Propre, toujours."],
+    ["chasseur","Chasseur",0,"Bats dix pilotes humains en ligne","Dix humains derrière toi."],
+    ["globe","Globe-trotter",0,"Cours en ligne sur les dix circuits","Tous les circuits du monde."]
+  ];
+  // name tags: [id, name, price, what it looks like]
+  const MP_TAGS=[
+    ["std","Standard",0,"Fond sombre, liséré à ta couleur."],
+    ["carbone","Carbone",300,"Un tissage de carbone sous ton nom."],
+    ["damier","Damier",700,"Le drapeau à damier en bordure."],
+    ["neon","Néon",900,"Ton nom brille dans la nuit."],
+    ["or","Or",1500,"Bordure et lettres dorées."]
+  ];
+  // reactions, by pack: [id, name, price, [[emoji, words], ...]]
+  const MP_EMO=[
+    ["salut","Salut",0,[["\u{1F44B}","Salut !"],["\u{1F44D}","Bien joué"]]],
+    ["fairplay","Fair-play",200,[["\u{1F64F}","Désolé !"],["\u{1F91D}","GG"]]],
+    ["taquin","Taquin",400,[["\u{1F60E}","Trop facile"],["\u{1F422}","Tortue !"]]],
+    ["meteo","Météo",500,[["\u{1F327}️","Il pleut !"],["\u{1F525}","En feu !"]]],
+    ["fete","Fête",600,[["\u{1F389}","Allez !"],["\u{1F3C6}","Victoire !"]]]
+  ];
+  const MP_BRAND_PRICE=300, MP_NUM_PRICE=250, MP_GIFT=300, MP_DAY=150;
+  function mpEmoOf(key){
+    const m=/^([a-z]+):(\d)$/.exec(String(key||"")); if(!m) return null;
+    const p=MP_EMO.find(x=>x[0]===m[1]); const e=p && p[3][+m[2]];
+    return e ? {key:key, pack:p[0], e:e[0], t:e[1]} : null;
+  }
+  function mpBlank(){
+    return {v:1, jet:MP_GIFT, gift:true, own:{}, look:lookDefault(), no:"", title:"rookie", tag:"std",
+            emo:["salut:0","salut:1"], spons:[null,null,null],
+            stats:{races:0, wins:0, podiums:0, clean:0, beaten:0, earned:0, tracks:{}}, day:""};
+  }
+  function mpLoad(){
+    const B=mpBlank();
+    let o=null; try{ o=JSON.parse(localStorage.getItem(MP_KEY)||"null"); }catch(e){}
+    if(!o || typeof o!=="object") return B;
+    const M=Object.assign(B, o);
+    M.jet=Math.max(0, Math.round(+M.jet||0));
+    M.own=(M.own && typeof M.own==="object") ? M.own : {};
+    M.look=Object.assign(lookDefault(), M.look||{});
+    M.emo=Array.isArray(M.emo) ? M.emo.filter(k=>mpEmoOf(k)).slice(0,4) : B.emo;
+    M.spons=[0,1,2].map(k=>{ const b=Array.isArray(M.spons)?M.spons[k]:null; return Number.isInteger(b) ? b : null; });
+    M.stats=Object.assign(mpBlank().stats, M.stats||{});
+    return M;
+  }
+  let MPP=mpLoad();
+  function mpSave(){ try{ localStorage.setItem(MP_KEY, JSON.stringify(MPP)); }catch(e){} }
+  function fmtJet(n){ return "◆ "+String(Math.round(Math.abs(n))).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }
+  // what the others are sent: the look, and only what is owned
+  function mpMyLook(){
+    const L=Object.assign(lookDefault(), MPP.look);
+    L.no = MPP.own.num && MPP.no ? MPP.no : "";
+    L.title=MPP.title; L.tag=MPP.tag; L.spons=MPP.spons.slice(0,3);
+    return L;
+  }
+  // what comes in from the others, checked field by field: a colour of the
+  // palette, a finish, a design, a title or a tag of the list, or the default
+  function mpCleanLook(o){
+    if(!o || typeof o!=="object") return null;
+    const d=lookDefault(), cols=SHOP_COL.map(x=>x[2]);
+    const col=(v, def)=> cols.indexOf(+v)>=0 ? +v : def;
+    const L={c:col(o.c, d.c), ac:col(o.ac, d.ac), helmet:col(o.helmet, d.helmet), rim:col(o.rim, d.rim)};
+    L.finish = SHOP_FIN.some(x=>x[0]===o.finish) ? o.finish : d.finish;
+    L.design = SHOP_DES.some(x=>x[0]===o.design) ? o.design : d.design;
+    L.no = /^[1-9][0-9]?$/.test(String(o.no||"")) ? String(o.no) : "";
+    L.title = MP_TITLES.some(x=>x[0]===o.title) ? o.title : "rookie";
+    L.tag = MP_TAGS.some(x=>x[0]===o.tag) ? o.tag : "std";
+    L.spons=[0,1,2].map(k=>{ const b=Array.isArray(o.spons) ? o.spons[k] : null; return (Number.isInteger(b) && b>=0 && b<BRANDS.length) ? b : null; });
+    return L;
+  }
+  // a car in a player's look: the pseudo on the sidepods where no sponsor is
+  function mpLivery(look, name, baseNo){
+    const k=Object.assign(lookDefault(), look||{});
+    const L=Object.assign({}, LIV0_FACTORY); delete L.player;
+    L.c=k.c; L.ac=k.ac; L.finish=k.finish; L.design=k.design; L.helmet=k.helmet; L.rim=k.rim;
+    const main = k.design==="inverse" ? k.ac : k.c;
+    L.dark = k.finish!=="carbon" && colLum(main)>0.62;
+    L.nm = String(name||"Pilote");
+    L.no = k.no || baseNo || L.no;
+    L.spons = Array.isArray(k.spons) ? [0,1,2].map(i=>Number.isInteger(k.spons[i]) ? k.spons[i] : null) : [null,null,null];
+    L.mpTitle=k.title||"rookie"; L.mpTag=k.tag||"std";
+    L.key="mp:"+JSON.stringify(k)+"|"+L.nm+"|"+L.no;
+    return L;
+  }
+  function mpTitleName(id){ const t=MP_TITLES.find(x=>x[0]===id); return t && t[0]!=="rookie" ? t[1] : ""; }
   function freeItem(kind, id){
     const L = kind==="col" ? SHOP_COL : kind==="fin" ? SHOP_FIN : SHOP_DES;
     const it=L.find(x=>x[0]===id); return !!it && it[kind==="col"?3:3]===0;
@@ -7639,6 +7821,7 @@ uniform float shadowFar;
       const PF = human ? TEAM_NEUTRAL : (TEAM[LIVERY[i].nm]||TEAM_NEUTRAL);
       const gm = human ? 1 : LV.grip*(1+(PF.grip*LV.mix+setF[i])/100);
       let L=LIVERY[i];
+      if(NR && hum && hum.look) L=mpLivery(mpCleanLook(hum.look), hum.name, LIVERY[i].no);
       if(CAREER_ON && i===RIVAL_I){ L=Object.assign({}, L); L.nm=CAST.dante.short; }
       if(!NR && me && PROF.team && (CAREER_ON || (state==="menu" && CAR_PANES.indexOf(pane)>=0))) L=teamLivery();
       const row=Math.floor(slot/2), col=slot%2;
@@ -10586,6 +10769,7 @@ uniform float shadowFar;
     if(k==="c"){ cycleCam(); return; }
     if(k==="m"){ toggleSound(); return; }
     if(k==="r"&&state!=="menu"&&!NET.race){ startRace(); return; }
+    if(NET.race && state==="racing" && k>="1" && k<="4"){ mpEmoSlot(+k-1); return; }
     keys.add(k);
   });
   window.addEventListener("keyup",e=>keys.delete(e.key.toLowerCase()));
@@ -10793,13 +10977,14 @@ uniform float shadowFar;
     tap($("tcam"), cycleCam);
     tap($("tsound"), ()=>{ toggleSound(); $("tsound").innerHTML = sound ? "&#128266;" : "&#128264;"; });
     tap($("tpause"), togglePause);
+    tap($("temo"), mpEmoPop);
     tap($("tzero"), tiltZero);
     tap($("tgyro"), ()=>{ tiltAsk(); setTimeout(()=>{ const gy=$("tgyro"); if(gy) gy.hidden=!tiltNeed(); }, 400); });
     // iOS reads a long press on anything as "select this", and puts its
     // magnifier over the game: every touch on a control is answered here so it
     // never gets that far.
     const eat=e=>{ e.preventDefault(); };
-    for(const el of [pad, $("tgas"), $("tbrk"), $("tbar"), $("tcam"), $("tsound"), $("tpause"), $("tzero"), $("tgyro"), $("tleft"), $("tright")]){
+    for(const el of [pad, $("tgas"), $("tbrk"), $("tbar"), $("tcam"), $("tsound"), $("tpause"), $("tzero"), $("tgyro"), $("tleft"), $("tright"), $("temo"), $("temoPop")]){
       for(const ev of ["touchstart","touchmove","touchend","touchcancel","contextmenu","selectstart","dragstart"])
         el.addEventListener(ev, eat, {passive:false});
     }
@@ -11324,8 +11509,8 @@ uniform float shadowFar;
   }
 
   /* =========================== MULTIJOUEUR ========================== */
-  const NET_VERSION="gp-mp-2";
-  const NET_BUILD="6.4";                              // shown to players; 2.x and 3.x pages play together
+  const NET_VERSION="gp-mp-3";
+  const NET_BUILD="6.5";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -11932,7 +12117,7 @@ uniform float shadowFar;
         clearTimeout(NET.openTimer);
         cli.subscribe([netTopic(cd,"u")]);
         cli.publish(pres, JSON.stringify({k:"open", v:NET_VERSION, circuit:TRACK.id, t:Date.now()}), true);
-        NET.roster=[{id:NET.myId, name:NET.name, liv:0}];
+        NET.roster=[{id:NET.myId, name:NET.name, liv:0, look:mpMyLook()}];
         NET.lastDown=Date.now();
         // a heartbeat for the players, and a watch for the ones who went silent
         NET.beatT=setInterval(()=>{
@@ -11976,9 +12161,17 @@ uniform float shadowFar;
       if(!why && liv<0) why="full";
       if(why){ netSendTo(P, {k:"refuse", why:why}); netKick(P); return; }
       P.name=netClean(m.name)||"Pilote"; P.liv=liv;
-      NET.roster.push({id:P.id, name:P.name, liv:liv});
+      NET.roster.push({id:P.id, name:P.name, liv:liv, look:mpCleanLook(m.look)});
       netSendTo(P, {k:"welcome", you:P.id, code:NET.code, circuit:TRACK.id, settings:NET.settings});
       netRoster();
+    } else if(m.k==="look"){
+      // a player's new look, while the room waits (never in the middle of a race)
+      const r=NET.roster.find(x=>x.id===P.id);
+      if(r && !NET.race){ r.look=mpCleanLook(m.look); netRoster(); }
+    } else if(m.k==="emo"){
+      // a reaction, passed on to the room (one every second and a half at most)
+      const now=Date.now();
+      if(mpEmoOf(m.e) && !(P.emoAt>now-1500)){ P.emoAt=now; netDown({k:"emo", id:P.id, e:m.e}); mpEmoShow(P.id, m.e); }
     } else if(m.k==="ping"){
       netSendTo(P, {k:"pong", c:m.c, h:Date.now()});
     } else if(m.k==="fin"){
@@ -12069,7 +12262,7 @@ uniform float shadowFar;
       if(pr.v && pr.v!==NET_VERSION){ netFail("Vous n\u2019avez pas la m\u00eame version du jeu. Rechargez tous les deux la page."); return; }
       NET.present=true;
       if(!NET.welcomed){
-        const hello=()=>{ if(NET.role==="guest" && !NET.welcomed) netUp({k:"hello", name:NET.name, v:NET_VERSION}); };
+        const hello=()=>{ if(NET.role==="guest" && !NET.welcomed) netUp({k:"hello", name:NET.name, v:NET_VERSION, look:mpMyLook()}); };
         hello();
         clearInterval(NET.helloT); NET.helloT=setInterval(hello, 2000);   // the host may still be reconnecting
       }
@@ -12124,6 +12317,8 @@ uniform float shadowFar;
       netRain();
     } else if(m.k==="final"){
       netFinal(m);
+    } else if(m.k==="emo"){
+      if(m.id!==NET.myId) mpEmoShow(m.id, m.e);
     } else if(m.k==="lobby"){
       netToLobby();
     } else if(m.k==="close"){
@@ -12211,7 +12406,8 @@ uniform float shadowFar;
     $("mpCodeTxt").textContent=NET.code;
     const ro=$("mpRoster"); ro.innerHTML="";
     NET.roster.forEach((r,k)=>{
-      const L=LIVERY[r.liv]||LIVERY[0];
+      const L0=LIVERY[r.liv]||LIVERY[0], lk=r.look ? mpCleanLook(r.look) : null;
+      const L = lk ? mpLivery(lk, r.name, L0.no) : L0;
       const row=document.createElement("div");
       row.className="row"+(r.id===NET.myId?" me":"");
       let tags=(k===0?'<span class="tag">H\u00f4te</span>':"")+(r.id===NET.myId?'<span class="tag">Toi</span>':"");
@@ -12220,9 +12416,10 @@ uniform float shadowFar;
         tags += ls==="direct" ? '<span class="tag link ok">direct</span>'
               : ls==="relais" ? '<span class="tag link">relais</span>' : '<span class="tag link">connexion\u2026</span>';
       }
-      row.innerHTML='<span class="pos">'+(k+1)+'</span><span class="sw" style="background:#'+
-        L.c.toString(16).padStart(6,"0")+'"></span><span class="nm">'+netEsc(r.name)+tags+
-        '</span><span class="gap">'+L.nm+'</span>';
+      const hx=v=>"#"+(v>>>0).toString(16).padStart(6,"0"), ttl=lk ? mpTitleName(lk.title) : "";
+      row.innerHTML='<span class="pos">'+(k+1)+'</span><span class="sw" style="background:linear-gradient('+hx(L.c)+' 62%,'+hx(L.ac)+' 62%)"></span><span class="nm">'+netEsc(r.name)+
+        (ttl ? '<span class="ttl">'+netEsc(ttl)+'</span>' : '')+tags+
+        '</span><span class="gap">'+(lk ? '#'+L.no : L0.nm)+'</span>';
       ro.appendChild(row);
     });
     $("mpCount").textContent="\u00b7 "+NET.roster.length+" / "+LIVERY.length;
@@ -12236,6 +12433,7 @@ uniform float shadowFar;
       b.disabled=!host;
     });
     $("mpGo").hidden=!host; $("mpWaitHost").hidden=host;
+    mpReactRender();
   }
   function netCopy(txt, btn){
     const done=()=>{ const o=btn.textContent; btn.textContent="Copi\u00e9 !"; setTimeout(()=>{ btn.textContent=o; }, 1400); };
@@ -12248,7 +12446,7 @@ uniform float shadowFar;
   // ---- the race ----
   function netLaunch(){
     if(NET.role!=="host" || NET.race) return;
-    const humans=NET.roster.map(r=>({id:r.id, name:r.name, liv:r.liv}));
+    const humans=NET.roster.map(r=>({id:r.id, name:r.name, liv:r.liv, look:r.look||null}));
     const grid=new Array(LIVERY.length);
     let slot=0;
     for(const h of humans) grid[h.liv]=slot++;                 // the players at the front, in the order they joined
@@ -12725,7 +12923,7 @@ uniform float shadowFar;
       const row=document.createElement("div");
       row.className="row"+(c.player?" me":"");
       row.innerHTML='<span class="pos">P'+(i+1)+'</span><span class="no">#'+c.livery.no+
-        '</span><span class="nm">'+netLabel(c)+(c.human?' <span style="color:#98a0ad">\u00b7 '+c.livery.nm+'</span>':'')+
+        '</span><span class="nm">'+netLabel(c)+(c.human?' <span style="color:#98a0ad">\u00b7 '+netEsc(mpTitleName(c.livery.mpTitle)||LIVERY[c.i].nm)+'</span>':'')+
         '</span><span class="gap">'+gap+'</span>';
       tb.appendChild(row);
     });
@@ -12753,22 +12951,48 @@ uniform float shadowFar;
     mpRender();
   }
   // a name above every car that another player is driving
-  function netTag(c){
-    const cv=document.createElement("canvas"); cv.width=256; cv.height=64;
+  // a name tag: the pseudo, the title under it, in the style bought
+  function mpTagCanvas(name, title, tag, col){
+    const sub=mpTitleName(title).toUpperCase(), H=sub ? 80 : 64;
+    const cv=document.createElement("canvas"); cv.width=256; cv.height=H;
     const g=cv.getContext("2d");
-    const txt=c.human.name.toUpperCase();
-    g.font='600 34px "Barlow Condensed", "Arial Narrow", Arial, sans-serif';
-    const w=Math.min(248, g.measureText(txt).width+40);
-    const x0=(256-w)/2;
-    g.fillStyle="rgba(8,10,16,.80)";
-    if(g.roundRect){ g.beginPath(); g.roundRect(x0,8,w,48,12); g.fill(); } else g.fillRect(x0,8,w,48);
-    g.fillStyle="#"+c.livery.c.toString(16).padStart(6,"0");
-    g.fillRect(x0+10,19,6,26);
-    g.fillStyle="#ffffff"; g.textAlign="center"; g.textBaseline="middle";
-    g.fillText(txt, 128+8, 34);
+    const txt=String(name||"Pilote").toUpperCase();
+    const F1='600 34px "Barlow Condensed", "Arial Narrow", Arial, sans-serif', F2='600 15px "Barlow Condensed", "Arial Narrow", Arial, sans-serif';
+    g.font=F1; let w=g.measureText(txt).width+40;
+    if(sub){ g.font=F2; w=Math.max(w, g.measureText(sub).width*1.15+44); }
+    w=Math.min(248, w);
+    const x0=(256-w)/2, y0=8, h=H-16;
+    const box=()=>{ g.beginPath(); if(g.roundRect) g.roundRect(x0,y0,w,h,12); else g.rect(x0,y0,w,h); };
+    const gold="#e8c25a", cyan="#3fd6e8";
+    g.fillStyle = tag==="or" ? "rgba(26,20,6,.90)" : "rgba(8,10,16,.82)"; box(); g.fill();
+    if(tag==="carbone"){
+      g.save(); box(); g.clip();
+      for(let y=y0; y<y0+h; y+=6) for(let x=x0; x<x0+w; x+=6){ g.fillStyle=((x+y)/6)%2 ? "rgba(255,255,255,.07)" : "rgba(0,0,0,.25)"; g.fillRect(x,y,6,6); }
+      g.restore();
+    }
+    if(tag==="damier"){
+      g.save(); box(); g.clip();
+      for(let y=y0; y<y0+h; y+=6) for(let x=0; x<3; x++){ g.fillStyle=((y/6+x)%2) ? "#ffffff" : "#111317"; g.fillRect(x0+w-18+x*6, y, 6, 6); }
+      g.restore();
+    }
+    if(tag==="neon"){ g.shadowColor=cyan; g.shadowBlur=12; g.strokeStyle=cyan; g.lineWidth=3; box(); g.stroke(); g.shadowBlur=0; }
+    if(tag==="or"){ g.strokeStyle=gold; g.lineWidth=3; box(); g.stroke(); }
+    g.fillStyle="#"+(col>>>0).toString(16).padStart(6,"0");
+    g.fillRect(x0+10, y0+11, 6, h-22);
+    g.textAlign="center"; g.textBaseline="middle";
+    g.font=F1; g.fillStyle = tag==="or" ? gold : "#ffffff";
+    if(tag==="neon"){ g.shadowColor=cyan; g.shadowBlur=10; }
+    g.fillText(txt, 128+6, sub ? y0+22 : 34, w-40);
+    g.shadowBlur=0;
+    if(sub){ g.font=F2; g.fillStyle = tag==="or" ? gold : cyan; g.fillText(sub, 128+6, y0+h-13, w-40); }
+    return cv;
+  }
+  function netTag(c){
+    const cv=mpTagCanvas(c.human.name, c.livery.mpTitle, c.livery.mpTag, c.livery.c);
     const tx=new THREE.CanvasTexture(cv); tx.encoding=THREE.sRGBEncoding;
     const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx, transparent:true, depthWrite:false, fog:false, toneMapped:false}));
-    sp.scale.set(2.4,0.6,1); sp.position.set(0,1.9,0); sp.renderOrder=5;
+    sp.userData.asp=cv.width/cv.height;
+    sp.scale.set(2.4,2.4/sp.userData.asp,1); sp.position.set(0,1.9,0); sp.renderOrder=5;
     c.mesh.add(sp); c.tag=sp;
   }
   // Tags keep about the same size on screen, smaller than before, and fade out
@@ -12783,10 +13007,11 @@ uniform float shadowFar;
       if(op<0.02){ sp.visible=false; continue; }
       sp.visible=true;
       sp.material.opacity=op;
-      const w=clamp(ds*0.125, 1.4, 16);
-      sp.scale.set(w, w/4, 1);
-      sp.position.y=1.45+w/8;
+      const w=clamp(ds*0.125, 1.4, 16), asp=sp.userData.asp||4;
+      sp.scale.set(w, w/asp, 1);
+      sp.position.y=1.45+w/(2*asp);
     }
+    mpBubblesTick();
   }
 
   // The shot behind the menus: a slow aerial run round the lap.
@@ -12876,7 +13101,7 @@ uniform float shadowFar;
     weather.on=false; weather.wet=0; weather.target=0; weather.shown=-1;
     rainSeeded=false; rainMesh.visible=false; spray.visible=false;
     $("rainban").hidden=true;
-    $("pitTimer").hidden=true; pitShownT=0; pitAutoReset();
+    $("pitTimer").hidden=true; pitShownT=0; pitAutoReset(); mpEmoRaceReset();
     kerbAmt=0;
     for(const id of ["speedVig","proxL","proxR"]){ const e=$(id); if(e) e.style.opacity=0; }
     applyWeather(0);
@@ -12976,7 +13201,8 @@ uniform float shadowFar;
   function payRace(order){
     const el=$("resRewards"); if(!el) return;
     const pos=order.indexOf(player)+1;
-    // money, levels and trophies belong to the career
+    // money, levels and trophies belong to the career; an online race pays jetons
+    if(pos>=1 && NET.race){ mpPayRace(order, pos); return; }
     if(pos<1 || NET.race || !CAREER_ON){ el.hidden=true; return; }
     const R=raceReward(pos, {career:!!(typeof CAREER_ON!=="undefined" && CAREER_ON), startPos:player.startRank,
                              pole:!!RACE_POLE, record:!!RACE_RECORD});
@@ -14678,16 +14904,28 @@ uniform float shadowFar;
   /* ============================ GARAGE =============================
      The team's car on a turntable. Anything can be tried on: the car shows it
      at once, and it is only bought, or put back, when the player says so. */
-  const GAR={tab:"paint", slot:"c", pend:null, shown:"", on:false};
+  const GAR={tab:"paint", slot:"c", pend:null, shown:"", on:false, mode:"team"};
   const GCAM={ang:0, drag:false, lx:0, vel:0, off:false};
   const garCar=()=>cars.find(c=>c.player)||null;
   function garLook(){
-    const k=Object.assign(lookDefault(), PROF.look||{});
-    if(GAR.pend) k[GAR.pend.slot]=GAR.pend.val;
+    const k=Object.assign(lookDefault(), GAR.mode==="mp" ? mpMyLook() : (PROF.look||{}));
+    if(GAR.pend){
+      if(GAR.pend.slot==="spons"){ k.spons=(k.spons||[null,null,null]).slice(); k.spons[GAR.pend.idx]=GAR.pend.val; }
+      else k[GAR.pend.slot]=GAR.pend.val;
+    }
     return k;
   }
   function garRefreshCar(force){
-    const c=garCar(); if(!c || !PROF.team) return;
+    const c=garCar(); if(!c) return;
+    if(GAR.mode==="mp"){
+      // the shop: the car in the player's online look, and what is being tried on
+      const L=mpLivery(garLook(), mpName(), LIVERY[0].no);
+      if(!force && GAR.shown===L.key) return;
+      GAR.shown=L.key; c.livery=L;
+      try{ rebuildCarMesh(c); }catch(e){}
+      return;
+    }
+    if(!PROF.team) return;
     const k=garLook(), key=JSON.stringify(k)+"|"+PROF.team.name+"|"+PROF.team.no+"|"+(PROF.spons||[]).join(",");
     if(!force && GAR.shown===key) return;
     GAR.shown=key;
@@ -14879,20 +15117,21 @@ uniform float shadowFar;
     previewTOD("jour");
     garRefreshCar(true);
     if(c) GAR.room=garRoom(c);
-    renderGarage();
+    if(GAR.mode==="mp") renderShop(); else renderGarage();
   }
   function garLeave(){
     GAR.on=false; GAR.pend=null;
     garUnpark(garCar());
     for(const o of cars){ o.mesh.visible=true; if(o.shadow) o.shadow.visible=true; }
     if(GCAM.off){ camera.clearViewOffset(); GCAM.off=false; }
-    const c=garCar(); if(c && PROF.team) garRefreshCar();
+    const c=garCar(); if(c && PROF.team && GAR.mode!=="mp") garRefreshCar();
+    GAR.mode="team"; GAR.shown="";
     menuCam.init=false;
   }
   function garView(){
     const w=stage.clientWidth||innerWidth, h=stage.clientHeight||innerHeight;
     if(w<=760) camera.setViewOffset(w,h,0,Math.round(h*0.21),w,h);
-    else { const col=$("garCol"); const cw=col ? col.getBoundingClientRect().width : 460; camera.setViewOffset(w,h,-Math.round(cw/2),0,w,h); }
+    else { const col=$(GAR.mode==="mp" ? "shopCol" : "garCol"); const cw=col ? col.getBoundingClientRect().width : 460; camera.setViewOffset(w,h,-Math.round(cw/2),0,w,h); }
     GCAM.off=true;
   }
   function garageCam(dt){
@@ -15236,9 +15475,295 @@ uniform float shadowFar;
     }
     const fr=$("playFreeInfo"); if(fr) fr.textContent="Circuit actuel \u00b7 "+TRACK.short;
   }
+  /* ---- the online shop: its screen ---- */
+  const SHOP={tab:"paint", slot:"c", sidx:0, msg:""};
+  function mpName(){ let n=NET.name; if(!n){ try{ n=localStorage.getItem("trs_mp_name")||""; }catch(e){} } return netClean(n)||"Pilote"; }
+  function shopEnter(){ GAR.mode="mp"; GAR.pend=null; garEnter(); }
+  function jetsUpdate(){
+    for(const id of ["shopJet","mpJet"]){
+      const e=$(id); if(!e) continue;
+      e.innerHTML='<b>'+fmtJet(MPP.jet)+'</b><span>jetons</span>';
+    }
+  }
+  const shopOwned=(key, price)=> price===0 || !!MPP.own[key];
+  // the look changed: the room is told (in a race nothing changes until the next)
+  function mpLookChanged(){
+    if(!NET.role || NET.race) return;
+    if(NET.role==="host"){ const r=NET.roster.find(x=>x.id===NET.myId); if(r){ r.look=mpMyLook(); netRoster(); } }
+    else if(NET.welcomed) netUp({k:"look", look:mpMyLook()});
+  }
+  // something is picked: worn at once if owned, tried on if not
+  function shopPick(kind, id, slot, idx){
+    let key, price, val, name;
+    if(kind==="col"||kind==="fin"||kind==="des"){
+      const it=(kind==="col"?SHOP_COL:kind==="fin"?SHOP_FIN:SHOP_DES).find(x=>x[0]===id); if(!it) return;
+      key=kind+":"+it[0]; price=jetOf(it); val=kind==="col" ? it[2] : it[0]; name=it[1];
+    } else if(kind==="brand"){
+      const b=+id; key="brand:"+b; price=MP_BRAND_PRICE; val = b<0 ? null : b; name = b<0 ? "" : BRANDS[b].n;
+      if(b<0){ MPP.spons[idx]=null; GAR.pend=null; mpSave(); mpLookChanged(); garRefreshCar(); renderShop(); return; }
+    } else return;
+    if(shopOwned(key, price)){
+      if(kind==="brand") MPP.spons[idx]=val; else MPP.look[slot]=val;
+      GAR.pend=null; mpSave(); mpLookChanged();
+    } else GAR.pend={kind:kind, key:key, price:price, slot:slot, idx:idx, val:val, name:name};
+    garRefreshCar(); renderShop();
+  }
+  function shopBuy(){
+    const P0=GAR.pend; if(!P0 || MPP.jet<P0.price) return;
+    MPP.jet-=P0.price; MPP.own[P0.key]=true;
+    if(P0.slot==="spons") MPP.spons[P0.idx]=P0.val;
+    else if(P0.slot) MPP.look[P0.slot]=P0.val;
+    GAR.pend=null; mpSave(); mpLookChanged();
+    SHOP.msg="✔ "+P0.name+" est à toi.";
+    garRefreshCar(); renderShop();
+  }
+  // titles, tags, reaction packs and the number are bought outright
+  function shopBuyThing(key, price, name){
+    if(MPP.own[key] || MPP.jet<price) return false;
+    MPP.jet-=price; MPP.own[key]=true; mpSave();
+    SHOP.msg="✔ "+name+" est à toi.";
+    return true;
+  }
+  function renderShop(){
+    const body=$("shopBody"), foot=$("shopFoot"); if(!body) return;
+    jetsUpdate();
+    document.querySelectorAll("#shopTabs [data-stab]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.stab===SHOP.tab)));
+    const look=mpMyLook(), T=SHOP.tab;
+    let h="";
+    if(MPP.gift){ h+='<div class="shopIntro">Bienvenue ! <b>'+fmtJet(MP_GIFT)+' jetons</b> offerts pour commencer. Tu en gagnes à chaque course en ligne : place, pilotes battus, places gagnées, course propre, et un bonus à la première course du jour.</div>'; }
+    const colSw=(it, slot, cur)=>{
+      const key="col:"+it[0], price=jetOf(it), own=shopOwned(key, price);
+      const pend=GAR.pend && GAR.pend.slot===slot && GAR.pend.key===key;
+      return '<button class="sw'+(cur===it[2]&&!GAR.pend?' eq':'')+'" data-sk="col" data-si="'+it[0]+'" data-ss="'+slot+'" aria-pressed="'+(pend||(cur===it[2]&&!GAR.pend))+
+        '" title="'+it[1]+'" style="background:#'+it[2].toString(16).padStart(6,"0")+'">'+(own?'':'<span class="tag">◆'+price+'</span>')+'</button>';
+    };
+    const item=(attrs, name, desc, right, pressed)=>'<button class="gItem" '+attrs+' aria-pressed="'+pressed+'"><div class="top"><b>'+name+'</b>'+right+'</div><div class="desc">'+desc+'</div></button>';
+    const priceTag=(key, price, eq)=> eq ? '<em class="eq">équipé</em>' : shopOwned(key, price) ? '<em>à toi</em>' : '<em class="jet">'+fmtJet(price)+'</em>';
+    if(T==="paint" || T==="gear"){
+      const slots = T==="paint" ? [["c","Carrosserie"],["ac","Accent"]] : [["helmet","Casque"],["rim","Jantes"]];
+      if(!slots.some(x=>x[0]===SHOP.slot)) SHOP.slot=slots[0][0];
+      h+='<div class="garSlots">'+slots.map(x=>'<button class="chip" data-sslot="'+x[0]+'" aria-pressed="'+(SHOP.slot===x[0])+'">'+x[1]+'</button>').join("")+'</div>';
+      h+='<div class="swatches">'+SHOP_COL.map(it=>colSw(it, SHOP.slot, look[SHOP.slot])).join("")+'</div>';
+    } else if(T==="fin" || T==="des"){
+      const L = T==="fin" ? SHOP_FIN : SHOP_DES, kind=T, slot = T==="fin" ? "finish" : "design";
+      h+='<div class="gItems">'+L.map(it=>{ const key=kind+":"+it[0], eq=look[slot]===it[0];
+        return item('data-sk="'+kind+'" data-si="'+it[0]+'" data-ss="'+slot+'"', it[1], it[2], priceTag(key, jetOf(it), eq&&!GAR.pend), (GAR.pend&&GAR.pend.key===key)||(eq&&!GAR.pend)); }).join("")+'</div>';
+    } else if(T==="spons"){
+      const names=["Pontons","Aileron arrière","Dérive"];
+      h+='<div class="garSlots">'+names.map((n,k)=>'<button class="chip" data-sspon="'+k+'" aria-pressed="'+(SHOP.sidx===k)+'">'+n+'</button>').join("")+'</div>';
+      const cur=look.spons[SHOP.sidx];
+      h+='<div class="gItems">'+item('data-sk="brand" data-si="-1" data-ss="spons"', SHOP.sidx===0 ? "Ton pseudo" : "Peinture seule", SHOP.sidx===0 ? "Ton pseudo en grand sur les pontons." : "Aucun logo : ta peinture.", cur===null&&!GAR.pend ? '<em class="eq">équipé</em>' : '<em>gratuit</em>', cur===null&&!GAR.pend)+
+        BRANDS.map((B,b)=>{ const key="brand:"+b, eq=cur===b;
+          return item('data-sk="brand" data-si="'+b+'" data-ss="spons"', B.n, "Marque inventée · à toi pour les trois emplacements.", priceTag(key, MP_BRAND_PRICE, eq&&!GAR.pend), (GAR.pend&&GAR.pend.key===key)||(eq&&!GAR.pend)); }).join("")+'</div>';
+    } else if(T==="num"){
+      const own=!!MPP.own.num;
+      h+='<div class="garForm"><label for="shopNo">Ton numéro de course</label><input id="shopNo" inputmode="numeric" maxlength="2" placeholder="Ex. : 7" value="'+(MPP.no||"")+'"'+(own?'':' disabled')+'></div>';
+      h+='<div class="shopIntro">'+(own ? "De 1 à 99, sur le nez et la dérive, vu par toute la salle." : "Sans lui, tu portes le numéro de l’écurie qui t’est attribuée en ligne.")+'</div>';
+    } else if(T==="title" || T==="tag"){
+      const pv=mpTagCanvas(mpName(), T==="title" ? (SHOP.tryTitle||MPP.title) : MPP.title, T==="tag" ? (SHOP.tryTag||MPP.tag) : MPP.tag, look.c);
+      h+='<img class="tagPrev" alt="" src="'+pv.toDataURL()+'">';
+      if(T==="title") h+='<div class="gItems">'+MP_TITLES.map(t=>{
+          const key="title:"+t[0], own=t[3] ? !!MPP.own[key] : shopOwned(key, t[2]), eq=MPP.title===t[0];
+          const right = eq ? '<em class="eq">équipé</em>' : own ? '<em>à toi</em>' : t[3] ? '<em>à gagner</em>' : '<em class="jet">'+fmtJet(t[2])+'</em>';
+          return item('data-stitle="'+t[0]+'"', t[1], t[3] ? t[3]+" · "+t[4] : t[4], right, eq || SHOP.tryTitle===t[0]); }).join("")+'</div>';
+      else h+='<div class="gItems">'+MP_TAGS.map(t=>{ const key="tag:"+t[0], eq=MPP.tag===t[0];
+          return item('data-stag="'+t[0]+'"', t[1], t[3], priceTag(key, t[2], eq), eq || SHOP.tryTag===t[0]); }).join("")+'</div>';
+    } else if(T==="emo"){
+      h+='<div class="shopIntro">Envoie-les à la salle : touches <b>1</b> à <b>4</b> en course, le bouton \u{1F4AC} sur écran tactile, ou depuis le salon. Choisis les quatre que tu emportes.</div>';
+      h+='<div class="emoPick">'+MPP.emo.map((k,i)=>{ const E=mpEmoOf(k); return E ? '<button data-semo="'+k+'" aria-pressed="true"><i>'+(i+1)+'</i>'+E.e+' '+E.t+'</button>' : ''; }).join("")+'</div>';
+      h+='<div class="gItems">'+MP_EMO.map(p=>{ const key="emo:"+p[0], own=shopOwned(key, p[2]);
+        const list=p[3].map((e,i)=>{ const k=p[0]+":"+i, on=MPP.emo.indexOf(k)>=0;
+          return own ? '<span class="emoPick" style="display:inline-flex;margin:4px 6px 0 0"><button data-semo="'+k+'" aria-pressed="'+on+'">'+e[0]+' '+e[1]+'</button></span>' : e[0]+' '+e[1]; }).join(own ? "" : " · ");
+        return '<div class="gItem" style="cursor:auto"><div class="top"><b>'+p[1]+'</b>'+(own ? '<em>à toi</em>' : '<em class="jet">'+fmtJet(p[2])+'</em>')+'</div><div class="desc">'+list+'</div>'+
+          (own ? '' : '<div style="margin-top:8px"><button class="btn small" data-semop="'+p[0]+'"'+(MPP.jet<p[2]?' disabled':'')+'>Acheter · '+fmtJet(p[2])+'</button></div>')+'</div>'; }).join("")+'</div>';
+    }
+    body.innerHTML=h;
+    // the foot: what is tried on and what it costs, or a hint
+    let f="";
+    if(GAR.pend){
+      const short=GAR.pend.price-MPP.jet;
+      f='<span class="garMsg">'+(short>0 ? "Il te manque "+fmtJet(short)+" jetons." : "Essai : "+GAR.pend.name+".")+'</span><button class="chip" id="shopCancel">Annuler</button>'+
+        '<button class="btn" id="shopBuy"'+(short>0?' disabled':'')+'>Acheter · '+fmtJet(GAR.pend.price)+'</button>';
+    } else if(T==="num"){
+      f = MPP.own.num ? '<span class="garMsg">'+(SHOP.msg||"Le numéro se change gratuitement.")+'</span><button class="btn" id="shopNoSave">Enregistrer</button>'
+                      : '<span class="garMsg">'+(SHOP.msg||"Numéro personnalisé.")+'</span><button class="btn" id="shopNoBuy"'+(MPP.jet<MP_NUM_PRICE?' disabled':'')+'>Acheter · '+fmtJet(MP_NUM_PRICE)+'</button>';
+    } else if((T==="title" && SHOP.tryTitle) || (T==="tag" && SHOP.tryTag)){
+      const t = T==="title" ? MP_TITLES.find(x=>x[0]===SHOP.tryTitle) : MP_TAGS.find(x=>x[0]===SHOP.tryTag);
+      const price=t[2];
+      f = (T==="title" && t[3]) ? '<span class="garMsg">À gagner : '+t[3].toLowerCase()+'.</span><button class="chip" id="shopCancel">OK</button>'
+        : '<span class="garMsg">'+(MPP.jet<price ? "Il te manque "+fmtJet(price-MPP.jet)+" jetons." : "Essai : "+t[1]+".")+'</span><button class="chip" id="shopCancel">Annuler</button>'+
+          '<button class="btn" id="shopBuyT"'+(MPP.jet<price?' disabled':'')+'>Acheter · '+fmtJet(price)+'</button>';
+    } else f='<span class="garMsg">'+(SHOP.msg||"Touche un élément pour l’essayer. Tes choix se voient dans le salon et en course.")+'</span>';
+    foot.innerHTML=f; SHOP.msg="";
+  }
+  function shopClick(t){
+    if(t.dataset.stab){ SHOP.tab=t.dataset.stab; GAR.pend=null; SHOP.tryTitle=null; SHOP.tryTag=null; garRefreshCar(); renderShop(); return; }
+    if(t.dataset.sslot){ SHOP.slot=t.dataset.sslot; GAR.pend=null; garRefreshCar(); renderShop(); return; }
+    if(t.dataset.sspon!==undefined){ SHOP.sidx=+t.dataset.sspon; GAR.pend=null; garRefreshCar(); renderShop(); return; }
+    if(t.dataset.sk){ MPP.gift=false; shopPick(t.dataset.sk, t.dataset.si, t.dataset.ss, SHOP.sidx); return; }
+    if(t.id==="shopBuy"){ shopBuy(); return; }
+    if(t.id==="shopCancel"){ GAR.pend=null; SHOP.tryTitle=null; SHOP.tryTag=null; garRefreshCar(); renderShop(); return; }
+    if(t.dataset.stitle){
+      const T0=MP_TITLES.find(x=>x[0]===t.dataset.stitle); if(!T0) return;
+      const own = T0[3] ? !!MPP.own["title:"+T0[0]] : shopOwned("title:"+T0[0], T0[2]);
+      if(own){ MPP.title=T0[0]; SHOP.tryTitle=null; mpSave(); mpLookChanged(); } else SHOP.tryTitle=T0[0];
+      renderShop(); return;
+    }
+    if(t.dataset.stag){
+      const T0=MP_TAGS.find(x=>x[0]===t.dataset.stag); if(!T0) return;
+      if(shopOwned("tag:"+T0[0], T0[2])){ MPP.tag=T0[0]; SHOP.tryTag=null; mpSave(); mpLookChanged(); } else SHOP.tryTag=T0[0];
+      renderShop(); return;
+    }
+    if(t.id==="shopBuyT"){
+      if(SHOP.tab==="title" && SHOP.tryTitle){ const T0=MP_TITLES.find(x=>x[0]===SHOP.tryTitle); if(T0 && !T0[3] && shopBuyThing("title:"+T0[0], T0[2], T0[1])){ MPP.title=T0[0]; SHOP.tryTitle=null; } }
+      if(SHOP.tab==="tag" && SHOP.tryTag){ const T0=MP_TAGS.find(x=>x[0]===SHOP.tryTag); if(T0 && shopBuyThing("tag:"+T0[0], T0[2], T0[1])){ MPP.tag=T0[0]; SHOP.tryTag=null; } }
+      mpSave(); mpLookChanged(); renderShop(); return;
+    }
+    if(t.dataset.semop){
+      const p=MP_EMO.find(x=>x[0]===t.dataset.semop);
+      if(p && shopBuyThing("emo:"+p[0], p[2], "Le pack "+p[1])){ for(let i=0;i<p[3].length && MPP.emo.length<4;i++) MPP.emo.push(p[0]+":"+i); mpSave(); }
+      renderShop(); return;
+    }
+    if(t.dataset.semo){
+      const k=t.dataset.semo, i=MPP.emo.indexOf(k);
+      if(i>=0) MPP.emo.splice(i,1); else if(MPP.emo.length<4) MPP.emo.push(k); else SHOP.msg="Quatre réactions au plus : retire-en une d’abord.";
+      mpSave(); renderShop(); mpReactRender(); return;
+    }
+    if(t.id==="shopNoBuy"){ if(shopBuyThing("num", MP_NUM_PRICE, "Le numéro personnalisé")) mpSave(); renderShop(); return; }
+    if(t.id==="shopNoSave"){
+      const n=String($("shopNo").value||"").replace(/\D/g,"").replace(/^0+/,"").slice(0,2);
+      MPP.no = n; mpSave(); mpLookChanged(); garRefreshCar();
+      SHOP.msg = n ? "Numéro "+n+" enregistré." : "Tu reprends le numéro de ton écurie.";
+      renderShop(); return;
+    }
+  }
+
+  /* ---- jetons at the flag ---- */
+  function mpPayRace(order, pos){
+    const el=$("resRewards"); if(!el || !NET.race) return;
+    if(NET.race.paid){ el.hidden=false; return; }
+    NET.race.paid=true;
+    const lapsK = totalLaps>=21 ? 2.7 : totalLaps>=10 ? 1.6 : 1;
+    const PR=[200,160,130,110,95,80,70,60], lines=[];
+    lines.push(["Arrivée P"+pos, Math.round((PR[pos-1]||50)*lapsK)]);
+    const beaten=order.slice(pos).filter(c=>c.human && !c.netGone).length;
+    if(beaten) lines.push(["Pilotes battus ("+beaten+")", Math.round(40*beaten*lapsK)]);
+    const gained=(player.startRank||pos)-pos;
+    if(gained>0) lines.push(["Places gagnées (+"+gained+")", Math.round(10*gained*lapsK)]);
+    const clean=!(player.hits>0);
+    if(clean) lines.push(["Course propre", Math.round(50*lapsK)]);
+    const today=new Date().toISOString().slice(0,10);
+    if(MPP.day!==today){ MPP.day=today; lines.push(["Première course en ligne du jour", MP_DAY]); }
+    const tot=lines.reduce((a,l)=>a+l[1],0);
+    MPP.jet+=tot; MPP.gift=false;
+    const S=MPP.stats; S.races++; S.earned+=tot; S.beaten+=beaten; if(pos===1) S.wins++; if(pos<=3) S.podiums++; if(clean) S.clean++;
+    S.tracks[TRACK.id]=1;
+    const won=[];
+    const give=(id, ok)=>{ if(ok && !MPP.own["title:"+id]){ MPP.own["title:"+id]=true; won.push(MP_TITLES.find(x=>x[0]===id)[1]); } };
+    give("vainqueur", S.wins>=1); give("triple", S.wins>=3); give("fairplay", S.clean>=5);
+    give("chasseur", S.beaten>=10); give("globe", CIRCUITS.every(C=>S.tracks[C.id]));
+    mpSave(); jetsUpdate();
+    let h='<div class="rwTitle">Jetons gagnés</div>';
+    for(const l of lines) h+='<div class="rwLine"><span>'+l[0]+'</span><b class="jet">+'+fmtJet(l[1])+'</b></div>';
+    h+='<div class="rwLine rwTot"><span>Total</span><b class="jet" data-count="'+tot+'">+'+fmtJet(tot)+'</b></div>';
+    if(won.length) h+='<div class="rwTro">'+won.map(n=>'<span>\u{1F3C5} Titre débloqué : '+n+'</span>').join("")+'</div>';
+    h+='<div class="rwWallet">Tu as '+fmtJet(MPP.jet)+' jetons · la boutique est dans le salon.</div>';
+    el.innerHTML=h; el.hidden=false;
+    const b=el.querySelector("[data-count]");
+    if(b){ const t1=Date.now(); const tick=()=>{ const q=Math.min(1,(Date.now()-t1)/900); b.textContent="+"+fmtJet(Math.round(tot*(1-Math.pow(1-q,3)))); if(q<1) setTimeout(tick, 30); }; setTimeout(tick, 30); }
+  }
+
+  /* ---- reactions ---- */
+  const EMO={bubbles:[], feedAt:0, popOn:false};
+  function mpEmoSlot(i){ const k=MPP.emo[i]; if(k) mpEmoSend(k); }
+  function mpEmoSend(key){
+    if(!NET.role || !mpEmoOf(key)) return;
+    const now=Date.now(); if(EMO.sentAt>now-1500) return; EMO.sentAt=now;
+    if(NET.role==="host"){ netDown({k:"emo", id:NET.myId, e:key}); }
+    else netUp({k:"emo", e:key});
+    mpEmoShow(NET.myId, key);
+  }
+  function mpEmoShow(id, key){
+    const E=mpEmoOf(key); if(!E) return;
+    const r=NET.roster.find(x=>x.id===id) || (NET.race && NET.race.roster.find(x=>x.id===id));
+    const who = id===NET.myId ? "Toi" : (r ? netClean(r.name) : "Pilote");
+    if(NET.race && (state==="racing" || state==="countdown")){
+      const c = r ? cars[r.liv] : null;
+      if(c && c.mesh) mpBubble(c, E);
+      mpFeed($("emoFeed"), who, E, 3);
+    } else mpFeed($("mpFeed"), who, E, 4);
+  }
+  function mpFeed(box, who, E, keep){
+    if(!box) return;
+    const d=document.createElement("div");
+    d.innerHTML='<b>'+netEsc(who)+'</b>'+E.e+' '+netEsc(E.t);
+    box.appendChild(d);
+    while(box.children.length>keep) box.removeChild(box.firstChild);
+    setTimeout(()=>{ d.style.opacity="0"; setTimeout(()=>{ if(d.parentNode) d.parentNode.removeChild(d); }, 700); }, 3600);
+  }
+  // a speech bubble over the car, for three seconds
+  function mpBubble(c, E){
+    const cv=document.createElement("canvas"); cv.width=256; cv.height=96;
+    const g=cv.getContext("2d");
+    g.fillStyle="rgba(250,251,253,.95)";
+    g.beginPath(); if(g.roundRect) g.roundRect(8,6,240,66,18); else g.rect(8,6,240,66); g.fill();
+    g.beginPath(); g.moveTo(116,72); g.lineTo(128,90); g.lineTo(140,72); g.fill();
+    g.textBaseline="middle"; g.textAlign="left";
+    g.font='40px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif'; g.fillText(E.e, 22, 40);
+    g.font='600 30px "Barlow Condensed","Arial Narrow",Arial,sans-serif'; g.fillStyle="#10131a"; g.fillText(E.t.toUpperCase(), 76, 41, 164);
+    const tx=new THREE.CanvasTexture(cv); tx.encoding=THREE.sRGBEncoding;
+    const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx, transparent:true, depthWrite:false, depthTest:false, fog:false, toneMapped:false}));
+    sp.scale.set(2.6,0.975,1); sp.position.set(0,3.0,0); sp.renderOrder=6;
+    if(c.emoSp){ c.mesh.remove(c.emoSp); c.emoSp.material.map.dispose(); c.emoSp.material.dispose(); }
+    c.mesh.add(sp); c.emoSp=sp; c.emoAt=performance.now();
+    if(EMO.bubbles.indexOf(c)<0) EMO.bubbles.push(c);
+  }
+  function mpBubblesTick(){
+    const now=performance.now(), cp=camera.position;
+    for(let i=EMO.bubbles.length-1;i>=0;i--){
+      const c=EMO.bubbles[i], sp=c.emoSp;
+      const age=(now-(c.emoAt||0))/1000;
+      if(!sp || age>3.2){
+        if(sp){ c.mesh.remove(sp); sp.material.map.dispose(); sp.material.dispose(); c.emoSp=null; }
+        EMO.bubbles.splice(i,1); continue;
+      }
+      // about the same size on screen, whatever the distance
+      const d=Math.hypot(cp.x-c.x, cp.y-c.groundY, cp.z-c.z)*camera.fov/64, w=clamp(d*0.16, 2.2, 22);
+      sp.scale.set(w, w*0.375, 1); sp.position.y=2.2+w*0.3;
+      sp.material.opacity = age<0.15 ? age/0.15 : (age>2.6 ? Math.max(0,1-(age-2.6)/0.6) : 1);
+    }
+  }
+  function mpEmoRaceReset(){
+    for(const c of EMO.bubbles) if(c.emoSp){ try{ c.mesh.remove(c.emoSp); }catch(e){} c.emoSp=null; }
+    EMO.bubbles.length=0;
+    const f=$("emoFeed"); if(f) f.innerHTML="";
+    const on=!!NET.race, b=$("temo"), p=$("temoPop");
+    if(b) b.hidden=!on; if(p) p.hidden=true;
+  }
+  // on a touch screen: the button opens the four reactions carried
+  function mpEmoPop(){
+    const p=$("temoPop"); if(!p || !NET.race) return;
+    if(!p.hidden){ p.hidden=true; return; }
+    p.innerHTML="";
+    MPP.emo.forEach(k=>{
+      const E=mpEmoOf(k); if(!E) return;
+      const b=document.createElement("button"); b.textContent=E.e+" "+E.t;
+      b.addEventListener("pointerup", e=>{ e.preventDefault(); mpEmoSend(k); p.hidden=true; });
+      b.addEventListener("click", e=>e.preventDefault());
+      p.appendChild(b);
+    });
+    p.hidden=false;
+  }
+  // in the lobby: the reactions carried, as buttons
+  function mpReactRender(){
+    const box=$("mpReact"); if(!box) return;
+    jetsUpdate();
+    box.innerHTML=MPP.emo.map(k=>{ const E=mpEmoOf(k); return E ? '<button data-emo="'+k+'">'+E.e+' '+netEsc(E.t)+'</button>' : ''; }).join("");
+  }
+
   function showPane(name){
     if(!document.querySelector('#menu .pane[data-pane="'+name+'"]')) name="home";
-    if(GAR.on && name!=="garage") garLeave();
+    if(GAR.on && name!==(GAR.mode==="mp" ? "shop" : "garage")) garLeave();
     if(name==="garage" && pane!=="garage") GAR.from=pane;
     // the team's garage is at the circuit of its next Grand Prix
     if(name==="garage" && CAR_PANES.indexOf(GAR.from)>=0 && PROF.team && !NET.race && !seasonOver()
@@ -15268,6 +15793,7 @@ uniform float shadowFar;
     }
     else if(name==="strat"){ STRAT_CUR=null; renderStrat(); }
     else if(name==="garage"){ garEnter(); }
+    else if(name==="shop"){ shopEnter(); }
     else if(name==="settings") showTab(setTab);
     else if(name==="multi") mpRender();
     syncOptChips();
@@ -15281,7 +15807,7 @@ uniform float shadowFar;
   /* ======================== SAUVEGARDE ========================
      One line of text that carries everything the player has built. */
   const SAVE_KEYS=()=>{
-    const ks=["trs_profile_v1","trs_career_v1","trs_plan_v2","trs_gp_best"];
+    const ks=["trs_profile_v1","trs_career_v1","trs_plan_v2","trs_gp_best","trs_mp_v1"];
     try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.indexOf("trs_best_")===0) ks.push(k); } }catch(e){}
     return ks;
   };
@@ -15452,6 +15978,25 @@ uniform float shadowFar;
     if(t.id==="garCancel"){ garCancel(); return; }
     if(t.id==="garCreate" || t.id==="garSave"){ garSaveTeam(); return; }
   });
+  $("pShop").addEventListener("click", e=>{
+    const t=e.target.closest("button"); if(!t || t.dataset.go) return;
+    shopClick(t);
+  });
+  $("pShop").addEventListener("pointerdown", e=>{
+    if(e.target!==$("pShop")) return;
+    GCAM.drag=true; GCAM.lx=e.clientX; GCAM.vel=0; $("pShop").classList.add("drag");
+    try{ $("pShop").setPointerCapture(e.pointerId); }catch(x){}
+  });
+  $("pShop").addEventListener("pointermove", e=>{
+    if(!GCAM.drag) return;
+    const dx=e.clientX-GCAM.lx; GCAM.lx=e.clientX;
+    GCAM.ang-=dx*0.009; GCAM.vel=clamp(-dx*0.5, -3, 3);
+  });
+  const shopUp=()=>{ GCAM.drag=false; $("pShop").classList.remove("drag"); };
+  $("pShop").addEventListener("pointerup", shopUp);
+  $("pShop").addEventListener("pointercancel", shopUp);
+  $("mpReact").addEventListener("click", e=>{ const t=e.target.closest("button"); if(t && t.dataset.emo) mpEmoSend(t.dataset.emo); });
+  jetsUpdate();
   // turning the car by hand, on the empty side of the screen
   $("pGarage").addEventListener("pointerdown", e=>{
     if(e.target!==$("pGarage")) return;
