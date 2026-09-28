@@ -7543,8 +7543,18 @@ uniform float shadowFar;
   const sparkGeo=new THREE.BufferGeometry();
   sparkGeo.setAttribute("position", new THREE.BufferAttribute(sparkPos,3));
   sparkGeo.setAttribute("color", new THREE.BufferAttribute(sparkCol,3));
+  function sparkTex(){
+    const c=cvs(32,32), g=c.getContext("2d");
+    const gr=g.createRadialGradient(16,16,0,16,16,15);
+    gr.addColorStop(0.00,"rgba(255,255,255,1)");
+    gr.addColorStop(0.22,"rgba(255,255,255,0.85)");
+    gr.addColorStop(0.50,"rgba(255,255,255,0.22)");
+    gr.addColorStop(1.00,"rgba(255,255,255,0)");
+    g.fillStyle=gr; g.fillRect(0,0,32,32);
+    return new THREE.CanvasTexture(c);
+  }
   const sparks=new THREE.Points(sparkGeo, new THREE.PointsMaterial({
-    size:0.45, vertexColors:true, blending:THREE.AdditiveBlending, transparent:true, depthWrite:false }));
+    size:0.6, map:sparkTex(), vertexColors:true, blending:THREE.AdditiveBlending, transparent:true, depthWrite:false }));
   sparks.frustumCulled=false;                 // same reason as the spray above
   scene.add(sparks);
   let sparkNext=0;
@@ -7661,6 +7671,230 @@ uniform float shadowFar;
     sprayGeo.attributes.position.needsUpdate=true;
     sprayGeo.attributes.color.needsUpdate=true;
     spray.visible=live;
+  }
+
+  // ---- dust, smoke and what a race leaves on the track (6.9) ---------------
+  // A car that runs into the gravel throws up a cloud of it, cuts ruts in it
+  // and drags some back onto the tarmac; a car that slides smokes its rear
+  // tyres and leaves rubber on the road. The marks stay for the race.
+  // The puffs are drawn by a small shader of their own: points that grow and
+  // fade one by one, which the stock points cannot do with ordinary blending
+  // (an additive cloud of dust glows instead of hiding what is behind it).
+  // the effects draw from their own sequence, so the race's random numbers
+  // (and every test that replays a seed) are the same with or without them
+  const fxRnd=(()=>{ let x=0x2545f491; return ()=>{ x^=x<<13; x^=x>>>17; x^=x<<5; return (x>>>0)/4294967296; }; })();
+  const PUFF_N=900;
+  const puffPos=new Float32Array(PUFF_N*3), puffTint=new Float32Array(PUFF_N*3);
+  const puffA=new Float32Array(PUFF_N), puffS=new Float32Array(PUFF_N);
+  const puffV=new Float32Array(PUFF_N*3), puffLife=new Float32Array(PUFF_N), puffMax=new Float32Array(PUFF_N);
+  const puffS0=new Float32Array(PUFF_N), puffS1=new Float32Array(PUFF_N), puffA0=new Float32Array(PUFF_N);
+  const puffC0=new Float32Array(PUFF_N*3), puffUp=new Float32Array(PUFF_N);
+  for(let i=0;i<PUFF_N;i++) puffPos[i*3+1]=-999;
+  const puffGeo=new THREE.BufferGeometry();
+  puffGeo.setAttribute("position", new THREE.BufferAttribute(puffPos,3));
+  puffGeo.setAttribute("tint", new THREE.BufferAttribute(puffTint,3));
+  puffGeo.setAttribute("alpha", new THREE.BufferAttribute(puffA,1));
+  puffGeo.setAttribute("psize", new THREE.BufferAttribute(puffS,1));
+  function puffTex(){
+    // a soft lumpy ball: three offset blobs, so no two puffs read as the same disc
+    const c=cvs(64,64), g=c.getContext("2d");
+    for(const b of [[32,32,31,0.95],[22,27,15,0.45],[42,38,14,0.40]]){
+      const gr=g.createRadialGradient(b[0],b[1],0,b[0],b[1],b[2]);
+      gr.addColorStop(0,"rgba(255,255,255,"+b[3]+")");
+      gr.addColorStop(0.45,"rgba(255,255,255,"+(b[3]*0.62)+")");
+      gr.addColorStop(1,"rgba(255,255,255,0)");
+      g.fillStyle=gr; g.fillRect(0,0,64,64);
+    }
+    return new THREE.CanvasTexture(c);
+  }
+  const puffMat=new THREE.ShaderMaterial({
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {map:{value:null}, uScale:{value:400}}]),
+    vertexShader: [
+      "attribute vec3 tint; attribute float alpha; attribute float psize;",
+      "uniform float uScale; varying vec3 vT; varying float vA;",
+      "#include <fog_pars_vertex>",
+      "void main(){",
+      "  vT=tint; vA=alpha;",
+      "  vec4 mvPosition=modelViewMatrix*vec4(position,1.0);",
+      "  gl_PointSize=alpha>0.0 ? psize*uScale/max(0.6,-mvPosition.z) : 0.0;",
+      "  gl_Position=projectionMatrix*mvPosition;",
+      "  #include <fog_vertex>",
+      "}"].join("\n"),
+    fragmentShader: [
+      "uniform sampler2D map; varying vec3 vT; varying float vA;",
+      "#include <fog_pars_fragment>",
+      "void main(){",
+      "  float a=texture2D(map, gl_PointCoord).a*vA;",
+      "  if(a<0.004) discard;",
+      "  gl_FragColor=vec4(vT, a);",
+      "  #include <tonemapping_fragment>",
+      "  #include <encodings_fragment>",
+      "  #include <fog_fragment>",
+      "}"].join("\n"),
+    transparent:true, depthWrite:false, fog:true });
+  puffMat.uniforms.map.value=puffTex();
+  const puffs=new THREE.Points(puffGeo, puffMat);
+  puffs.frustumCulled=false; puffs.visible=false; puffs.renderOrder=2; scene.add(puffs);
+  // a puff is sized in metres: its size on screen follows the height of whatever
+  // it is drawn into (the page, the post-processing buffer or a snapshot)
+  const _pv=new THREE.Vector2();
+  puffs.onBeforeRender=function(r){
+    const rt=r.getRenderTarget();
+    puffMat.uniforms.uScale.value=0.5*(rt ? rt.height : r.getDrawingBufferSize(_pv).y);
+  };
+  let puffNext=0;
+  function puffEmit(x,y,z, vx,vy,vz, life, s0,s1, a0, r,g,b, up){
+    const i=puffNext=(puffNext+1)%PUFF_N;
+    puffPos[i*3]=x; puffPos[i*3+1]=y; puffPos[i*3+2]=z;
+    puffV[i*3]=vx; puffV[i*3+1]=vy; puffV[i*3+2]=vz;
+    puffLife[i]=life; puffMax[i]=life; puffS0[i]=s0; puffS1[i]=s1; puffA0[i]=a0; puffUp[i]=up;
+    puffC0[i*3]=r; puffC0[i*3+1]=g; puffC0[i*3+2]=b;
+  }
+  function updatePuffs(dt){
+    // the points take no light: the hour and the weather tint them instead
+    const L=clamp(0.20+0.58*key.intensity/1.55+0.30*hemi.intensity/0.62, 0.45, 1.05);
+    let live=false;
+    for(let i=0;i<PUFF_N;i++){
+      if(puffLife[i]<=0){ puffA[i]=0; continue; }
+      live=true;
+      puffLife[i]-=dt;
+      const u=1-Math.max(0,puffLife[i])/puffMax[i];
+      const dr=Math.max(0,1-2.4*dt);
+      puffV[i*3]*=dr; puffV[i*3+2]*=dr;
+      puffV[i*3+1]=puffV[i*3+1]*Math.max(0,1-1.6*dt)+puffUp[i]*dt;
+      puffPos[i*3]+=puffV[i*3]*dt; puffPos[i*3+1]+=puffV[i*3+1]*dt; puffPos[i*3+2]+=puffV[i*3+2]*dt;
+      puffS[i]=puffS0[i]+(puffS1[i]-puffS0[i])*Math.sqrt(u);
+      puffA[i]=puffA0[i]*Math.min(1,u*28)*Math.pow(1-u,1.4);
+      puffTint[i*3]=puffC0[i*3]*L; puffTint[i*3+1]=puffC0[i*3+1]*L; puffTint[i*3+2]=puffC0[i*3+2]*L;
+    }
+    puffGeo.attributes.position.needsUpdate=true;
+    puffGeo.attributes.tint.needsUpdate=true;
+    puffGeo.attributes.alpha.needsUpdate=true;
+    puffGeo.attributes.psize.needsUpdate=true;
+    puffs.visible=live;
+  }
+
+  // The marks: one flat strip per stretch of tyre, laid along the road's own
+  // slope, drawn in one go. Rubber on the tarmac, ruts in the gravel, and the
+  // dirt a car carries back onto the track for a second or so.
+  const MARK_N=1600, MARK_RUB=0x141414, MARK_RUT=0x5e5038, MARK_DIRT=0x5f5036;
+  const markGeo=new THREE.PlaneGeometry(1,1); markGeo.rotateX(-Math.PI/2);
+  const markMat=new THREE.MeshLambertMaterial({color:0xffffff, transparent:true, opacity:0.5, depthWrite:false,
+    polygonOffset:true, polygonOffsetFactor:-4, polygonOffsetUnits:-4});
+  const marks=new THREE.InstancedMesh(markGeo, markMat, MARK_N);
+  marks.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  marks.setColorAt(0, new THREE.Color(MARK_RUB));       // the colour buffer exists from the first draw
+  marks.count=0; marks.visible=false; marks.frustumCulled=false; marks.receiveShadow=true; marks.renderOrder=1;
+  scene.add(marks);
+  let markNext=0, markTot=0;
+  const _mm=new THREE.Matrix4(), _mq=new THREE.Quaternion(), _mv=new THREE.Vector3(), _ms=new THREE.Vector3(),
+        _md=new THREE.Vector3(), _mx=new THREE.Vector3(1,0,0), _mc=new THREE.Color();
+  function markAdd(x0,y0,z0, x1,y1,z1, w, col){
+    _md.set(x1-x0, y1-y0, z1-z0);
+    const len=_md.length();
+    if(len<0.05) return;
+    _mv.set((x0+x1)/2, (y0+y1)/2, (z0+z1)/2);
+    _mq.setFromUnitVectors(_mx, _md.multiplyScalar(1/len));
+    _ms.set(len+0.06, 1, w);
+    _mm.compose(_mv,_mq,_ms);
+    const i=markNext; markNext=(markNext+1)%MARK_N; markTot++;
+    marks.setMatrixAt(i,_mm); marks.setColorAt(i,_mc.setHex(col));
+    marks.count=Math.min(markTot, MARK_N); marks.visible=true;
+    marks.instanceMatrix.needsUpdate=true; marks.instanceColor.needsUpdate=true;
+  }
+  function tracesReset(){
+    markNext=0; markTot=0; marks.count=0; marks.visible=false;
+    for(let i=0;i<PUFF_N;i++){ puffLife[i]=0; puffA[i]=0; }
+    puffs.visible=false;
+  }
+  // how hard a car has to slide before its tyres smoke, then mark the road (m/s sideways)
+  const SMOKE_SLIP=2.4, MARK_SLIP=3.0;
+  const MARK_COL=[0, MARK_RUB, MARK_RUT, MARK_DIRT, 0x3b4526];
+  // What is under one rear wheel, from its distance to the middle of the road:
+  // 0 tarmac or kerb, 1 grass, 2 gravel. Kerbs are only laid in the corners;
+  // on a straight the strip beside the white line is grass. A tyre is 40 cm
+  // wide: it is off only once all of it is past the edge of the road.
+  function wheelGround(c, wl){
+    const a=Math.abs(wl);
+    if(a<W+0.3) return 0;
+    // on the pit side of the pit zone it is road all the way out: entry, lane, exit
+    if(wl<0 && pitWidthAt(c.s)>1.0) return 0;
+    if(a<W+KERB) return KERB_AT[c.si] ? 0 : 1;
+    return a<W+APRON+0.6 ? 2 : 1;
+  }
+  function markWheel(c, M, j, kind, x, y, z){
+    // j: 0 left, 1 right; each wheel keeps its own last point and kind
+    const o=j*4;
+    if(!kind){ M[o]=0; return; }
+    const d=Math.hypot(x-M[o+1], z-M[o+3]);
+    if(M[o]!==kind || d>4){ M[o]=kind; M[o+1]=x; M[o+2]=y; M[o+3]=z; return; }
+    if(d<0.75) return;
+    // the dirt a car carries back comes off in patches, not as a painted line
+    if(kind!==3 || fxRnd()<0.55) markAdd(M[o+1],M[o+2],M[o+3], x,y,z, kind===1 ? 0.28 : 0.34, MARK_COL[kind]);
+    M[o+1]=x; M[o+2]=y; M[o+3]=z;
+  }
+  function updateTraces(dt){
+    if(state==="racing" && dt>0){
+      const wet=weather.wet, dry=clamp(1-wet*1.6,0,1);
+      for(const c of cars){
+        const M=c.mk||(c.mk=new Float32Array(8));
+        if(!c.mesh || c.service>0 || !c.nor){ M[0]=M[4]=0; continue; }
+        const sp=Math.abs(c.vf||0);
+        const ca=Math.cos(c.a), sa=Math.sin(c.a), rx=-sa, rz=ca;
+        const inPit=!!(c.onPit || onPitTarmac(c));
+        // the rear axle, and how far across the road each rear wheel is
+        const bx=c.x-ca*1.55, bz=c.z-sa*1.55, hw=CAR_W*0.5-0.2, y=(c.groundY||0)+0.018;
+        const across=(rx*c.nor.x+rz*c.nor.z)*hw;
+        const gL=inPit ? 0 : wheelGround(c, (c.lat||0)-across), gR=inPit ? 0 : wheelGround(c, (c.lat||0)+across);
+        c.dirtT=Math.max(0,(c.dirtT||0)-dt);
+        const slip=c.slip||0;
+        const smoke=!inPit && slip>SMOKE_SLIP && sp>6 && wet<0.35;
+        for(let j=0;j<2;j++){
+          const side=j ? 1 : -1, g=j ? gR : gL;
+          const wx=bx+rx*hw*side, wz=bz+rz*hw*side;
+          let kind=0;
+          if(g && sp>2.5){
+            // off the road: a cloud, thick in the gravel and thin on the grass, laid by the rain
+            kind = g===2 ? 2 : 4;
+            c.dirtT = g===2 ? 0.7 : Math.max(c.dirtT, 0.3);
+            const k="dust"+j;
+            c[k]=(c[k]||0)+(g===2 ? 32 : 9)*clamp(sp/38,0.2,1.25)*dry*dt;
+            let n=0;
+            while(c[k]>=1 && n<5){
+              c[k]-=1; n++;
+              const back=fxRnd()*0.5-0.1, sw=(fxRnd()*2-1)*0.25;
+              const r=0.40+fxRnd()*0.06;
+              const tr=g===2 ? r : r*0.70, tg=g===2 ? r*0.83 : r*0.68, tb=g===2 ? r*0.56 : r*0.46;
+              puffEmit(wx-ca*back+rx*sw, (c.groundY||0)+0.35, wz-sa*back+rz*sw,
+                       (c.vx||0)*0.40+rx*side*(0.6+fxRnd()*1.8)+(fxRnd()*2-1)*1.4,
+                       1.2+fxRnd()*2.2,
+                       (c.vz||0)*0.40+rz*side*(0.6+fxRnd()*1.8)+(fxRnd()*2-1)*1.4,
+                       g===2 ? 2.0+fxRnd()*1.5 : 1.1+fxRnd()*0.8,
+                       g===2 ? 1.4 : 1.0, g===2 ? 5.0+fxRnd()*3.0 : 2.6+fxRnd()*1.2,
+                       g===2 ? 0.80 : 0.40, tr, tg, tb, 0.30);
+            }
+          } else if(!g && !inPit){
+            if(c.dirtT>0 && sp>3) kind=3;
+            else if(slip>MARK_SLIP && sp>8 && wet<0.4) kind=1;
+            // smoke from a rear tyre sliding on a dry road
+            if(smoke){
+              const k="smoke"+j;
+              c[k]=(c[k]||0)+20*clamp((slip-SMOKE_SLIP)/3.5,0.15,1)*dt;
+              let n=0;
+              while(c[k]>=1 && n<3){
+                c[k]-=1; n++;
+                const w0=0.60+fxRnd()*0.08;
+                puffEmit(wx, (c.groundY||0)+0.32, wz,
+                         (c.vx||0)*0.45+(fxRnd()*2-1)*0.9, 0.5+fxRnd()*0.9, (c.vz||0)*0.45+(fxRnd()*2-1)*0.9,
+                         1.4+fxRnd()*1.0, 1.2, 3.6+fxRnd()*1.6, 0.62, w0, w0, w0*1.03, 0.45);
+              }
+            }
+          }
+          markWheel(c, M, j, kind, wx, y, wz);
+        }
+      }
+    }
+    updatePuffs(state==="paused" ? 0 : dt);
   }
 
   // ---- the sky goes out ---------------------------------------------------
@@ -8346,6 +8580,15 @@ uniform float shadowFar;
     c.shadow.position.set(c.x, c.groundY+0.04, c.z);
     c.shadow.rotation.z=-c.a;
     c.spin+=c.vf*(0.42*0.52/TYRE_R);
+    {
+      const own=c.mesh.userData.ownMats, dm=own && own.get(discMat);
+      if(dm){
+        const h=c.bh||0, e=h>0.3 ? (h-0.3)/0.7 : 0;
+        if(Math.abs(e-(dm.userData.glow||0))>0.01 || (e===0 && dm.userData.glow)){
+          dm.userData.glow=e; dm.emissive.setRGB(1.0,0.19,0.02); dm.emissiveIntensity=1.5*e*e;
+        }
+      }
+    }
     const wh=c.mesh.userData.wheels, ws=c.mesh.userData.wheelSide, wo=c.wheelOut||0;
     for(let i=0;i<wh.length;i++){
       wh[i].rotation.z=c.spin;
@@ -8446,6 +8689,8 @@ uniform float shadowFar;
     if(off) curMax=Math.min(curMax, c.maxSpeed*0.6);
     if(c.pitLimit) curMax=Math.min(curMax, PIT_LIMIT);
     c.braking = thr<-0.05 && vf>2;
+    { const q=Math.min(1.4, Math.abs(vf)/BASE);
+      c.bh=clamp((c.bh||0)+((c.braking ? q*q*5.0*Math.min(1,-thr) : 0)-(c.bh||0)*0.7)*dt, 0, 1); }
     c.thrIn = thr; c.strIn = str;
     if(thr>0.01) vf+=c.accel*thr*dt;
     else if(thr<-0.01){ if(vf>1) vf-=c.brake*dt*(-thr); else vf-=c.accel*0.5*dt*(-thr); }
@@ -11755,6 +12000,7 @@ uniform float shadowFar;
     updateWeather(dt, now);
     updateRain(dt);
     updateSpray(dt);
+    updateTraces(dt);
     updateCrews(dt, now);
     updateSafety(dt, now);
     const wave = safety.active ? 0.011 : 0.004;
@@ -11783,7 +12029,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-4";
-  const NET_BUILD="6.8";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="6.9";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -13554,7 +13800,7 @@ uniform float shadowFar;
     weather.will = (QU.on || TT.on) ? false : (wxMode==="wet" ? true : (wxMode==="dry" ? false : Math.random()<0.35));
     weather.at   = wxMode==="wet" ? 0.5 : (1.0+Math.random());
     weather.on=false; weather.wet=0; weather.target=0; weather.shown=-1;
-    rainSeeded=false; rainMesh.visible=false; spray.visible=false;
+    rainSeeded=false; rainMesh.visible=false; spray.visible=false; tracesReset();
     $("rainban").hidden=true;
     $("pitTimer").hidden=true; pitShownT=0; pitAutoReset(); mpEmoRaceReset();
     kerbAmt=0;
