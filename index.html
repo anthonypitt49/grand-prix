@@ -788,6 +788,23 @@
     content:""; position:absolute; right:-34px; top:-34px; width:190px; height:190px; transform:rotate(14deg);
     background:repeating-conic-gradient(#eef0f4 0 25%, transparent 0 50%) 0 0/38px 38px; opacity:.08;
   }
+  .modeCard.chrono::before{
+    content:""; position:absolute; right:-40px; top:-40px; width:200px; height:200px; border-radius:50%;
+    background:repeating-conic-gradient(rgba(63,214,232,.9) 0 2deg, transparent 2deg 30deg); opacity:.20;
+    -webkit-mask:radial-gradient(circle, transparent 58%, #000 60%); mask:radial-gradient(circle, transparent 58%, #000 60%);
+  }
+  .modeCard.chrono em{color:#3fd6e8}
+  .chrBig{display:flex; flex-direction:column; gap:2px; padding:14px 16px; border-radius:14px;
+    background:rgba(63,214,232,.07); border:1px solid rgba(63,214,232,.28)}
+  .chrBig span{font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:#3fd6e8}
+  .chrBig b{font-family:var(--font-num); font-weight:600; font-size:clamp(34px,5vw,50px); line-height:1; color:#fff; font-variant-numeric:tabular-nums}
+  .chrLine{font-size:13.5px; color:var(--muted); line-height:1.45; margin:8px 2px 12px}
+  .chrList{display:flex; flex-direction:column; gap:3px}
+  .chrList div{display:flex; justify-content:space-between; gap:12px; font-size:14px; padding:4px 10px; border-radius:8px; background:rgba(255,255,255,.03)}
+  .chrList div.me{background:rgba(63,214,232,.10); color:#fff}
+  .chrList div b{font-family:var(--font-num); font-weight:500; font-variant-numeric:tabular-nums}
+  #ghostDelta.ahead{color:var(--green)}
+  #ghostDelta.behind{color:#ff6b70}
   .modeCard.free::before{
     content:""; position:absolute; right:-50px; top:-10px; width:260px; height:130px;
     background:repeating-linear-gradient(-55deg, var(--red) 0 18px, transparent 18px 38px); opacity:.20;
@@ -1147,6 +1164,7 @@
       <div class="pod tr">
         <div><div class="lbl">Tour actuel</div><div class="val" id="curLap">0.0</div></div>
         <div><div class="lbl">Meilleur tour</div><div class="val" id="best">&mdash;</div></div>
+        <div id="ghostBox" hidden><div class="lbl">Fant&ocirc;me</div><div class="val" id="ghostDelta">&mdash;</div></div>
       </div>
       <div class="speedo">
         <div class="revbar"><i id="revBar"></i></div>
@@ -1242,6 +1260,55 @@
             <b>Hors-s&eacute;rie</b>
             <span>Une course pour le plaisir : ton circuit, ta distance, tes r&egrave;gles.</span>
           </button>
+          <button class="modeCard chrono" data-go="chrono">
+            <em id="playChronoInfo">Seul contre le chrono</em>
+            <b>Contre-la-montre</b>
+            <span>Des tours lanc&eacute;s, seul en piste, contre le fant&ocirc;me de ton meilleur tour.</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="pane" id="pChrono" data-pane="chrono" hidden>
+        <div class="paneHead">
+          <button class="backBtn" data-go="play">&lsaquo; Jouer</button>
+          <div>
+            <div class="kicker">Contre-la-montre</div>
+            <h2 id="chronoTitle">Grand Prix</h2>
+          </div>
+        </div>
+        <div class="twoCol">
+          <div class="col">
+            <div id="chronoRec"></div>
+          </div>
+          <div class="col">
+            <div class="optRow">
+              <span class="lbl">Circuit</span>
+              <span class="seg">
+                  <button class="chip" data-track="monaco">Monaco</button>
+                  <button class="chip" data-track="montreal">Montr&eacute;al</button>
+                  <button class="chip" data-track="monza">Monza</button>
+                  <button class="chip" data-track="silverstone">Silverstone</button>
+                  <button class="chip" data-track="spa">Spa</button>
+                  <button class="chip" data-track="zandvoort">Zandvoort</button>
+                  <button class="chip" data-track="interlagos">Interlagos</button>
+                  <button class="chip" data-track="singapour">Singapour</button>
+                  <button class="chip" data-track="spielberg">Spielberg</button>
+                  <button class="chip" data-track="hungaroring">Hungaroring</button>
+              </span>
+            </div>
+            <div class="optRow">
+              <span class="lbl">Fant&ocirc;me</span>
+              <span class="seg">
+                <button class="chip" data-opt="ghost" data-val="1">Visible</button>
+                <button class="chip" data-opt="ghost" data-val="0">Cach&eacute;</button>
+              </span>
+            </div>
+            <p class="chrLine">Tours illimit&eacute;s, pneus neufs &agrave; chaque tour, ni d&eacute;g&acirc;ts ni voiture de s&eacute;curit&eacute;. Chaque tour est enregistr&eacute; : le plus rapide devient ton fant&ocirc;me. Il roule aussi avec toi pendant le tour lanc&eacute; des qualifications. Pause, puis &laquo; Retour &agrave; l&rsquo;accueil &raquo; pour sortir.</p>
+            <div class="mpActions">
+              <button class="btn" id="chronoGo">Rouler</button>
+              <button class="btn ghost small" id="chronoClear">Effacer le fant&ocirc;me</button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -2804,7 +2871,7 @@ uniform float shadowFar;
     diff:"1.00", line:"0", dmg:"1", sc:"1", seasonLaps:"5", seasonComp:"1",
     units:"kmh", cam:"0", shake:"1", mini:"1", tower:"1", quali:"0",
     sound:"1", vol:"80",
-    tod:"rand", wx:"auto", laps:"5", comp:"1",
+    tod:"rand", wx:"auto", laps:"5", comp:"1", ghost:"1",
     touch:"auto", tsteer:"pad"
   };
   const OPT=Object.assign({}, OPT_DEF);
@@ -2877,7 +2944,7 @@ uniform float shadowFar;
     return (n<0?"\u2212":"")+s+"\u00a0$";
   }
   let pane="home";
-  const PANE_BACK={play:"home", season:"play", free:"play", settings:"home", multi:"home", strat:"free", garage:"home", usine:"season", shop:"multi"};
+  const PANE_BACK={chrono:"play", play:"home", season:"play", free:"play", settings:"home", multi:"home", strat:"free", garage:"home", usine:"season", shop:"multi"};
   // the room, known to everything from the first line so no handler can reach it early
   const NET={
     role:null, cli:null, tries:[], code:"", myId:"", name:"", welcomed:false, present:false,
@@ -7260,7 +7327,7 @@ uniform float shadowFar;
   // whole field is packed together and the first corner is always a crowd, and
   // a nose lost there for a nudge nobody could avoid spoiled the race. A car is
   // on lap -1 until it crosses the line, then 0 for the whole of its first lap.
-  function dmgOn(c){ return OPT.dmg!=="0" && (c.lap|0)>=1; }
+  function dmgOn(c){ return OPT.dmg!=="0" && (c.lap|0)>=1 && !TT.on; }
   function checkWing(c){
     if((c.damage||0)>=0.86 && !c.wingOff){ c.wingOff=true; wingGone=true; }
   }
@@ -7276,7 +7343,7 @@ uniform float shadowFar;
   }
   function updateSafety(dt, now){
     if(!safety.active){
-      const scAllowed = NET.race ? NET.race.sc!=="0" : OPT.sc!=="0";
+      const scAllowed = NET.race ? NET.race.sc!=="0" : (OPT.sc!=="0" && !TT.on);
       if(wingGone && scAllowed && state==="racing" && now>safety.cooldown && player && player.lap<totalLaps-1 && (!NET.race || NET.role==="host")){
         deploySafety(now);
       }
@@ -7855,14 +7922,14 @@ uniform float shadowFar;
       quali.forEach((x,k)=>{ gridSlot[x.i]=free[k]; });
       if(pl>=0) gridSlot[pl]=Math.min(5, LIVERY.length-1);
       // a lap actually driven beats a simulated one
-      if(QU.on){ if(pl>=0) gridSlot[pl]=0; }
+      if(QU.on || TT.on){ if(pl>=0) gridSlot[pl]=0; }
       else if(QU.done && QU.order) QU.order.forEach((li,k)=>{ if(li>=0) gridSlot[li]=k; });
     }
     for(let i=0;i<LIVERY.length;i++){
       const NR=NET.race;
       const hum = NR ? (NR.roster.find(r=>r.liv===i)||null) : null;
       const me = NR ? !!(hum && hum.id===NET.myId) : !!LIVERY[i].player;
-      if(QU.on && !me) continue;                  // qualifying runs alone
+      if((QU.on || TT.on) && !me) continue;       // qualifying and the time trial run alone
       const human = NR ? !!hum : !!LIVERY[i].player;
       const slot = NR ? (NR.grid[i]|0) : gridSlot[i];
       const PF = human ? TEAM_NEUTRAL : (TEAM[LIVERY[i].nm]||TEAM_NEUTRAL);
@@ -9977,6 +10044,7 @@ uniform float shadowFar;
   }
 
   function onPlayerLap(now){
+    ghostLap(now);
     if(QU.on){
       const lt=(now-playerLapStart)/1000;
       playerLapStart=now;
@@ -11130,7 +11198,8 @@ uniform float shadowFar;
           left<0.95 ? "dernier tour" :
           left<2 ? "1 tour" : Math.floor(left)+" tours";
         const PP=player.myPlan, pi=player.myPlanI|0;
-        if(PP && pi<PP.length){
+        if(TT.on){ hudText("planLbl", "pneus neufs à chaque tour"); pl.classList.remove("due"); }
+        else if(PP && pi<PP.length){
           const nx=PP[pi], due=(player.lap+1)>=nx.lap;
           hudText("planLbl", due ? ("STAND CE TOUR \u00b7 "+COMP_SHORT[nx.c])
                                  : (life+" \u00b7 stand T"+nx.lap));
@@ -11494,6 +11563,7 @@ uniform float shadowFar;
         if(NET.race) NET.simT=netNow();
         if(imp>0) bump(imp);
         updateProgress(now);
+        ghostTick(now);
         if(state==="racing" && !CAREER_ON) learnObserve(now);
         for(const c of cars) syncMesh(c);
         updateHUD(now);
@@ -11557,7 +11627,7 @@ uniform float shadowFar;
 
   /* =========================== MULTIJOUEUR ========================== */
   const NET_VERSION="gp-mp-3";
-  const NET_BUILD="6.6";                              // shown to players; 2.x and 3.x pages play together
+  const NET_BUILD="6.7";                              // shown to players; 2.x and 3.x pages play together
   const NET_ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   // The first character of a room code names the relay the room lives on, so a
   // player joining goes straight to the right one.
@@ -13127,16 +13197,18 @@ uniform float shadowFar;
     if(GAR.on) garLeave();
     rpStop();
     RACE_POLE=false; RACE_RECORD=false; RACE_EXTRA=null;
-    QU.want = OPT.quali==="1";
+    if(NET.race) TT.on=false;
+    QU.want = OPT.quali==="1" && !TT.on;
     if(!quali && QU.want && !QU.done && !NET.race && (state==="menu" || state==="results")) quali=true;
     QU.on=!!quali;
     CAREER_ON = !!seasonMode && !NET.race;
     applyRaceSetup();
     if(QU.on){ totalLaps=2; $("lapTot").textContent=2; }
-    tyreScale=raceTyreScale();
+    if(TT.on){ totalLaps=9999; CAREER_ON=false; }
+    tyreScale = TT.on ? 0 : raceTyreScale();
     $("qualiGoBtn").hidden=true;
     $("menu").hidden=true; $("results").hidden=true; $("pause").hidden=true; $("hud").hidden=false;
-    $("lapTot").textContent=totalLaps; $("field").textContent=LIVERY.length;
+    $("lapTot").textContent = TT.on ? "∞" : totalLaps; $("field").textContent = TT.on ? 1 : LIVERY.length;
     bestLap=Infinity; finishOrder=[]; resetSectors(performance.now());
     for(const l of startLamps) l.material.emissiveIntensity=0;
     safety.active=false; safety.phase=""; safety.mesh.visible=false;
@@ -13144,7 +13216,7 @@ uniform float shadowFar;
     $("scban").hidden=true;
     // roughly one race in three turns wet, somewhere in the first two laps,
     // unless the driver has asked for a dry race or for rain outright
-    weather.will = QU.on ? false : (wxMode==="wet" ? true : (wxMode==="dry" ? false : Math.random()<0.35));
+    weather.will = (QU.on || TT.on) ? false : (wxMode==="wet" ? true : (wxMode==="dry" ? false : Math.random()<0.35));
     weather.at   = wxMode==="wet" ? 0.5 : (1.0+Math.random());
     weather.on=false; weather.wet=0; weather.target=0; weather.shown=-1;
     rainSeeded=false; rainMesh.visible=false; spray.visible=false;
@@ -13162,7 +13234,9 @@ uniform float shadowFar;
     camPos.set(player.x-Math.cos(player.a)*12, player.groundY+4, player.z-Math.sin(player.a)*12);
     camLook.set(player.x, player.groundY+1.3, player.z);
     gotInput=false; $("hint").classList.remove("on"); grabFocus();
-    stage.classList.toggle("noTower", QU.on || OPT.tower==="0");
+    stage.classList.toggle("noTower", QU.on || TT.on || OPT.tower==="0");
+    ghostPrepare();
+    if(TT.on) showSector("CONTRE-LA-MONTRE · TOUR DE SORTIE");
     RACE_POLE = !QU.on && QU.done && QU.slot===0;
     if(QU.on) showSector("TOUR DE SORTIE · GOMME TENDRE");
     state="countdown"; countStart=performance.now();
@@ -13360,6 +13434,7 @@ uniform float shadowFar;
   // rain banner, the engine.
   function toMenu(){
     rpStop();
+    TT.on=false; ghostHide();
     QU.on=false; QU.done=false;
     $("qualiGoBtn").hidden=true;
     $("replayBtn").hidden=false; $("againBtn").hidden=false;
@@ -13400,6 +13475,7 @@ uniform float shadowFar;
     player.planSaid=false;
     renderPauseStrat();
   }
+  let pausedAt=0;
   function togglePause(){
     if(NET.race){
       if(state!=="racing") return;
@@ -13410,8 +13486,13 @@ uniform float shadowFar;
       return;
     }
     { const kk=$("pause").querySelector(".kicker"); if(kk) kk.textContent="Course en cours"; }
-    if(state==="racing"){ state="paused"; $("pause").hidden=false; renderPauseStrat(); }
-    else if(state==="paused"){ $("pause").hidden=true; state="racing"; last=performance.now(); }
+    if(state==="racing"){ state="paused"; pausedAt=performance.now(); $("pause").hidden=false; renderPauseStrat(); }
+    else if(state==="paused"){
+      $("pause").hidden=true; state="racing"; last=performance.now();
+      // the time stood still: the lap, the sector and the race clocks start again where they stopped
+      const dp=Math.max(0, last-(pausedAt||last));
+      playerLapStart+=dp; secStart+=dp; raceStart+=dp;
+    }
   }
   function cycleCam(){
     camIdx=(camIdx+1)%CAMS.length;
@@ -15522,6 +15603,7 @@ uniform float shadowFar;
       }
     }
     const fr=$("playFreeInfo"); if(fr) fr.textContent="Circuit actuel \u00b7 "+TRACK.short;
+    const ch=$("playChronoInfo"); if(ch){ const r=recordOf(TRACK.id); ch.textContent = r ? "Ton record · "+TRACK.short+" · "+fmtLap(r) : "Seul contre le chrono"; }
   }
   /* ---- the online shop: its screen ---- */
   const SHOP={tab:"paint", slot:"c", sidx:0, msg:""};
@@ -15819,6 +15901,131 @@ uniform float shadowFar;
     box.innerHTML=MPP.emo.map(k=>{ const E=mpEmoOf(k); return E ? '<button data-emo="'+k+'">'+E.e+' '+netEsc(E.t)+'</button>' : ''; }).join("");
   }
 
+  /* ====================== CONTRE-LA-MONTRE ======================
+     The time trial, and the ghost: every lap from the line to the line is
+     sampled fifteen times a second; the quickest is kept, per circuit and
+     for this very shape of the circuit, and drives with the player in the
+     time trial and in the flying lap of qualifying. */
+  const TT={on:false};
+  const GH={rec:[], best:null, mesh:null, i:0, dAt:0, show:false};
+  const GH_KEY=id=>"trs_ghost_"+id;
+  function recordOf(id){ let r=0; try{ r=parseFloat(localStorage.getItem("trs_best_"+id)||"0")||0; }catch(e){} return r; }
+  function fmtLap(t){ if(!(t>0)) return "—"; const m=Math.floor(t/60), s=t-m*60; return (m ? m+":"+(s<10?"0":"") : "")+s.toFixed(3); }
+  function ghostEncode(R, lt){
+    const d=[]; let p=[0,0,0,0,0,0];
+    for(const r of R){
+      const q=[Math.round(r[0]), Math.round(r[1]*10), Math.round(r[2]*10), Math.round(r[3]*10), Math.round(angNorm(r[4])*1000), Math.round(r[5]*10)];
+      for(let k=0;k<6;k++) d.push(q[k]-p[k]);
+      p=q;
+    }
+    return {v:1, fp:lineFingerprint(), lt:+lt.toFixed(3), at:Date.now(), n:R.length, d:d};
+  }
+  function ghostRead(id){
+    let o=null; try{ o=JSON.parse(localStorage.getItem(GH_KEY(id))||"null"); }catch(e){}
+    if(!o || !Array.isArray(o.d) || (o.n|0)*6!==o.d.length || !(o.lt>0)) return null;
+    if(id===TRACK.id && o.fp!==lineFingerprint()) return null;       // a circuit since changed
+    return o;
+  }
+  function ghostDecode(o){
+    if(!o) return null;
+    const n=o.n|0, d=o.d, S=new Array(n), p=[0,0,0,0,0,0];
+    for(let i=0;i<n;i++){ for(let k=0;k<6;k++) p[k]+=d[i*6+k]; S[i]=[p[0], p[1]/10, p[2]/10, p[3]/10, p[4]/1000, p[5]/10]; }
+    return {lt:o.lt, at:o.at, S:S};
+  }
+  // a car of light: the player's own, see-through, touching nothing
+  function ghostMesh(){
+    if(GH.mesh) return GH.mesh;
+    const m=buildCarMesh(Object.assign({}, player.livery));
+    const u=m.userData; if(u.far){ m.remove(u.far); u.far=null; }
+    const mat=new THREE.MeshBasicMaterial({color:0x7fe4ff, transparent:true, opacity:0.42, depthWrite:false, fog:true});
+    m.traverse(o=>{ if(o.isMesh){ o.material=mat; o.castShadow=false; o.receiveShadow=false; o.renderOrder=3; } if(o.isGroup || o.isMesh) o.visible=true; });
+    m.visible=false; scene.add(m); GH.mesh=m;
+    return m;
+  }
+  function ghostHide(){
+    if(GH.mesh){ scene.remove(GH.mesh); GH.mesh.traverse(o=>{ if(o.geometry) o.geometry.dispose(); }); GH.mesh=null; }
+    GH.show=false; const b=$("ghostBox"); if(b) b.hidden=true;
+  }
+  function ghostPrepare(){
+    ghostHide();
+    GH.rec=[]; GH.i=0; GH.dAt=0;
+    GH.best = NET.race ? null : ghostDecode(ghostRead(TRACK.id));
+    GH.show = !!GH.best && OPT.ghost!=="0" && (TT.on || QU.on);
+    const b=$("ghostBox"); if(b){ b.hidden=!(TT.on || (QU.on && GH.best)); $("ghostDelta").textContent="—"; $("ghostDelta").className="val"; }
+  }
+  // every frame: the lap recorded, the ghost moved, the gap shown
+  function ghostTick(now){
+    if(!player || state!=="racing" || NET.race) return;
+    const t=now-playerLapStart;
+    if(player.lap>=1){
+      const R=GH.rec;
+      if(!R.length || t-R[R.length-1][0]>=66) R.push([t, player.x, player.z, player.groundY+(player.lift||0), player.a, player.s]);
+    }
+    const G=GH.best;
+    if(!G || !GH.show || player.lap<1){ if(GH.mesh) GH.mesh.visible=false; return; }
+    const S=G.S;
+    if(GH.i>0 && S[GH.i][0]>t) GH.i=0;
+    while(GH.i<S.length-2 && S[GH.i+1][0]<=t) GH.i++;
+    const m=ghostMesh();
+    if(t>S[S.length-1][0]){ m.visible=false; }
+    else {
+      const A=S[GH.i], B=S[Math.min(S.length-1, GH.i+1)], f=B[0]>A[0] ? clamp((t-A[0])/(B[0]-A[0]),0,1) : 0;
+      m.position.set(A[1]+(B[1]-A[1])*f, A[3]+(B[3]-A[3])*f, A[2]+(B[2]-A[2])*f);
+      m.rotation.set(0, -(A[4]+angNorm(B[4]-A[4])*f), 0);
+      // fades as the camera closes in on it, so it never fills the screen
+      const dx=camera.position.x-m.position.x, dz=camera.position.z-m.position.z, dd=Math.sqrt(dx*dx+dz*dz);
+      m.visible=dd>3.2;
+      m.traverse(o=>{ if(o.isMesh) o.material.opacity=0.42*clamp((dd-3.2)/6, 0, 1); });
+    }
+    // the gap: where the ghost was at this point of the lap
+    if(now-GH.dAt>100){
+      GH.dAt=now;
+      const sNow=player.s; let k=0;
+      while(k<S.length-1 && S[k][5]<sNow) k++;
+      if(k>0 && k<S.length-1 && sNow<TOT-5){
+        const a=S[k-1], b=S[k], f=b[5]>a[5] ? clamp((sNow-a[5])/(b[5]-a[5]),0,1) : 0;
+        const gt=a[0]+(b[0]-a[0])*f, dlt=(t-gt)/1000;
+        const el=$("ghostDelta");
+        el.textContent=(dlt<0?"−":"+")+Math.abs(dlt).toFixed(2);
+        el.className="val "+(dlt<0?"ahead":"behind");
+      }
+    }
+  }
+  // a lap from the line to the line: kept if it beats the ghost
+  function ghostLap(now){
+    if(NET.race){ GH.rec=[]; return; }
+    const lt=(now-playerLapStart)/1000, R=GH.rec;
+    GH.rec=[]; GH.i=0;
+    // (lap 0 is the run to the line from the grid, not a lap)
+    if(player.lap<2 || R.length<20 || R[0][0]>250 || player.onPit) return;
+    const old=GH.best ? GH.best.lt : 0;
+    if(TT.on || QU.on){
+      const d=old ? lt-old : 0;
+      setTimeout(()=>showSector((old && lt<old ? "NOUVEAU FANTÔME · " : "TOUR ")+fmtLap(lt)+(old ? " ("+(d<0?"−":"+")+Math.abs(d).toFixed(3)+")" : ""), old && lt<old ? "sec-purple" : (old ? "sec-yellow" : "sec-green")), 0);
+    }
+    if(old && lt>=old) return;
+    try{
+      const o=ghostEncode(R, lt);
+      localStorage.setItem(GH_KEY(TRACK.id), JSON.stringify(o));
+      GH.best=ghostDecode(o);
+      GH.show = OPT.ghost!=="0" && (TT.on || QU.on);
+      if(GH.mesh){ scene.remove(GH.mesh); GH.mesh=null; }
+    }catch(e){}
+  }
+  function renderChrono(){
+    const el=$("chronoRec"); if(!el) return;
+    const t=$("chronoTitle"); if(t) t.textContent=TRACK.name;
+    const G=ghostRead(TRACK.id), rec=recordOf(TRACK.id);
+    let h='<div class="chrBig"><span>Ton record ici</span><b>'+fmtLap(rec)+'</b></div>';
+    h+='<div class="chrLine">'+(G ? 'Fantôme : <b>'+fmtLap(G.lt)+'</b>, enregistré le '+new Date(G.at).toLocaleDateString("fr-FR")+'.'
+                              : 'Pas encore de fantôme ici : ton premier tour lancé en fera un.')+'</div>';
+    h+='<div class="colLbl">Tes records</div><div class="chrList">'+CIRCUITS.map(C=>{
+      const r=recordOf(C.id);
+      return '<div'+(C.id===TRACK.id?' class="me"':'')+'><span>'+C.short+'</span><b>'+fmtLap(r)+'</b></div>'; }).join("")+'</div>';
+    el.innerHTML=h;
+    const cb=$("chronoClear"); if(cb){ cb.disabled=!G; cb.textContent="Effacer le fantôme"; cb.dataset.armed=""; }
+  }
+
   function showPane(name){
     if(!document.querySelector('#menu .pane[data-pane="'+name+'"]')) name="home";
     if(GAR.on && name!==(GAR.mode==="mp" ? "shop" : "garage")) garLeave();
@@ -15851,6 +16058,7 @@ uniform float shadowFar;
     }
     else if(name==="strat"){ STRAT_CUR=null; renderStrat(); }
     else if(name==="garage"){ garEnter(); }
+    else if(name==="chrono"){ renderChrono(); }
     else if(name==="shop"){ shopEnter(); }
     else if(name==="settings") showTab(setTab);
     else if(name==="multi") mpRender();
@@ -16109,6 +16317,13 @@ uniform float shadowFar;
   $("qualiGoBtn").addEventListener("click",()=>{ $("results").hidden=true; startRace(); });
   $("againBtn").addEventListener("click",()=>{ startRace(); });
   $("resumeBtn").addEventListener("click",togglePause);
+  $("chronoGo").addEventListener("click",()=>{ setMode(false); TT.on=true; QU.done=false; startRace(false); });
+  $("chronoClear").addEventListener("click",e=>{
+    const b=e.currentTarget;
+    if(b.dataset.armed!=="1"){ b.dataset.armed="1"; b.textContent="Touche encore pour effacer"; setTimeout(()=>{ if(b.dataset.armed==="1"){ b.dataset.armed=""; b.textContent="Effacer le fantôme"; } }, 3000); return; }
+    try{ localStorage.removeItem(GH_KEY(TRACK.id)); }catch(err){}
+    renderChrono();
+  });
   $("restartBtn").addEventListener("click",()=>{ if(state!=="menu" && !NET.race) startRace(); });
   $("homeBtn").addEventListener("click",()=>{ if(NET.race) netLeave(); toMenu(); });
   $("nextBtn").addEventListener("click",()=>{
